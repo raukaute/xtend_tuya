@@ -213,6 +213,13 @@ BATTERY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
     ),
+    XTSensorEntityDescription(
+        key=XTDPCode.WIRELESS_ELECTRICITY,
+        translation_key="battery",
+        device_class=SensorDeviceClass.BATTERY,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
 )
 
 # Commonly used energy sensors, that are re-used in the sensors down below.
