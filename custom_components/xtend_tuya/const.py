@@ -1002,10 +1002,12 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "C": "°C",
 
     "分钟": "min",
-    
+
     "gal ": "gal",
 
     "": None,
+    "ADC": None,
+    "格": None,
     "电机电流>1k，瞬间<1k，除臭2K>60": None,
     "线程号": None,
 }

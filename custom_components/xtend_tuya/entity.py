@@ -773,8 +773,6 @@ class XTEntity(TuyaEntity):
     ) -> Any | None:
         if dpcode_information is None:
             return None
-        if dpcode_information.dpcode == "temp_adc":
-            LOGGER.warning(f"ALL DEVICE CLASSES FOR UOM: {device_class_from_uom_dict}")
         if dpcode_information.unit in device_class_from_uom_dict:
             if isinstance(device_class_from_uom_dict[dpcode_information.unit], str):
                 return device_class_from_uom_dict[dpcode_information.unit]
