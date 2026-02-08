@@ -741,30 +741,28 @@ class XTEntity(TuyaEntity):
                 if uom is None:
                     continue
                 if isinstance(uom, str):
-                    uom = str(uom)
                     if uom not in return_dict:
-                        return_dict[uom] = str(device_class.value)
+                        return_dict[uom] = device_class.value
                     else:
                         if isinstance(return_dict[uom], str):
                             return_dict[uom] = {
                                 str(return_dict[uom]),
-                                str(device_class.value),
+                                device_class.value,
                             }
                         elif isinstance(return_dict[uom], set):
-                            return_dict[uom].add(str(device_class.value))  # type: ignore
+                            return_dict[uom].add(device_class.value)  # type: ignore
                 elif issubclass(uom, StrEnum):
                     for uom_value in uom:
-                        uom_value = str(uom_value)
                         if uom_value not in return_dict:
-                            return_dict[uom_value] = str(device_class.value)
+                            return_dict[uom_value] = device_class.value
                         else:
                             if isinstance(return_dict[uom_value], str):
                                 return_dict[uom_value] = {
                                     str(return_dict[uom_value]),
-                                    str(device_class.value),
+                                    device_class.value,
                                 }
                             elif isinstance(return_dict[uom_value], set):
-                                return_dict[uom_value].add(str(device_class.value))  # type: ignore
+                                return_dict[uom_value].add(device_class.value)  # type: ignore
         return return_dict
 
     @staticmethod
