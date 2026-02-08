@@ -110,8 +110,8 @@ def xt_get_dpcode_wrapper(
             device_manager.execute_device_entity_function(
                 XTDeviceEntityFunctions.RECALCULATE_PERCENT_SCALE,
                 device,
-                description.key,
-                description.recalculate_scale_for_percentage_threshold,
+                function_code=description.key,
+                scale_threshold=description.recalculate_scale_for_percentage_threshold,
             )
     return tuya_sensor_get_dpcode_wrapper(device, description)
 
@@ -190,6 +190,7 @@ BATTERY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.BATTERY,
         entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
+        recalculate_scale_for_percentage=True,
     ),
     XTSensorEntityDescription(
         key=XTDPCode.VA_BATTERY,
@@ -198,6 +199,7 @@ BATTERY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.BATTERY,
         entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
+        recalculate_scale_for_percentage=True,
     ),
     XTSensorEntityDescription(
         key=XTDPCode.RESIDUAL_ELECTRICITY,
@@ -215,6 +217,7 @@ BATTERY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.BATTERY,
         entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
+        recalculate_scale_for_percentage=True,
     ),
     XTSensorEntityDescription(
         key=XTDPCode.WIRELESS_ELECTRICITY,
@@ -223,6 +226,7 @@ BATTERY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.BATTERY,
         entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
+        recalculate_scale_for_percentage=True,
     ),
 )
 
