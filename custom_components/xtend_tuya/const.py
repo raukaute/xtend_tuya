@@ -253,6 +253,10 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "分钟": "min",
 }
 
+DPCODE_PREFERED_DEVICE_CLASS: dict[str, str] = {
+
+}
+
 class XTDPCode(StrEnum):
     """Data Point Codes used by XT.
 
