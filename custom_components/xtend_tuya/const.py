@@ -997,9 +997,11 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "kwh": "kWh",
     "kW·h": "kWh",
     "％": "%",
-    "gal": "gal",
     "℃": "°C",
+    "C": "°C",
     "分钟": "min",
+    "电机电流>1k，瞬间<1k，除臭2K>60": None,
+    "线程号": None,
 }
 
 DPCODE_PREFERED_DEVICE_CLASS: dict[str, str] = {
@@ -1011,7 +1013,7 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str] = {
 
     "humidity_value": "humidity",
     "humidity_now": "humidity",
-    
+
     "temp_current": "temperature",
     "temp_now_huas": "temperature",
 }
