@@ -243,20 +243,6 @@ class WorkMode(StrEnum):
     SCENE = "scene"
     WHITE = "white"
 
-UOM_MAPPING_DICT: dict[str, str | None] = {
-    "": None,
-    "kwh": "kWh",
-    "kW·h": "kWh",
-    "％": "%",
-    "gal": "gal",
-    "℃": "°C",
-    "分钟": "min",
-}
-
-DPCODE_PREFERED_DEVICE_CLASS: dict[str, str] = {
-
-}
-
 class XTDPCode(StrEnum):
     """Data Point Codes used by XT.
 
@@ -1005,6 +991,30 @@ class XTDPCode(StrEnum):
         except Exception:
             return XTDPCode(dpcode)
 
+
+UOM_MAPPING_DICT: dict[str, str | None] = {
+    "": None,
+    "kwh": "kWh",
+    "kW·h": "kWh",
+    "％": "%",
+    "gal": "gal",
+    "℃": "°C",
+    "分钟": "min",
+}
+
+DPCODE_PREFERED_DEVICE_CLASS: dict[str, str] = {
+    "active_energy_total": "energy",
+    "add_ele1": "energy",
+    "total_energy1": "energy",
+    "today_acc_energy1": "energy",
+    "today_energy_add1": "energy",
+
+    "humidity_value": "humidity",
+    "humidity_now": "humidity",
+    
+    "temp_current": "temperature",
+    "temp_now_huas": "temperature",
+}
 
 @dataclass
 class Country:
