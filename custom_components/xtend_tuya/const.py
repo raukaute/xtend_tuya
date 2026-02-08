@@ -248,7 +248,9 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "kwh": "kWh",
     "kW·h": "kWh",
     "％": "%",
-    "gal": "gal"
+    "gal": "gal",
+    "℃": "°C",
+    "分钟": "min",
 }
 
 class XTDPCode(StrEnum):
