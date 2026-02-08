@@ -1015,6 +1015,7 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str] = {
     "humidity_value": "humidity",
     "humidity_now": "humidity",
 
+    "current_temp": "temperature",
     "temp_current": "temperature",
     "temp_now_huas": "temperature",
 }
