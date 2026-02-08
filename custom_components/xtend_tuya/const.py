@@ -993,19 +993,24 @@ class XTDPCode(StrEnum):
 
 
 UOM_MAPPING_DICT: dict[str, str | None] = {
-    "": None,
     "kwh": "kWh",
     "kW·h": "kWh",
+
     "％": "%",
+
     "℃": "°C",
     "C": "°C",
+
     "分钟": "min",
+    
     "gal ": "gal",
+
+    "": None,
     "电机电流>1k，瞬间<1k，除臭2K>60": None,
     "线程号": None,
 }
 
-DPCODE_PREFERED_DEVICE_CLASS: dict[str, str] = {
+DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "active_energy_total": "energy",
     "add_ele1": "energy",
     "total_energy1": "energy",
@@ -1018,6 +1023,10 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str] = {
     "current_temp": "temperature",
     "temp_current": "temperature",
     "temp_now_huas": "temperature",
+
+    "water_total_h": "water",
+
+    "percent_state": None,
 }
 
 @dataclass

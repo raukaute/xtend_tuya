@@ -796,7 +796,8 @@ class XTEntity(TuyaEntity):
         proposed_device_class: set[str],
         device: sc.XTDevice,
     ) -> Any | None:
-        if dpcode_information.dpcode in DPCODE_PREFERED_DEVICE_CLASS and DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] in proposed_device_class:
-            return DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode]
+        if dpcode_information.dpcode in DPCODE_PREFERED_DEVICE_CLASS:
+            if DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] is None or DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] in proposed_device_class:
+                return DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode]
         LOGGER.warning(f"Multiple possible device class {proposed_device_class} for unit {dpcode_information.unit} on device {device.name} ({dpcode_information.dpcode}), unable to determine the most probable one, returning None")
         return None
