@@ -169,7 +169,7 @@ class TuyaOpenMQ(threading.Thread):
             return
 
         msg_dict["data"] = decrypted_data
-        # logger.debug(f"on_message: {msg_dict}")
+        logger.debug(f"[IOT MQTT]on_message: {msg_dict}")
 
         for listener in self.message_listeners:
             listener(msg_dict)

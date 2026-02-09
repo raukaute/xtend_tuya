@@ -1,4 +1,6 @@
 from __future__ import annotations
+import json
+from typing import Any
 from tuya_sharing.mq import (
     SharingMQ,
     SharingMQConfig,
@@ -83,3 +85,11 @@ class XTSharingMQ(SharingMQ):
                 self.manager.refresh_mq()
         else:
             LOGGER.debug("disconnect")
+    
+    def _on_message(self, mqttc: mqtt.Client, user_data: Any, msg: mqtt.MQTTMessage):
+        msg_dict = json.loads(msg.payload.decode("utf8"))
+
+        LOGGER.debug(f"[SHARING MQTT]on_message: {msg_dict}")
+
+        for listener in self.message_listeners:
+            listener(msg_dict)
