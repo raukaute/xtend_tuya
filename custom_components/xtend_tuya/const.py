@@ -1015,7 +1015,6 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "％": "%",
 
     "℃": "°C",
-    "°C": "°C",
     "C": "°C",
 
     "℉": "°F",
@@ -1072,6 +1071,8 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "temp_set_huas": "temperature",
     "upper_temp": "temperature",
     "upper_temp_f": "temperature",
+
+    "输出启动温差": "temperature_delta",
 
     "water_total_h": "water",
 
