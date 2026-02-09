@@ -166,7 +166,7 @@ class TuyaOpenMQ(threading.Thread):
             msg_dict["data"], mq_config.password, t
         )
         if decrypted_data is None:
-            logger.debug(f"Failed to decode message: {msg_dict}")
+            logger.warning(f"Failed to decode message: {msg_dict}")
             return
 
         msg_dict["data"] = decrypted_data
