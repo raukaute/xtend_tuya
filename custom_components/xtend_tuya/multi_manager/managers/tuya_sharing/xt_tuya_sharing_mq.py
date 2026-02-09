@@ -5,6 +5,7 @@ from tuya_sharing.mq import (
     SharingMQ,
     SharingMQConfig,
     CustomerApi,
+    CustomerDevice,
 )
 from paho.mqtt import client as mqtt
 import custom_components.xtend_tuya.multi_manager.managers.tuya_sharing.xt_tuya_sharing_manager as sm
@@ -55,6 +56,19 @@ class XTSharingMQ(SharingMQ):
         )
         self.manager = manager
         self.shutting_down = False
+
+    def subscribe_device(self, dev_id: str, device: CustomerDevice):
+        self.device.append(device)
+        topic1 = self.subscribe_topic(dev_id, True)
+        topic2 = self.subscribe_topic(dev_id, False)
+        if self.client is not None:
+            self.client.subscribe([(topic1, 0), (topic2, 0)])
+    
+    def un_subscribe_device(self, dev_id: str, support_local: bool):
+        topic1 = self.subscribe_topic(dev_id, True)
+        topic2 = self.subscribe_topic(dev_id, False)
+        if self.client is not None:
+            self.client.unsubscribe([topic1, topic2])
 
     def _start(self, mq_config: SharingMQConfig) -> mqtt.Client:
         # mqttc = mqtt.Client(callback_api_version=mqtt_CallbackAPIVersion.VERSION2, client_id=mq_config.client_id)
