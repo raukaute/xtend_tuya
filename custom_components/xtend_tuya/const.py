@@ -996,10 +996,14 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "kwh": "kWh",
     "kW·h": "kWh",
 
+    "kVar": "kvar",
+
     "％": "%",
 
     "℃": "°C",
     "C": "°C",
+
+    "℉": "°F",
 
     "分钟": "min",
 
@@ -1025,9 +1029,12 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "current_temp": "temperature",
     "temp_current": "temperature",
     "temp_now_huas": "temperature",
+    "temp_set": "temperature",
+    "temp_set_huas": "temperature",
 
     "water_total_h": "water",
 
+    "percent_control": None,
     "percent_state": None,
 }
 
