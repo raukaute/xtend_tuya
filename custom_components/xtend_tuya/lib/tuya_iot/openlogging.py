@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 import copy
-import logging
+import logging  # noqa: F401
 from typing import Any
 from ...const import LOGGER as logger
 
 #logger = logging.getLogger(__package__)
 
-default_handler = logging.StreamHandler()
-default_handler.setFormatter(
-    logging.Formatter("[%(asctime)s] [tuya-%(module)s] %(message)s")
-)
+#default_handler = logging.StreamHandler()
+#default_handler.setFormatter(
+#    logging.Formatter("[%(asctime)s] [tuya-%(module)s] %(message)s")
+#)
 
-logger.addHandler(default_handler)
+#logger.addHandler(default_handler)
 TUYA_LOGGER = logger
 
 FILTER_LIST = [
