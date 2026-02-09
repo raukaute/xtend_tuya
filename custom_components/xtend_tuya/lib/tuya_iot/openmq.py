@@ -51,7 +51,7 @@ class TuyaMQConfig:
         self.password: str = result.get("password", "")
         self.source_topic: dict[str, str] = result.get("source_topic", {})
         self.sink_topic: dict[str, str] = result.get("sink_topic", {})
-        self.expire_time: int = 120 #result.get("expire_time", 0)
+        self.expire_time: int = result.get("expire_time", 0)
         self.valid_until: int = mqConfigResponse.get("t", 0) + self.expire_time * 1000
         self.marked_invalid = False
 
