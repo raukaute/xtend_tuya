@@ -87,7 +87,7 @@ class TuyaOpenMQ(threading.Thread):
         self.client = None
         self.mq_config: TuyaMQConfig = TuyaMQConfig()
         self.message_listeners = set()
-        self.link_id: str = link_id if link_id is not None else f"tuya.{uuid.uuid1()}"
+        self.link_id: str = link_id if link_id is not None else f"tuya-iot-app-sdk-python.{uuid.uuid1()}"
         self.class_id: str = class_id
         self.topics: str = topics
 
@@ -166,6 +166,7 @@ class TuyaOpenMQ(threading.Thread):
             msg_dict["data"], mq_config.password, t
         )
         if decrypted_data is None:
+            logger.debug(f"Failed to decode message: {msg_dict}")
             return
 
         msg_dict["data"] = decrypted_data
