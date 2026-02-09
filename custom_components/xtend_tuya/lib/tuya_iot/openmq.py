@@ -325,7 +325,7 @@ class TuyaOpenMQ(threading.Thread):
 
         Start mqtt thread
         """
-        logger.debug("start")
+        logger.warning(f"[{self.class_id} MQTT] start")
         super().start()
 
     def stop(self):
@@ -333,7 +333,7 @@ class TuyaOpenMQ(threading.Thread):
 
         Stop mqtt thread
         """
-        logger.debug("stop")
+        logger.warning(f"[{self.class_id} MQTT] stop", stack_info=True)
         self.message_listeners = set()
         if self.client is not None:
             self.client.disconnect()
