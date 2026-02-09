@@ -1666,9 +1666,12 @@ async def async_setup_entry(
                 dev_class_from_uom = XTEntity.get_device_classes_from_uom(SENSOR_DEVICE_CLASS_UNITS)
                 for dpcode in generic_dpcodes:
                     dpcode_info = device.get_dpcode_information(dpcode=dpcode)
+                    device_class = XTEntity.get_device_class_from_uom(dpcode_info, dev_class_from_uom, device)
+                    state_class = XTSensorEntity.determine_state_class_from_dpcode_information(dpcode_info, device_class)
                     descriptor = XTSensorEntityDescription(
                         key=dpcode,
-                        device_class=XTEntity.get_device_class_from_uom(dpcode_info, dev_class_from_uom, device),
+                        device_class=device_class,
+                        state_class=state_class,
                         translation_key="xt_generic_sensor",
                         translation_placeholders={
                             "name": XTEntity.get_human_name(dpcode)
@@ -1912,6 +1915,21 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             XTSensorEntityDescription(**description.__dict__),
             dpcode_wrapper,
         )
+
+    @staticmethod
+    def determine_state_class_from_dpcode_information(
+        dpcode_information: XTDevice.XTDeviceDPCodeInformation | None,
+        device_class: SensorDeviceClass | None,
+    ) -> SensorStateClass | None:
+        if dpcode_information is None:
+            return None
+        
+        DEVICE_CLASS_MAPPING: dict[SensorDeviceClass, SensorStateClass] = {
+            SensorDeviceClass.ENERGY: SensorStateClass.TOTAL_INCREASING,
+        }
+        if device_class is not None and device_class in DEVICE_CLASS_MAPPING:
+            return DEVICE_CLASS_MAPPING[device_class]
+        return None
 
     # Use custom native_value function
     @property
