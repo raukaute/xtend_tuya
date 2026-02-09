@@ -50,8 +50,8 @@ class TuyaMQConfig:
         self.password: str = result.get("password", "")
         self.source_topic: dict[str, str] = result.get("source_topic", {})
         self.sink_topic: dict[str, str] = result.get("sink_topic", {})
-        self.expire_time: int = result.get("expire_time", 0)
-        logger.warning(f"Expire time: {self.expire_time}, now is {time.time() * 1000}, mqConfigResponse: {mqConfigResponse}")
+        self.expire_time: int = 120 #result.get("expire_time", 0)
+        self.valid_until: int = mqConfigResponse.get("t", 0) + self.expire_time * 1000
         self.marked_invalid = False
 
     def mark_invalid(self) -> None:
@@ -61,6 +61,10 @@ class TuyaMQConfig:
         if self.url == "":
             return False
         if self.marked_invalid:
+            logger.warning("MQTT config is marked invalid.")
+            return False
+        if self.valid_until <= int(time.time() * 1000) + 60 * 1000:
+            logger.warning("MQTT config is expired or will expire within 60 seconds.")
             return False
         return True
 
@@ -204,7 +208,7 @@ class TuyaOpenMQ(threading.Thread):
                     backoff_seconds * 2, 60
                 )  # Try at most every 60 seconds to refresh
 
-    def _run_mqtt(self):
+    def _run_mqtt(self, first_pass=True):
 
         # Don't do anything if already connected
         if self.client and self.client.is_connected() and self.mq_config.is_valid():
@@ -229,7 +233,8 @@ class TuyaOpenMQ(threading.Thread):
         self.client = self._start()
         if self.client is None:
             self.mq_config.mark_invalid()
-            self._run_mqtt()
+            if first_pass:
+                self._run_mqtt(first_pass=False)
             return
 
     # This block will be useful when we'll use Paho MQTT 3.x or above
