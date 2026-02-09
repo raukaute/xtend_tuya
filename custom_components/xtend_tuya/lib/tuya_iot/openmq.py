@@ -254,8 +254,6 @@ class TuyaOpenMQ(threading.Thread):
         elif rc != "Normal disconnection":
             #Reconnect on other unplanned disconnection
             self._run_mqtt()
-            return
-        self.stop()
 
     def _on_connect(
         self,
