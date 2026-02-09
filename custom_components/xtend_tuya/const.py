@@ -1009,6 +1009,8 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
 
     "gal ": "gal",
 
+    "小时": "h",
+
     "": None,
     "ADC": None,
     "格": None,
@@ -1019,23 +1021,33 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
 DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "active_energy_total": "energy",
     "add_ele1": "energy",
-    "total_energy1": "energy",
     "today_acc_energy1": "energy",
     "today_energy_add1": "energy",
+    "total_energy1": "energy",
 
-    "humidity_value": "humidity",
     "humidity_now": "humidity",
+    "hum_sensitivity": "humidity",
+    "humidity_value": "humidity",
+    "maxhum_set": "humidity",
+    "minihum_set": "humidity",
 
     "current_temp": "temperature",
+    "maxtemp_set": "temperature",
+    "minitemp_set": "temperature",
+    "set_temp": "temperature",
     "temp_current": "temperature",
+    "temp_current_f": "temperature",
     "temp_now_huas": "temperature",
+    "temp_sensitivity": "temperature",
     "temp_set": "temperature",
+    "temp_set_f": "temperature",
     "temp_set_huas": "temperature",
 
     "water_total_h": "water",
 
     "percent_control": None,
     "percent_state": None,
+    "position_best": None,
 }
 
 @dataclass
