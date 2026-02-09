@@ -51,6 +51,7 @@ class TuyaMQConfig:
         self.source_topic: dict[str, str] = result.get("source_topic", {})
         self.sink_topic: dict[str, str] = result.get("sink_topic", {})
         self.expire_time: int = result.get("expire_time", 0)
+        logger.warning(f"Expire time: {self.expire_time}, now is {time.time() * 1000}, mqConfigResponse: {mqConfigResponse}")
         self.marked_invalid = False
 
     def mark_invalid(self) -> None:
@@ -206,7 +207,7 @@ class TuyaOpenMQ(threading.Thread):
     def _run_mqtt(self):
 
         # Don't do anything if already connected
-        if self.client and self.client.is_connected():
+        if self.client and self.client.is_connected() and self.mq_config.is_valid():
             return
         
         # if we don't have a valid mq_config, get a new one
@@ -240,10 +241,14 @@ class TuyaOpenMQ(threading.Thread):
         rc: mqtt_ReasonCode,
         properties: mqtt_Properties | None = None,
     ):
-        if rc != 0:
-            logger.error(f"Unexpected disconnection.{rc}")
-        # else:
-        #    logger.debug("disconnect")
+        if rc == "Not authorized":
+            #If not authorized, stop mqtt and do not reconnect
+            logger.error(f"{self.topics} MQTT disconnected with reason code {rc}, flags: {flags}, properties: {properties}, userdata: {userdata}. Stopping MQTT client.")
+        elif rc != "Normal disconnection":
+            #Reconnect on other unplanned disconnection
+            self._run_mqtt()
+            return
+        self.stop()
 
     def _on_connect(
         self,

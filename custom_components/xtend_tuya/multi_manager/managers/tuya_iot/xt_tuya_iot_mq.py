@@ -1,15 +1,4 @@
 from __future__ import annotations
-from typing import Any
-from paho.mqtt.reasoncodes import (
-    ReasonCode as mqtt_ReasonCode,
-)
-from paho.mqtt.properties import (
-    Properties as mqtt_Properties,
-)
-from paho.mqtt.client import (
-    DisconnectFlags as mqtt_DisconnectFlags,
-)
-from paho.mqtt import client as mqtt
 
 from ....lib.tuya_iot import (
     TuyaOpenMQ,
@@ -22,9 +11,6 @@ from .xt_tuya_iot_openapi import (
 )
 import custom_components.xtend_tuya.multi_manager.managers.tuya_iot.xt_tuya_iot_manager as man
 import custom_components.xtend_tuya.multi_manager.managers.tuya_iot.ipc.xt_tuya_iot_ipc_manager as ipc_man
-from ....const import (
-    LOGGER,  # noqa: F401
-)
 
 
 class XTIOTTuyaMQConfig(TuyaMQConfig):
@@ -47,16 +33,3 @@ class XTIOTOpenMQ(TuyaOpenMQ):
             link_id=link_id,
         )
         self.manager = manager
-
-    def _on_disconnect(
-        self,
-        client: mqtt.Client,
-        userdata: Any,
-        flags: mqtt_DisconnectFlags,
-        rc: mqtt_ReasonCode,
-        properties: mqtt_Properties | None = None,
-    ):
-        LOGGER.error(f"{self.topics} MQTT disconnected with reason code {rc}, flags: {flags}, properties: {properties}, userdata: {userdata}")
-        if rc != 0:
-            LOGGER.warning(f"{self.topics} MQTT disconnected unexpectedly, reconnecting...")
-        self._run_mqtt()
