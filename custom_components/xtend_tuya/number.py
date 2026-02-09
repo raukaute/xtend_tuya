@@ -11,6 +11,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.components.number.const import (
     NumberMode,
+    DEVICE_CLASS_UNITS as NUMBER_DEVICE_CLASS_UNITS,
 )
 from .util import (
     restrict_descriptor_category,
@@ -659,9 +660,14 @@ async def async_setup_entry(
                 generic_dpcodes = XTEntity.get_generic_dpcodes_for_this_platform(
                     device, this_platform
                 )
+                if not generic_dpcodes:
+                    continue
+                dev_class_from_uom = XTEntity.get_device_classes_from_uom(NUMBER_DEVICE_CLASS_UNITS)
                 for dpcode in generic_dpcodes:
+                    dpcode_info = device.get_dpcode_information(dpcode=dpcode)
                     descriptor = XTNumberEntityDescription(
                         key=dpcode,
+                        device_class=XTEntity.get_device_class_from_uom(dpcode_info, dev_class_from_uom, device),
                         translation_key="xt_generic_number",
                         translation_placeholders={
                             "name": XTEntity.get_human_name(dpcode)
