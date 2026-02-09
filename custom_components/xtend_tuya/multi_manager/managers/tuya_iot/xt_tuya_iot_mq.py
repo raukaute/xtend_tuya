@@ -56,7 +56,7 @@ class XTIOTOpenMQ(TuyaOpenMQ):
         rc: mqtt_ReasonCode,
         properties: mqtt_Properties | None = None,
     ):
-        LOGGER.error(f"{self.topics} MQTT disconnected with reason code {rc}, flags: {flags}, properties: {properties}")
+        LOGGER.error(f"{self.topics} MQTT disconnected with reason code {rc}, flags: {flags}, properties: {properties}, userdata: {userdata}")
         if rc != 0:
             LOGGER.warning(f"{self.topics} MQTT disconnected unexpectedly, reconnecting...")
             self._run_mqtt()
