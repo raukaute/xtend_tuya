@@ -559,8 +559,6 @@ class CloudFixes:
             if sr_value and "unit" in sr_value:
                 sr_uom = sr_value["unit"]
                 if sr_uom in UOM_MAPPING_DICT:
-                    if UOM_MAPPING_DICT[sr_uom] is None:
-                        LOGGER.warning(f"Found uom {sr_uom} for code {code} on device {device.name} that is mapped to None in UOM_MAPPING_DICT")
                     sr_uom = UOM_MAPPING_DICT[sr_uom]
                 sr_value["unit"] = sr_uom
                 if sr_uom is not None and sr_uom not in all_uom:
@@ -568,8 +566,6 @@ class CloudFixes:
             if fn_value and "unit" in fn_value:
                 fn_uom = fn_value["unit"]
                 if fn_uom in UOM_MAPPING_DICT:
-                    if UOM_MAPPING_DICT[fn_uom] is None:
-                        LOGGER.warning(f"Found uom {fn_uom} for code {code} on device {device.name} that is mapped to None in UOM_MAPPING_DICT")
                     fn_uom = UOM_MAPPING_DICT[fn_uom]
                 fn_value["unit"] = fn_uom
                 if fn_uom is not None and fn_uom not in all_uom:
@@ -577,8 +573,6 @@ class CloudFixes:
             if ls_value and "unit" in ls_value:
                 ls_uom = ls_value["unit"]
                 if ls_uom in UOM_MAPPING_DICT:
-                    if UOM_MAPPING_DICT[ls_uom] is None:
-                        LOGGER.warning(f"Found uom {ls_uom} for code {code} on device {device.name} that is mapped to None in UOM_MAPPING_DICT")
                     ls_uom = UOM_MAPPING_DICT[ls_uom]
                 ls_value["unit"] = ls_uom
                 if ls_uom is not None and ls_uom not in all_uom:
