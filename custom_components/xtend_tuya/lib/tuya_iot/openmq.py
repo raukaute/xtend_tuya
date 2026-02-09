@@ -62,12 +62,12 @@ class TuyaMQConfig:
         if self.url == "":
             return False
         if self.marked_invalid:
-            logger.warning(f"[{self.class_id} MQTT] MQTT config is marked invalid.")
+            #logger.warning(f"[{self.class_id} MQTT] MQTT config is marked invalid.")
             return False
         if self.valid_until <= int(time.time() * 1000) + 60 * 1000:
-            logger.warning(f"[{self.class_id} MQTT] MQTT config is expired or will expire within 60 seconds.")
+            #logger.warning(f"[{self.class_id} MQTT] MQTT config is expired or will expire within 60 seconds.")
             return False
-        logger.warning(f"[{self.class_id} MQTT] MQTT config is valid.")
+        #logger.warning(f"[{self.class_id} MQTT] MQTT config is valid.")
         return True
 
 
@@ -120,7 +120,8 @@ class TuyaOpenMQ(threading.Thread):
         }
         response = self.api.post(path, body)
         if response.get("success", False):
-            logger.debug(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}")
+            #logger.debug(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}")
+            pass
         else:
             logger.error(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}", stack_info=True)
 
@@ -177,7 +178,7 @@ class TuyaOpenMQ(threading.Thread):
             return
 
         msg_dict["data"] = decrypted_data
-        logger.debug(f"[{self.class_id} MQTT] on_message: {msg_dict}")
+        #logger.debug(f"[{self.class_id} MQTT] on_message: {msg_dict}")
 
         for listener in self.message_listeners:
             listener(msg_dict)
@@ -251,6 +252,7 @@ class TuyaOpenMQ(threading.Thread):
         if rc == "Not authorized":
             #If not authorized, stop mqtt and do not reconnect
             logger.error(f"[{self.class_id} MQTT] disconnected with reason code {rc}, flags: {flags}, properties: {properties}, userdata: {userdata}. Stopping MQTT client.")
+            self.stop()
         elif rc != "Normal disconnection":
             #Reconnect on other unplanned disconnection
             self._run_mqtt()
@@ -266,7 +268,7 @@ class TuyaOpenMQ(threading.Thread):
         if rc == 0:
             for key, value in self.mq_config.source_topic.items():
                 mqttc.subscribe(value)
-            logger.debug(f"[{self.class_id} MQTT] connected and subscribed to topics: {self.mq_config.source_topic}")
+            #logger.debug(f"[{self.class_id} MQTT] connected and subscribed to topics: {self.mq_config.source_topic}")
         else:
             logger.error(f"[{self.class_id} MQTT] connect failed with rc={rc}")
 
@@ -323,7 +325,7 @@ class TuyaOpenMQ(threading.Thread):
 
         Start mqtt thread
         """
-        logger.warning(f"[{self.class_id} MQTT] start")
+        #logger.warning(f"[{self.class_id} MQTT] start")
         super().start()
 
     def stop(self):
@@ -331,7 +333,7 @@ class TuyaOpenMQ(threading.Thread):
 
         Stop mqtt thread
         """
-        logger.warning(f"[{self.class_id} MQTT] stop", stack_info=True)
+        #logger.warning(f"[{self.class_id} MQTT] stop", stack_info=True)
         self.message_listeners = set()
         if self.client is not None:
             self.client.disconnect()
