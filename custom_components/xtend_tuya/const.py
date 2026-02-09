@@ -243,7 +243,6 @@ class WorkMode(StrEnum):
     SCENE = "scene"
     WHITE = "white"
 
-
 class XTDPCode(StrEnum):
     """Data Point Codes used by XT.
 
@@ -992,6 +991,81 @@ class XTDPCode(StrEnum):
         except Exception:
             return XTDPCode(dpcode)
 
+
+UOM_MAPPING_DICT: dict[str, str | None] = {
+    "kwh": "kWh",
+    "kW·h": "kWh",
+
+    "kVar": "kvar",
+
+    "％": "%",
+
+    "℃": "°C",
+    "C": "°C",
+
+    "℉": "°F",
+
+    "分钟": "min",
+
+    "gal ": "gal",
+
+    "小时": "h",
+
+    "": None,
+    "ADC": None,
+    "格": None,
+    "电机电流>1k，瞬间<1k，除臭2K>60": None,
+    "线程号": None,
+}
+
+DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
+    "active_energy_total": "energy",
+    "add_ele1": "energy",
+    "today_acc_energy1": "energy",
+    "today_energy_add1": "energy",
+    "total_energy1": "energy",
+
+    "ALARM_HIGH_HUMID": "humidity",
+    "ALARM_LOW_HUMID": "humidity",
+    "AUTO_HIGH_HUMID": "humidity",
+    "AUTO_LOW_HUMID": "humidity",
+    "hum_sensitivity": "humidity",
+    "humidity_now": "humidity",
+    "humidity_set": "humidity",
+    "humidity_value": "humidity",
+    "huid_revise": "humidity",
+    "maxhum_set": "humidity",
+    "minihum_set": "humidity",
+
+    "ALARM_HIGH_TEMP": "temperature",
+    "ALARM_LOW_TEMP": "temperature",
+    "AUTO_HIGH_TEMP": "temperature",
+    "AUTO_LOW_TEMP": "temperature",
+    "current_temp": "temperature",
+    "lower_temp": "temperature",
+    "maxtemp_set": "temperature",
+    "minitemp_set": "temperature",
+    "set_temp": "temperature",
+    "temp_current": "temperature",
+    "temp_current_f": "temperature",
+    "temp_now_huas": "temperature",
+    "temp_revise": "temperature",
+    "temp_sensitivity": "temperature",
+    "temp_set": "temperature",
+    "temp_set_1": "temperature",
+    "temp_set_f": "temperature",
+    "temp_set_huas": "temperature",
+    "upper_temp": "temperature",
+    "upper_temp_f": "temperature",
+
+    "water_total_h": "water",
+
+    "percent_control": None,
+    "percent_state": None,
+    "position_best": None,
+    "switch_wrap": None,
+    "valve_open_degree": None,
+}
 
 @dataclass
 class Country:

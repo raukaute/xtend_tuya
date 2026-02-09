@@ -10,6 +10,9 @@ from homeassistant.components.sensor import (
     SensorExtraStoredData,
     RestoreSensor,
 )
+from homeassistant.components.sensor.const import (
+    DEVICE_CLASS_UNITS as SENSOR_DEVICE_CLASS_UNITS,
+)
 from homeassistant.const import (
     UnitOfEnergy,
     UnitOfTime,
@@ -107,8 +110,8 @@ def xt_get_dpcode_wrapper(
             device_manager.execute_device_entity_function(
                 XTDeviceEntityFunctions.RECALCULATE_PERCENT_SCALE,
                 device,
-                description.key,
-                description.recalculate_scale_for_percentage_threshold,
+                function_code=description.key,
+                scale_threshold=description.recalculate_scale_for_percentage_threshold,
             )
     return tuya_sensor_get_dpcode_wrapper(device, description)
 
@@ -183,16 +186,20 @@ BATTERY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     XTSensorEntityDescription(
         key=XTDPCode.BATTERY_VALUE,
         translation_key="battery",
+        native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
+        recalculate_scale_for_percentage=True,
     ),
     XTSensorEntityDescription(
         key=XTDPCode.VA_BATTERY,
         translation_key="battery",
+        native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
+        recalculate_scale_for_percentage=True,
     ),
     XTSensorEntityDescription(
         key=XTDPCode.RESIDUAL_ELECTRICITY,
@@ -206,9 +213,20 @@ BATTERY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     XTSensorEntityDescription(
         key=XTDPCode.BATTERY_POWER,
         translation_key="battery",
+        native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
+        recalculate_scale_for_percentage=True,
+    ),
+    XTSensorEntityDescription(
+        key=XTDPCode.WIRELESS_ELECTRICITY,
+        translation_key="battery",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.BATTERY,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        state_class=SensorStateClass.MEASUREMENT,
+        recalculate_scale_for_percentage=True,
     ),
 )
 
@@ -1500,6 +1518,9 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             entity_registry_enabled_default=False,
         ),
     ),
+    "sp": (
+        *BATTERY_SENSORS,
+    ),
     "wk": (
         *BATTERY_SENSORS,
         *TEMPERATURE_SENSORS,
@@ -1640,9 +1661,17 @@ async def async_setup_entry(
                 generic_dpcodes = XTEntity.get_generic_dpcodes_for_this_platform(
                     device, this_platform
                 )
+                if not generic_dpcodes:
+                    continue
+                dev_class_from_uom = XTEntity.get_device_classes_from_uom(SENSOR_DEVICE_CLASS_UNITS)
                 for dpcode in generic_dpcodes:
+                    dpcode_info = device.get_dpcode_information(dpcode=dpcode)
+                    device_class = XTEntity.get_device_class_from_uom(dpcode_info, dev_class_from_uom, device)
+                    state_class = XTSensorEntity.determine_state_class_from_dpcode_information(dpcode_info, device_class)
                     descriptor = XTSensorEntityDescription(
                         key=dpcode,
+                        device_class=device_class,
+                        state_class=state_class,
                         translation_key="xt_generic_sensor",
                         translation_placeholders={
                             "name": XTEntity.get_human_name(dpcode)
@@ -1886,6 +1915,21 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             XTSensorEntityDescription(**description.__dict__),
             dpcode_wrapper,
         )
+
+    @staticmethod
+    def determine_state_class_from_dpcode_information(
+        dpcode_information: XTDevice.XTDeviceDPCodeInformation | None,
+        device_class: SensorDeviceClass | None,
+    ) -> SensorStateClass | None:
+        if dpcode_information is None:
+            return None
+        
+        DEVICE_CLASS_MAPPING: dict[SensorDeviceClass, SensorStateClass] = {
+            SensorDeviceClass.ENERGY: SensorStateClass.TOTAL_INCREASING,
+        }
+        if device_class is not None and device_class in DEVICE_CLASS_MAPPING:
+            return DEVICE_CLASS_MAPPING[device_class]
+        return None
 
     # Use custom native_value function
     @property

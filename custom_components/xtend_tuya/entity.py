@@ -15,6 +15,7 @@ from .const import (
     DOMAIN,
     DOMAIN_ORIG,
     FULLY_OVERRIDEN_PLATFORMS,
+    DPCODE_PREFERED_DEVICE_CLASS,
 )
 import custom_components.xtend_tuya.multi_manager.shared.shared_classes as sc
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
@@ -729,3 +730,72 @@ class XTEntity(TuyaEntity):
         human_name = human_name.replace("_", " ")
         human_name = human_name.capitalize()
         return human_name
+
+    @staticmethod
+    def get_device_classes_from_uom(
+        device_class_dict: dict[Any, set[type[StrEnum] | str | None]],
+    ) -> dict[type[StrEnum] | str, str | set[str]]:
+        return_dict: dict[type[StrEnum] | str, str | set[str]] = {}
+        for device_class, uom_set in device_class_dict.items():
+            for uom in uom_set:
+                if uom is None:
+                    continue
+                if isinstance(uom, str):
+                    if uom not in return_dict:
+                        return_dict[uom] = device_class.value
+                    else:
+                        if isinstance(return_dict[uom], str):
+                            return_dict[uom] = {
+                                str(return_dict[uom]),
+                                device_class.value,
+                            }
+                        elif isinstance(return_dict[uom], set):
+                            return_dict[uom].add(device_class.value)  # type: ignore
+                elif issubclass(uom, StrEnum):
+                    for uom_value in uom:
+                        if uom_value not in return_dict:
+                            return_dict[uom_value] = device_class.value
+                        else:
+                            if isinstance(return_dict[uom_value], str):
+                                return_dict[uom_value] = {
+                                    str(return_dict[uom_value]),
+                                    device_class.value,
+                                }
+                            elif isinstance(return_dict[uom_value], set):
+                                return_dict[uom_value].add(device_class.value)  # type: ignore
+        return return_dict
+
+    @staticmethod
+    def get_device_class_from_uom(
+        dpcode_information: sc.XTDevice.XTDeviceDPCodeInformation | None,
+        device_class_from_uom_dict: dict[type[StrEnum] | str, str | set[str]],
+        device: sc.XTDevice,
+    ) -> Any | None:
+        if dpcode_information is None:
+            return None
+        if dpcode_information.unit in device_class_from_uom_dict:
+            if isinstance(device_class_from_uom_dict[dpcode_information.unit], str):
+                return device_class_from_uom_dict[dpcode_information.unit]
+            elif isinstance(device_class_from_uom_dict[dpcode_information.unit], set):
+                return XTEntity.determine_most_probable_device_class_from_uom(
+                    dpcode_information,
+                    device_class_from_uom_dict[dpcode_information.unit], # type: ignore
+                    device,
+                )
+        if dpcode_information.unit is not None:
+            LOGGER.warning(
+                f"Unit {dpcode_information.unit} not known, device is {device.name} ({dpcode_information.dpcode})"
+            )
+        return None
+
+    @staticmethod
+    def determine_most_probable_device_class_from_uom(
+        dpcode_information: sc.XTDevice.XTDeviceDPCodeInformation,
+        proposed_device_class: set[str],
+        device: sc.XTDevice,
+    ) -> Any | None:
+        if dpcode_information.dpcode in DPCODE_PREFERED_DEVICE_CLASS:
+            if DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] is None or DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] in proposed_device_class:
+                return DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode]
+        LOGGER.warning(f"Multiple possible device class {proposed_device_class} for unit {dpcode_information.unit} on device {device.name} ({dpcode_information.dpcode}), unable to determine the most probable one, returning None")
+        return None

@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Any
-import uuid
 import json
 from paho.mqtt import (
     client as mqtt,
@@ -21,11 +20,8 @@ class XTIOTOpenMQIPC(XTIOTOpenMQ):
         topics: str = "ipc",
         link_id: str | None = None,
     ) -> None:
-        current_link_id: str = (
-            link_id if link_id is not None else f"tuya.ipc.{uuid.uuid1()}"
-        )
         super().__init__(
-            api, manager, class_id="IPC", topics="ipc", link_id=current_link_id
+            api, manager, class_id="IPC", topics="ipc"
         )
 
     def _on_message(self, mqttc: mqtt.Client, user_data: Any, msg: mqtt.MQTTMessage):

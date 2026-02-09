@@ -567,15 +567,13 @@ class MultiManager:  # noqa: F811
         self,
         function: XTDeviceEntityFunctions,
         device: XTDevice,
-        param1: Any | None = None,
-        param2: Any | None = None,
+        **kwargs,
     ):
         match function:
             case XTDeviceEntityFunctions.RECALCULATE_PERCENT_SCALE:
-                if isinstance(param1, str) and isinstance(param2, int):
-                    CloudFixes.fix_incorrect_percent_scale_forced(
-                        device, param1, param2
-                    )
+                CloudFixes.fix_incorrect_percent_scale_forced(
+                    device, **kwargs
+                )
 
     async def on_loading_finalized(
         self, hass: HomeAssistant, config_entry: XTConfigEntry
