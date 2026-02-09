@@ -1039,7 +1039,7 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
 
     "ALARM_HIGH_TEMP": "temperature",
     "ALARM_LOW_TEMP": "temperature",
-    "AUTO_HIGH_TEMPER": "temperature",
+    "AUTO_HIGH_TEMP": "temperature",
     "AUTO_LOW_TEMP": "temperature",
     "current_temp": "temperature",
     "lower_temp": "temperature",
