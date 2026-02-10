@@ -466,10 +466,12 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                     device_id,
                     f"Sending property update, payload: {json.dumps({'properties': property_str})}",
                 )
-                self.api.post(
+                result = self.api.post(
                     f"/v2.0/cloud/thing/{device_id}/shadow/properties/issue",
                     {"properties": property_str},
                 )
+                if result.get("success") is False:
+                    raise Exception(f"send_property_update error:({properties}): {result}")
 
     def send_lock_unlock_command(self, device: XTDevice, lock: bool) -> bool:
         self.multi_manager.device_watcher.report_message(
@@ -516,7 +518,6 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 else:
                     commands.append({"code": dpcode, "value": not lock})
             self.multi_manager.send_commands(device_id=device.id, commands=commands)
-            return True  # Assume that the command worked...
         return False
 
     def test_lock_api_subscription(
@@ -895,7 +896,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                     f"{MESSAGE_SOURCE_TUYA_IOT}{XTDevice.XTDevicePreference.LOCK_CALL_DOOR_OPERATE}",
                     api_to_use,
                 )
-                return True
+                ###return True #Don't return true even if it looks like it worked, some locks are weird
         return False
 
     def call_door_open(self, device: XTDevice, api: XTIOTOpenAPI) -> bool:
@@ -919,5 +920,5 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                     f"{MESSAGE_SOURCE_TUYA_IOT}{XTDevice.XTDevicePreference.LOCK_CALL_DOOR_OPEN}",
                     api_to_use,
                 )
-                return True
+                ###return True #Don't return true even if it looks like it worked, some locks are weird
         return False
