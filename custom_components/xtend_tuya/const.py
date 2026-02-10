@@ -756,6 +756,13 @@ class XTDPCode(StrEnum):
     FACTORY_RESET = "factory_reset"
     FAULT2 = "Fault"
     FLOW_VELOCITY = "flow_velocity"
+    FORWARD_ENERGY_TOTAL2 = "forward_energy_total2"
+    FORWARD_ENERGY_TOTAL2_TODAY = "forward_energy_total2_today"
+    FORWARD_ENERGY_TOTAL2_THIS_MONTH = "forward_energy_total2_this_month"
+    FORWARD_ENERGY_TOTAL2_THIS_YEAR = "forward_energy_total2_this_year"
+    FORWARD_ENERGY_TOTAL_TODAY = "forward_energy_total_today"
+    FORWARD_ENERGY_TOTAL_THIS_MONTH = "forward_energy_total_this_month"
+    FORWARD_ENERGY_TOTAL_THIS_YEAR = "forward_energy_total_this_year"
     FREQUENCY = "Frequency"
     GET_HUM = "get_hum"
     GET_TEMP = "get_temp"
@@ -832,6 +839,13 @@ class XTDPCode(StrEnum):
     POWERON = "poweron"
     POWERONOFF = "PowerOnOff"
     POWER_CONSUMPTION = "power_consumption"
+    POWER_CONSUMPTION2 = "power_consumption2"
+    POWER_CONSUMPTION2_TODAY = "power_consumption2_today"
+    POWER_CONSUMPTION2_THIS_MONTH = "power_consumption2_this_month"
+    POWER_CONSUMPTION2_THIS_YEAR = "power_consumption2_this_year"
+    POWER_CONSUMPTION_TODAY = "power_consumption_today"
+    POWER_CONSUMPTION_THIS_MONTH = "power_consumption_this_month"
+    POWER_CONSUMPTION_THIS_YEAR = "power_consumption_this_year"
     POWER_FACTOR = "power_factor"
     POWER_FACTOR_B = "power_factor_b"
     POWER_SET = "power_set"
@@ -1010,6 +1024,7 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "gal ": "gal",
 
     "小时": "h",
+    "秒": "s",
 
     "": None,
     "ADC": None,
@@ -1057,6 +1072,8 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "temp_set_huas": "temperature",
     "upper_temp": "temperature",
     "upper_temp_f": "temperature",
+
+    "qidongwencha": "temperature_delta",
 
     "water_total_h": "water",
 
