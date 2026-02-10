@@ -1024,6 +1024,7 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "gal ": "gal",
 
     "小时": "h",
+    "秒": "s",
 
     "": None,
     "ADC": None,
