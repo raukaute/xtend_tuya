@@ -70,6 +70,7 @@ class XTSharingMQ(SharingMQ):
             self.client.unsubscribe([topic1, topic2])
 
     def _start(self, mq_config: SharingMQConfig) -> mqtt.Client:
+        LOGGER.warning(f"[TUYA SHARING] Starting MQTT with config: {mq_config}", stack_info=True)
         # mqttc = mqtt.Client(callback_api_version=mqtt_CallbackAPIVersion.VERSION2, client_id=mq_config.client_id)
         mqttc = mqtt.Client(client_id=mq_config.client_id)
         mqttc.username_pw_set(mq_config.username, mq_config.password)
