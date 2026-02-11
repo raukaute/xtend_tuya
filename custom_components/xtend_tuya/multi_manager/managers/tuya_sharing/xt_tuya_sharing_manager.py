@@ -90,7 +90,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
         device = [
             device
             for device in self.device_map.values()
-            if hasattr(device, "id") and getattr(device, "set_up", False)
+            #if hasattr(device, "id") and getattr(device, "set_up", False)
         ]
 
         if self.customer_api is not None:
