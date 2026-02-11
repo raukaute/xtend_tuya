@@ -157,7 +157,7 @@ class XTMultiManagerProperties(StrEnum):
     CAMERA_DEVICE_ID = "camera_device_id"
     IR_DEVICE_ID = "ir_device_id"
 
-class XTLockingMecanism(StrEnum):
+class XTLockingMechanism(StrEnum):
     """Locking mecanism for the multi manager"""
 
     AUTO            = "auto"

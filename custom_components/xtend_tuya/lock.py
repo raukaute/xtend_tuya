@@ -15,7 +15,7 @@ from custom_components.xtend_tuya.multi_manager.shared.shared_classes import XTD
 from .const import (
     TUYA_DISCOVERY_NEW,
     XTDPCode,
-    XTLockingMecanism,
+    XTLockingMechanism,
     XTMultiManagerPostSetupCallbackPriority,
     XTMultiManagerProperties,
 )
@@ -315,13 +315,13 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
 
     def lock(self, **kwargs: Any) -> None:
         """Lock the lock."""
-        if self.device_manager.send_lock_unlock_command(self.device, True, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECANISM, XTLockingMecanism.AUTO)):
+        if self.device_manager.send_lock_unlock_command(self.device, True, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECANISM, XTLockingMechanism.AUTO)):
             if not self.temporary_unlock:
                 self._attr_is_locking = True
 
     def unlock(self, **kwargs: Any) -> None:
         """Unlock the lock."""
-        if self.device_manager.send_lock_unlock_command(self.device, False, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECANISM, XTLockingMecanism.AUTO)):
+        if self.device_manager.send_lock_unlock_command(self.device, False, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECANISM, XTLockingMechanism.AUTO)):
             if not self.temporary_unlock:
                 self._attr_is_unlocking = True
 
@@ -331,9 +331,9 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
 
     def add_lock_mecanism_option(self) -> None:
         if XTDPCode.XT_LOCK_UNLOCK_MECANISM not in self.device.status:
-            self.device.status[XTDPCode.XT_LOCK_UNLOCK_MECANISM] = XTLockingMecanism.AUTO
+            self.device.status[XTDPCode.XT_LOCK_UNLOCK_MECANISM] = XTLockingMechanism.AUTO
             values_dict = { "range": []}
-            for mecanism in XTLockingMecanism:
+            for mecanism in XTLockingMechanism:
                 values_dict["range"].append(mecanism.value)
             self.device.status_range[XTDPCode.XT_LOCK_UNLOCK_MECANISM] = (
                     XTDeviceStatusRange(

@@ -25,7 +25,7 @@ from ....const import (
     XTIRHubInformation,
     XTIRRemoteInformation,
     XTIRRemoteKeysInformation,
-    XTLockingMecanism,
+    XTLockingMechanism,
 )
 from ...shared.shared_classes import (
     XTDevice,
@@ -474,11 +474,11 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 if result.get("success") is False:
                     raise Exception(f"send_property_update error:({properties}): {result}")
 
-    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mecanism: XTLockingMecanism = XTLockingMecanism.AUTO) -> bool:
+    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO) -> bool:
         self.multi_manager.device_watcher.report_message(
             device.id, f"Sending lock/unlock command open: {lock}"
         )
-        return self.send_lock_unlock_command_multi_api(device, lock, force_unlock_mecanism)
+        return self.send_lock_unlock_command_multi_api(device, lock, force_unlock_mechanism)
 
     def _lock_unlock_command_door_operate(self, device: XTDevice, lock: bool, api: XTIOTOpenAPI, supported_unlock_types: list[str]) -> bool:
         if lock:
@@ -519,20 +519,20 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         return False
 
     def send_lock_unlock_command_multi_api(
-        self, device: XTDevice, lock: bool, force_locking_mecanism: XTLockingMecanism = XTLockingMecanism.AUTO, api: XTIOTOpenAPI | None = None
+        self, device: XTDevice, lock: bool, force_locking_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO, api: XTIOTOpenAPI | None = None
     ) -> bool:
         if api is None:
-            if self.send_lock_unlock_command_multi_api(device, lock, force_locking_mecanism, self.non_user_api):
+            if self.send_lock_unlock_command_multi_api(device, lock, force_locking_mechanism, self.non_user_api):
                 return True
             else:
-                return self.send_lock_unlock_command_multi_api(device, lock, force_locking_mecanism, self.api)
+                return self.send_lock_unlock_command_multi_api(device, lock, force_locking_mechanism, self.api)
         
-        match force_locking_mecanism:
-            case XTLockingMecanism.DOOR_OPERATE:
+        match force_locking_mechanism:
+            case XTLockingMechanism.DOOR_OPERATE:
                 return self._lock_unlock_command_door_operate(device, lock, api, self.get_supported_unlock_types(device, api))
-            case XTLockingMecanism.DOOR_OPEN:
+            case XTLockingMechanism.DOOR_OPEN:
                 return self._lock_unlock_command_door_open(device, lock, api, self.get_supported_unlock_types(device, api))
-            case XTLockingMecanism.DPCODE_COMMAND:
+            case XTLockingMechanism.DPCODE_COMMAND:
                 return self._lock_unlock_command_dpcode_command(device, lock, api)
             case _:
                 # Default to AUTO behavior
