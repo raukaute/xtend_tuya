@@ -70,7 +70,6 @@ class XTSharingMQ(SharingMQ):
             self.client.unsubscribe([topic1, topic2])
 
     def _start(self, mq_config: SharingMQConfig) -> mqtt.Client:
-        LOGGER.warning(f"[TUYA SHARING] Starting MQTT with config: {mq_config}", stack_info=True)
         # mqttc = mqtt.Client(callback_api_version=mqtt_CallbackAPIVersion.VERSION2, client_id=mq_config.client_id)
         mqttc = mqtt.Client(client_id=mq_config.client_id)
         mqttc.username_pw_set(mq_config.username, mq_config.password)
@@ -115,10 +114,8 @@ class XTSharingMQ(SharingMQ):
             self.client.subscribe([(topic1, 0), (topic2, 0)])
 
     def _on_connect(self, mqttc: mqtt.Client, user_data: Any, flags, rc):
-        LOGGER.debug(f"connect flags->{flags}, rc->{rc}")
         if rc == 0:
             if self.mq_config is None:
-                LOGGER.error("MQ config is None on connect")
                 return
             for owner_id in self.owner_ids:
                 mqttc.subscribe(self.mq_config.owner_topic.format(ownerId=owner_id))
@@ -134,7 +131,6 @@ class XTSharingMQ(SharingMQ):
                     topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
 
                 if topics_to_subscribe:
-                    LOGGER.warning(f"Subscribing to topics: {topics_to_subscribe}")
                     mqttc.subscribe(topics_to_subscribe)
         else:
             super()._on_connect(mqttc, user_data, flags, rc)
