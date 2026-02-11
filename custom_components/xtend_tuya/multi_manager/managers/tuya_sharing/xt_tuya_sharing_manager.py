@@ -45,7 +45,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
         )
         self.multi_manager = multi_manager
         self.terminal_id: str | None = None
-        self.mq = None
+        self.mq: mq.SharingMQ | None = None
         self.customer_api: XTSharingAPI | None = None
         self.home_repository: HomeRepository | None = None
         self.device_repository: dr.XTSharingDeviceRepository | None = None
