@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from typing import cast
+from dataclasses import dataclass
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -30,7 +31,7 @@ from .ha_tuya_integration.tuya_integration_imports import (
     TuyaDPCodeEnumWrapper,
 )
 
-
+@dataclass(frozen=True)
 class XTSelectEntityDescription(TuyaSelectEntityDescription):
     """Describe an Tuya select entity."""
 
