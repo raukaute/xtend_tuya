@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+import json
 from typing import Any, cast
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.components.lock import (
@@ -9,12 +10,17 @@ from homeassistant.components.lock import (
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.const import Platform
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, dispatcher_send
+
+from custom_components.xtend_tuya.multi_manager.shared.shared_classes import XTDeviceStatusRange
 from .const import (
     TUYA_DISCOVERY_NEW,
     XTDPCode,
     XTLockingMecanism,
     XTMultiManagerPostSetupCallbackPriority,
     XTMultiManagerProperties,
+)
+from .ha_tuya_integration.tuya_integration_imports import (
+    TuyaDPType,
 )
 from .multi_manager.multi_manager import (
     XTConfigEntry,
@@ -326,6 +332,17 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
     def add_lock_mecanism_option(self) -> None:
         if XTDPCode.XT_LOCK_UNLOCK_MECANISM not in self.device.status:
             self.device.status[XTDPCode.XT_LOCK_UNLOCK_MECANISM] = XTLockingMecanism.AUTO
+            values_dict = { "range": []}
+            for mecanism in XTLockingMecanism:
+                values_dict["range"].append(mecanism.value)
+            self.device.status_range[XTDPCode.XT_LOCK_UNLOCK_MECANISM] = (
+                    XTDeviceStatusRange(
+                        code=XTDPCode.XT_LOCK_UNLOCK_MECANISM,
+                        type=TuyaDPType.ENUM,
+                        values=json.dumps(values_dict),
+                        dp_id=0,
+                    )
+                )
             dispatcher_send(
                     self.local_hass,
                     TUYA_DISCOVERY_NEW,
