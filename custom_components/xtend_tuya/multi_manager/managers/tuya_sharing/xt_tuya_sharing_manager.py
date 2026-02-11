@@ -3,7 +3,6 @@ This file contains all the code that inherit from Tuya integration
 """
 
 from __future__ import annotations
-import time
 from typing import Any
 from tuya_sharing.manager import (
     Manager,

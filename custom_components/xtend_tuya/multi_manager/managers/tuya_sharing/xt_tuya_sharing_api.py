@@ -33,12 +33,10 @@ class XTSharingAPI(CustomerApi):
             end_point: str,
             listener: SharingTokenListener
     ):
-        LOGGER.warning("Creating sharing API")
         super().__init__(token_info, client_id, user_code, end_point, listener)
 
     @staticmethod
     def get_api_from_customer_api(other_api: CustomerApi) -> XTSharingAPI:
-        LOGGER.warning("Creating sharing API from customer API")
         new_api = XTSharingAPI(
             token_info=other_api.token_info,
             client_id=other_api.client_id,
