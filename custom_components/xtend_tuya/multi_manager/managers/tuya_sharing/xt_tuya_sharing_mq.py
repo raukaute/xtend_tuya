@@ -128,6 +128,12 @@ class XTSharingMQ(SharingMQ):
                     topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
 
                 if topics_to_subscribe:
+                    ### DEBUG!!!
+                    topic_str = self.subscribe_topic("ebe74d9d21ba762f95mclm", False)
+                    topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
+                    topic_str = self.subscribe_topic("ebe74d9d21ba762f95mclm", True)
+                    topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
+                    ###END DEBUG!!!
                     LOGGER.warning(f"Subscribing to topics: {[topic for topic, qos in topics_to_subscribe]}")
                     mqttc.subscribe(topics_to_subscribe)
         else:
