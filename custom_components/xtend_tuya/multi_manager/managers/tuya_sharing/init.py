@@ -326,6 +326,11 @@ class XTTuyaSharingDeviceManagerInterface(XTDeviceManagerInterface):
         ):
             self.sharing_account.device_manager.mq.stop()
 
+    def inform_of_missing_device(self, device_id: str):
+        if self.sharing_account is None:
+            return None
+        LOGGER.warning(f"[TUYA SHARING] Informing of missing device, device id: {device_id}")
+
     def on_post_setup(self):
         LOGGER.warning("[TUYA SHARING] Running post setup for sharing manager")
         if self.sharing_account is None:

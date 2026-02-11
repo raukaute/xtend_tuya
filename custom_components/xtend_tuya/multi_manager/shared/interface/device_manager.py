@@ -200,6 +200,9 @@ class XTDeviceManagerDeviceManagementInterface(ABC):
 
     def add_device_by_id(self, device_id: str):
         return None
+    
+    def inform_of_missing_device(self, device_id: str):
+        pass
 
 
 class XTDeviceManagerMQTTManagementInterface(ABC):

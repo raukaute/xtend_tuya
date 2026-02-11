@@ -189,6 +189,9 @@ class MultiManager:  # noqa: F811
             )
 
         await concurrency_manager.gather()
+        #Now all devices have been gathered from their respective sources
+        #Let's inform any account about missing devices
+        self._inform_accounts_of_missing_devices()
 
         # Register all devices in the master device map
         self.update_master_device_map()
@@ -205,6 +208,23 @@ class MultiManager:  # noqa: F811
             device.force_compatibility = True
         self._enable_multi_map_device_alignment()
         self._process_pending_messages()
+
+    def _inform_accounts_of_missing_devices(self):
+        all_device_ids: dict[str, list[str]] = {}
+        all_account_names = []
+        for manager in self.accounts.values():
+            all_account_names.append(manager.get_type_name())
+            all_device_ids[manager.get_type_name()] = []
+            for device_map in manager.get_available_device_maps():
+                for device_id in device_map:
+                    all_device_ids[manager.get_type_name()].append(device_id)
+        for manager in self.accounts.values():
+            for account_name in all_account_names:
+                if account_name != manager.get_type_name():
+                    for device_id in all_device_ids[account_name]:
+                        if device_id not in all_device_ids[manager.get_type_name()]:
+                            manager.inform_of_missing_device(device_id)
+        
 
     def _process_pending_messages(self):
         self.is_ready_for_messages = True

@@ -170,8 +170,6 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
 
     def add_device_by_id(self, device_id: str):
         device_ids = [device_id]
-        # wait for es sync
-        time.sleep(1)
 
         self._update_device_list_info_cache(device_ids)
 
