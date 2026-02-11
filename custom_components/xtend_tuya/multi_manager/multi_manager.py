@@ -531,7 +531,6 @@ class MultiManager:  # noqa: F811
                 return stream_allocate
 
     def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mecanism: XTLockingMecanism = XTLockingMecanism.AUTO) -> bool:
-        LOGGER.warning(f"send_lock_unlock_command called with lock={lock} and force_unlock_mecanism={force_unlock_mecanism}")
         for account in self.accounts.values():
             if account.send_lock_unlock_command(device, lock, force_unlock_mecanism):
                 return True
