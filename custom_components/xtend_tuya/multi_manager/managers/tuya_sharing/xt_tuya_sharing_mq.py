@@ -107,3 +107,27 @@ class XTSharingMQ(SharingMQ):
 
         for listener in self.message_listeners:
             listener(msg_dict)
+    
+    def _on_connect(self, mqttc: mqtt.Client, user_data: Any, flags, rc):
+        LOGGER.debug(f"connect flags->{flags}, rc->{rc}")
+        if rc == 0:
+            if self.mq_config is None:
+                LOGGER.error("MQ config is None on connect")
+                return
+            for owner_id in self.owner_ids:
+                mqttc.subscribe(self.mq_config.owner_topic.format(ownerId=owner_id))
+            batch_size = 10
+            for i in range(0, len(self.device), batch_size):
+                batch_devices = self.device[i:i + batch_size]
+                topics_to_subscribe = []
+                for dev in batch_devices:
+                    dev_id = dev.id
+                    topic_str = self.subscribe_topic(dev_id, False)
+                    topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
+                    topic_str = self.subscribe_topic(dev_id, True)
+                    topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
+
+                if topics_to_subscribe:
+                    mqttc.subscribe(topics_to_subscribe)
+        else:
+            super()._on_connect(mqttc, user_data, flags, rc)
