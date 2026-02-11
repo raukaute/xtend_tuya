@@ -218,12 +218,15 @@ class MultiManager:  # noqa: F811
             for device_map in manager.get_available_device_maps():
                 for device_id in device_map:
                     all_device_ids[manager.get_type_name()].append(device_id)
+        LOGGER.warning(f"All device ids from all accounts: {all_device_ids}")
+        LOGGER.warning(f"All account names: {all_account_names}")
         for manager in self.accounts.values():
             for account_name in all_account_names:
-                if account_name != manager.get_type_name():
-                    for device_id in all_device_ids[account_name]:
-                        if device_id not in all_device_ids[manager.get_type_name()]:
-                            manager.inform_of_missing_device(device_id)
+                if account_name == manager.get_type_name():
+                    continue
+                for device_id in all_device_ids[account_name]:
+                    if device_id not in all_device_ids[manager.get_type_name()]:
+                        manager.inform_of_missing_device(device_id)
         
 
     def _process_pending_messages(self):
