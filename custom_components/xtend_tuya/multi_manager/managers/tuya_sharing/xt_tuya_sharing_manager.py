@@ -45,7 +45,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
         )
         self.multi_manager = multi_manager
         self.terminal_id: str | None = None
-        self.mq = None
+        self.mq: mq.SharingMQ | None = None
         self.customer_api: XTSharingAPI | None = None
         self.home_repository: HomeRepository | None = None
         self.device_repository: dr.XTSharingDeviceRepository | None = None
@@ -90,7 +90,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
         device = [
             device
             for device in self.device_map.values()
-            if hasattr(device, "id") and getattr(device, "set_up", False)
+            #if hasattr(device, "id") and getattr(device, "set_up", False)
         ]
 
         if self.customer_api is not None:
@@ -170,8 +170,6 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
 
     def add_device_by_id(self, device_id: str):
         device_ids = [device_id]
-        # wait for es sync
-        time.sleep(1)
 
         self._update_device_list_info_cache(device_ids)
 

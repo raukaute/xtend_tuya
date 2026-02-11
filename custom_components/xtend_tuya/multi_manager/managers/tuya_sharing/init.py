@@ -327,7 +327,9 @@ class XTTuyaSharingDeviceManagerInterface(XTDeviceManagerInterface):
             self.sharing_account.device_manager.mq.stop()
 
     def on_post_setup(self):
+        LOGGER.warning("[TUYA SHARING] Running post setup for sharing manager")
         if self.sharing_account is None:
+            LOGGER.warning("[TUYA SHARING] No sharing account found during post setup")
             return None
 
         if self.sharing_account.ha_tuya_integration_config_manager is not None:
@@ -336,6 +338,7 @@ class XTTuyaSharingDeviceManagerInterface(XTDeviceManagerInterface):
             )
 
         for device in self.sharing_account.device_manager.device_map.values():
+            LOGGER.warning(f"Reporting device after setup: {device.name}")
             # This should in theory already be done, I kept it here just to be safe...
             self.sharing_account.device_manager.copy_statuses_to_tuya(device)
 
