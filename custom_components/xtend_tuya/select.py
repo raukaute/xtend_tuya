@@ -40,6 +40,8 @@ class XTSelectEntityDescription(TuyaSelectEntityDescription):
     # duplicate the entity if handled by another integration
     ignore_other_dp_code_handler: bool = False
 
+    dont_send_to_cloud: bool = False
+
     def get_entity_instance(
         self,
         device: XTDevice,
@@ -77,6 +79,7 @@ SELECTS: dict[str, tuple[XTSelectEntityDescription, ...]] = {
             key=XTDPCode.XT_LOCK_UNLOCK_MECANISM,
             translation_key="xt_lock_unlock_mecanism",
             entity_category=EntityCategory.CONFIG,
+            dont_send_to_cloud=True,
         ),
     ),
     "cz": (
@@ -450,3 +453,11 @@ class XTSelectEntity(XTEntity, TuyaSelectEntity):
             XTSelectEntityDescription(**description.__dict__),
             dpcode_wrapper,
         )
+    
+    async def async_select_option(self, option: str) -> None:
+        """Change the selected option."""
+        if hasattr(self.entity_description, "dont_send_to_cloud") and self.entity_description.dont_send_to_cloud: # type: ignore
+            self.device.status[self.entity_description.key] = option
+            self.device_manager.multi_device_listener.update_device(self.device, [self.entity_description.key])
+        else:
+            await super().async_select_option(option)
