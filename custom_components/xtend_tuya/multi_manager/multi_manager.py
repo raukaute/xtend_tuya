@@ -19,7 +19,7 @@ from ..const import (
     XTIRHubInformation,
     XTIRRemoteInformation,
     XTIRRemoteKeysInformation,
-    XTLockingMecanism,
+    XTLockingMechanism,
 )
 from .shared.shared_classes import (
     DeviceWatcher,
@@ -530,9 +530,9 @@ class MultiManager:  # noqa: F811
             ):
                 return stream_allocate
 
-    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mecanism: XTLockingMecanism = XTLockingMecanism.AUTO) -> bool:
+    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO) -> bool:
         for account in self.accounts.values():
-            if account.send_lock_unlock_command(device, lock, force_unlock_mecanism):
+            if account.send_lock_unlock_command(device, lock, force_unlock_mechanism):
                 return True
         return False
 

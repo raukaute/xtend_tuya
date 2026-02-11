@@ -73,7 +73,7 @@ from ....const import (
     TUYA_HA_SIGNAL_UPDATE_ENTITY,
     XTDeviceSourcePriority,
     LOGGER,
-    XTLockingMecanism,
+    XTLockingMechanism,
 )
 
 
@@ -405,11 +405,11 @@ class XTTuyaSharingDeviceManagerInterface(XTDeviceManagerInterface):
             device_new.regular_tuya_device = device
         return device_new
 
-    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mecanism: XTLockingMecanism = XTLockingMecanism.AUTO) -> bool:
+    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO) -> bool:
         if self.sharing_account is None:
             return False
         return self.sharing_account.device_manager.send_lock_unlock_command(
-            device, lock, force_unlock_mecanism
+            device, lock, force_unlock_mechanism
         )
 
     def call_api(

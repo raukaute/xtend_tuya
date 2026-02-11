@@ -77,8 +77,8 @@ TEMPERATURE_SELECTS: tuple[XTSelectEntityDescription, ...] = (
 SELECTS: dict[str, tuple[XTSelectEntityDescription, ...]] = {
     CROSS_CATEGORY_DEVICE_DESCRIPTOR:(
         XTSelectEntityDescription(
-            key=XTDPCode.XT_LOCK_UNLOCK_MECANISM,
-            translation_key="xt_lock_unlock_mecanism",
+            key=XTDPCode.XT_LOCK_UNLOCK_MECHANISM,
+            translation_key="xt_lock_unlock_mechanism",
             entity_category=EntityCategory.CONFIG,
             dont_send_to_cloud=True,
         ),
