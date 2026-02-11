@@ -921,7 +921,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                     f"{MESSAGE_SOURCE_TUYA_IOT}{XTDevice.XTDevicePreference.LOCK_CALL_DOOR_OPERATE}",
                     api_to_use,
                 )
-                ###return True #Don't return true even if it looks like it worked, some locks are weird
+                return True
         return False
 
     def call_door_open(self, device: XTDevice, api: XTIOTOpenAPI) -> bool:
@@ -945,5 +945,5 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                     f"{MESSAGE_SOURCE_TUYA_IOT}{XTDevice.XTDevicePreference.LOCK_CALL_DOOR_OPEN}",
                     api_to_use,
                 )
-                ###return True #Don't return true even if it looks like it worked, some locks are weird
+                return True
         return False
