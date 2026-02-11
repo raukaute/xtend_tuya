@@ -23,6 +23,7 @@ from .xt_tuya_sharing_api import (
 from ....const import (
     MESSAGE_SOURCE_TUYA_SHARING,
     XTDeviceSourcePriority,
+    XTLockingMechanism,
 )
 from ...multi_manager import (
     MultiManager,
@@ -209,6 +210,6 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
             return
         super().send_commands(device_id, commands)
 
-    def send_lock_unlock_command(self, device: XTDevice, lock: bool) -> bool:
+    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO) -> bool:
         # I didn't find a way to implement this using the Sharing SDK...
         return False
