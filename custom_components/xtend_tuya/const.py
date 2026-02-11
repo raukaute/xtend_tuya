@@ -1004,6 +1004,7 @@ class XTDPCode(StrEnum):
     WORK_STATUS = "WorkStatus"
     XT_COVER_INVERT_CONTROL = "xt_cover_invert_control"
     XT_COVER_INVERT_STATUS = "xt_cover_invert_status"
+    XT_LOCK_UNLOCK_MECANISM = "xt_lock_unlock_mechanism"
     # END OF DPCODES FROM XT
 
     @staticmethod

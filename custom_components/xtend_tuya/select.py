@@ -15,6 +15,7 @@ from .multi_manager.multi_manager import (
     XTDevice,
 )
 from .const import (
+    CROSS_CATEGORY_DEVICE_DESCRIPTOR,
     TUYA_DISCOVERY_NEW,
     XTDPCode,
     XTMultiManagerPostSetupCallbackPriority,
@@ -71,6 +72,13 @@ TEMPERATURE_SELECTS: tuple[XTSelectEntityDescription, ...] = (
 # default instructions set of each category end up being a select.
 # https://developer.tuya.com/en/docs/iot/standarddescription?id=K9i5ql6waswzq
 SELECTS: dict[str, tuple[XTSelectEntityDescription, ...]] = {
+    CROSS_CATEGORY_DEVICE_DESCRIPTOR:(
+        XTSelectEntityDescription(
+            key=XTDPCode.XT_LOCK_UNLOCK_MECANISM,
+            translation_key="xt_lock_unlock_mecanism",
+            entity_category=EntityCategory.CONFIG,
+        ),
+    ),
     "cz": (
         XTSelectEntityDescription(
             key=XTDPCode.SOLAR_EN_TOTAL,

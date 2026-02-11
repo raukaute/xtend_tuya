@@ -1471,6 +1471,15 @@
                     "96h": "96h",
                     "cancel": "Cancel"
                 }
+            },
+            "xt_lock_unlock_mecanism": {
+                "name": "Lock/unlock mecanism",
+                "state": {
+                    "auto": "Automatic",
+                    "door_open": "Door open",
+                    "door_operate": "Door operate",
+                    "dpcode_command": "DPcode command"
+                }
             }
         },
         "sensor": {
