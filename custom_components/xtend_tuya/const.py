@@ -157,6 +157,14 @@ class XTMultiManagerProperties(StrEnum):
     CAMERA_DEVICE_ID = "camera_device_id"
     IR_DEVICE_ID = "ir_device_id"
 
+class XTLockingMecanism(StrEnum):
+    """Locking mecanism for the multi manager"""
+
+    AUTO            = "auto"
+    DOOR_OPEN       = "door_open"
+    DOOR_OPERATE    = "door_operate"
+    DPCODE_COMMAND  = "dpcode_command"
+
 
 class XTMultiManagerPostSetupCallbackPriority(IntEnum):
     PRIORITY1 = 1

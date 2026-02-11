@@ -58,6 +58,7 @@ from ....const import (
     TUYA_DISCOVERY_NEW,
     TUYA_HA_SIGNAL_UPDATE_ENTITY,
     XTDeviceSourcePriority,
+    XTLockingMecanism,
     XTMultiManagerProperties,
     XTIRHubInformation,
     XTIRRemoteInformation,
@@ -540,10 +541,10 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             device.device_source_priority = device_source_priority
         return device
 
-    def send_lock_unlock_command(self, device: XTDevice, lock: bool) -> bool:
+    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mecanism: XTLockingMecanism = XTLockingMecanism.AUTO) -> bool:
         if self.iot_account is None:
             return False
-        return self.iot_account.device_manager.send_lock_unlock_command(device, lock)
+        return self.iot_account.device_manager.send_lock_unlock_command(device, lock, force_unlock_mecanism)
 
     def call_api(
         self, method: str, url: str, payload: str | None
