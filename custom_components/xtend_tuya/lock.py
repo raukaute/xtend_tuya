@@ -315,13 +315,13 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
 
     def lock(self, **kwargs: Any) -> None:
         """Lock the lock."""
-        if self.device_manager.send_lock_unlock_command(self.device, True, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECANISM, XTLockingMechanism.AUTO)):
+        if self.device_manager.send_lock_unlock_command(self.device, True, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECHANISM, XTLockingMechanism.AUTO)):
             if not self.temporary_unlock:
                 self._attr_is_locking = True
 
     def unlock(self, **kwargs: Any) -> None:
         """Unlock the lock."""
-        if self.device_manager.send_lock_unlock_command(self.device, False, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECANISM, XTLockingMechanism.AUTO)):
+        if self.device_manager.send_lock_unlock_command(self.device, False, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECHANISM, XTLockingMechanism.AUTO)):
             if not self.temporary_unlock:
                 self._attr_is_unlocking = True
 
@@ -330,14 +330,14 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
         raise NotImplementedError
 
     def add_lock_mecanism_option(self) -> None:
-        if XTDPCode.XT_LOCK_UNLOCK_MECANISM not in self.device.status:
-            self.device.status[XTDPCode.XT_LOCK_UNLOCK_MECANISM] = XTLockingMechanism.AUTO
+        if XTDPCode.XT_LOCK_UNLOCK_MECHANISM not in self.device.status:
+            self.device.status[XTDPCode.XT_LOCK_UNLOCK_MECHANISM] = XTLockingMechanism.AUTO
             values_dict = { "range": []}
-            for mecanism in XTLockingMechanism:
-                values_dict["range"].append(mecanism.value)
-            self.device.status_range[XTDPCode.XT_LOCK_UNLOCK_MECANISM] = (
+            for mechanism in XTLockingMechanism:
+                values_dict["range"].append(mechanism.value)
+            self.device.status_range[XTDPCode.XT_LOCK_UNLOCK_MECHANISM] = (
                     XTDeviceStatusRange(
-                        code=XTDPCode.XT_LOCK_UNLOCK_MECANISM,
+                        code=XTDPCode.XT_LOCK_UNLOCK_MECHANISM,
                         type=TuyaDPType.ENUM,
                         values=json.dumps(values_dict),
                         dp_id=0,
@@ -347,7 +347,7 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
                     self.local_hass,
                     TUYA_DISCOVERY_NEW,
                     [self.device.id],
-                    XTDPCode.XT_LOCK_UNLOCK_MECANISM,
+                    XTDPCode.XT_LOCK_UNLOCK_MECHANISM,
                 )
     @staticmethod
     def get_entity_instance(

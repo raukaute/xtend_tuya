@@ -1030,8 +1030,8 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             wrapper_class=(TuyaDPCodeBooleanWrapper,),
         ),
         XTSensorEntityDescription(
-            key=XTDPCode.XT_LOCK_UNLOCK_MECANISM,
-            translation_key="xt_lock_unlock_mecanism",
+            key=XTDPCode.XT_LOCK_UNLOCK_MECHANISM,
+            translation_key="xt_lock_unlock_mechanism",
             entity_registry_visible_default=False,
             restoredata=True,
             refresh_device_after_load=True,
