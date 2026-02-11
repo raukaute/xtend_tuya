@@ -1035,7 +1035,6 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             entity_registry_visible_default=False,
             restoredata=True,
             refresh_device_after_load=True,
-            wrapper_class=(TuyaDPCodeStringWrapper,),
         ),
     ),
     "cl": (*BATTERY_SENSORS,),
