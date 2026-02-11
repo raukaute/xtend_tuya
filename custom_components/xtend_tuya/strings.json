@@ -1471,6 +1471,15 @@
                     "96h": "96h",
                     "cancel": "Cancel"
                 }
+            },
+            "xt_lock_unlock_mecanism": {
+                "name": "Lock/unlock mecanism",
+                "state": {
+                    "auto": "Automatic",
+                    "door_open": "Door open",
+                    "door_operate": "Door operate",
+                    "dpcode_command": "DPcode command"
+                }
             }
         },
         "sensor": {
@@ -2566,6 +2575,15 @@
             },
             "wind_direction": {
                 "name": "Wind direction"
+            },
+            "xt_lock_unlock_mecanism": {
+                "name": "Lock/unlock mechanism",
+                "state": {
+                    "auto": "Automatic",
+                    "door_open": "Door open",
+                    "door_operate": "Door operate",
+                    "dpcode_command": "DPcode command"
+                }
             }
         },
         "switch": {

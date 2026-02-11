@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+import json
 from typing import Any, cast
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.components.lock import (
@@ -8,11 +9,18 @@ from homeassistant.components.lock import (
 )
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.const import Platform
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, dispatcher_send
+
+from custom_components.xtend_tuya.multi_manager.shared.shared_classes import XTDeviceStatusRange
 from .const import (
     TUYA_DISCOVERY_NEW,
     XTDPCode,
+    XTLockingMecanism,
+    XTMultiManagerPostSetupCallbackPriority,
     XTMultiManagerProperties,
+)
+from .ha_tuya_integration.tuya_integration_imports import (
+    TuyaDPType,
 )
 from .multi_manager.multi_manager import (
     XTConfigEntry,
@@ -41,11 +49,13 @@ class XTLockEntityDescription(LockEntityDescription):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTLockEntityDescription,
+        hass: HomeAssistant,
     ) -> XTLockEntity:
         return XTLockEntity(
             device=device,
             device_manager=device_manager,
             description=XTLockEntityDescription(**description.__dict__),
+            hass=hass,
         )
 
 
@@ -124,7 +134,7 @@ async def async_setup_entry(
                 ):
                     entities.append(
                         XTLockEntity.get_entity_instance(
-                            description, device, hass_data.manager
+                            description, device, hass_data.manager, hass
                         )
                     )
         async_add_entities(entities)
@@ -147,11 +157,13 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
         device: XTDevice,
         device_manager: MultiManager,
         description: XTLockEntityDescription,
+        hass: HomeAssistant,
     ) -> None:
         """Init Tuya Lock sensor."""
         super().__init__(device, device_manager)
         self.device = device
         self.device_manager = device_manager
+        self.local_hass = hass
         self.last_action: str | None = None
         self.entity_description = description  # type: ignore
         self.temporary_unlock = description.temporary_unlock
@@ -178,6 +190,10 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
                 if dpcode in device.status:
                     self.status_initial_value[dpcode] = device.status[dpcode]
                     self.status_value_has_changed[dpcode] = False
+        device_manager.add_post_setup_callback(
+            XTMultiManagerPostSetupCallbackPriority.PRIORITY1,
+            self.add_lock_mecanism_option,
+        )
 
     @staticmethod
     def should_entity_be_added(
@@ -299,13 +315,13 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
 
     def lock(self, **kwargs: Any) -> None:
         """Lock the lock."""
-        if self.device_manager.send_lock_unlock_command(self.device, True):
+        if self.device_manager.send_lock_unlock_command(self.device, True, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECANISM, XTLockingMecanism.AUTO)):
             if not self.temporary_unlock:
                 self._attr_is_locking = True
 
     def unlock(self, **kwargs: Any) -> None:
         """Unlock the lock."""
-        if self.device_manager.send_lock_unlock_command(self.device, False):
+        if self.device_manager.send_lock_unlock_command(self.device, False, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECANISM, XTLockingMecanism.AUTO)):
             if not self.temporary_unlock:
                 self._attr_is_unlocking = True
 
@@ -313,16 +329,37 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
         """Open the door latch."""
         raise NotImplementedError
 
+    def add_lock_mecanism_option(self) -> None:
+        if XTDPCode.XT_LOCK_UNLOCK_MECANISM not in self.device.status:
+            self.device.status[XTDPCode.XT_LOCK_UNLOCK_MECANISM] = XTLockingMecanism.AUTO
+            values_dict = { "range": []}
+            for mecanism in XTLockingMecanism:
+                values_dict["range"].append(mecanism.value)
+            self.device.status_range[XTDPCode.XT_LOCK_UNLOCK_MECANISM] = (
+                    XTDeviceStatusRange(
+                        code=XTDPCode.XT_LOCK_UNLOCK_MECANISM,
+                        type=TuyaDPType.ENUM,
+                        values=json.dumps(values_dict),
+                        dp_id=0,
+                    )
+                )
+            dispatcher_send(
+                    self.local_hass,
+                    TUYA_DISCOVERY_NEW,
+                    [self.device.id],
+                    XTDPCode.XT_LOCK_UNLOCK_MECANISM,
+                )
     @staticmethod
     def get_entity_instance(
         description: XTLockEntityDescription,
         device: XTDevice,
         device_manager: MultiManager,
+        hass: HomeAssistant,
     ) -> XTLockEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")
         ):
-            return description.get_entity_instance(device, device_manager, description)
+            return description.get_entity_instance(device, device_manager, description, hass)
         return XTLockEntity(
-            device, device_manager, XTLockEntityDescription(**description.__dict__)
+            device, device_manager, XTLockEntityDescription(**description.__dict__), hass
         )

@@ -25,6 +25,7 @@ from ....const import (
     XTIRHubInformation,
     XTIRRemoteInformation,
     XTIRRemoteKeysInformation,
+    XTLockingMecanism,
 )
 from ...shared.shared_classes import (
     XTDevice,
@@ -473,35 +474,32 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 if result.get("success") is False:
                     raise Exception(f"send_property_update error:({properties}): {result}")
 
-    def send_lock_unlock_command(self, device: XTDevice, lock: bool) -> bool:
+    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mecanism: XTLockingMecanism = XTLockingMecanism.AUTO) -> bool:
         self.multi_manager.device_watcher.report_message(
-            device.id, f"Sending lock/unlock command open: {open}"
+            device.id, f"Sending lock/unlock command open: {lock}"
         )
-        return self.send_lock_unlock_command_multi_api(device, lock)
+        return self.send_lock_unlock_command_multi_api(device, lock, force_unlock_mecanism)
 
-    def send_lock_unlock_command_multi_api(
-        self, device: XTDevice, lock: bool, api: XTIOTOpenAPI | None = None
-    ) -> bool:
-        if api is None:
-            if self.send_lock_unlock_command_multi_api(device, lock, self.non_user_api):
-                return True
-            else:
-                return self.send_lock_unlock_command_multi_api(device, lock, self.api)
+    def _lock_unlock_command_door_operate(self, device: XTDevice, lock: bool, api: XTIOTOpenAPI, supported_unlock_types: list[str]) -> bool:
         if lock:
             open = "false"
         else:
             open = "true"
-        supported_unlock_types = self.get_supported_unlock_types(device, api)
         if "remoteUnlockWithoutPwd" in supported_unlock_types:
-            if self.call_door_operate(device, open, api):
-                return True
+            return self.call_door_operate(device, open, api)
+        return False
+    
+    def _lock_unlock_command_door_open(self, device: XTDevice, lock: bool, api: XTIOTOpenAPI, supported_unlock_types: list[str]) -> bool:
+        if "remoteUnlockWithoutPwd" in supported_unlock_types:
             if lock:
                 # Locking of the door
-                pass
+                return False
             else:
                 # Unlocking of the door
-                if self.call_door_open(device, api):
-                    return True
+                return self.call_door_open(device, api)
+        return False
+    
+    def _lock_unlock_command_dpcode_command(self, device: XTDevice, lock: bool, api: XTIOTOpenAPI) -> bool:
         if manual_unlock_code := cast(
             list[XTDPCode],
             device.get_preference(
@@ -510,14 +508,41 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         ):
             commands: list[dict[str, Any]] = []
             for dpcode in manual_unlock_code:
-                if status_value := device.status.get(dpcode):
-                    if not isinstance(status_value, bool):
-                        commands.append({"code": dpcode, "value": status_value})
-                    else:
-                        commands.append({"code": dpcode, "value": not lock})
+                status_value = device.status.get(dpcode)
+                if status_value is not None and not isinstance(status_value, bool):
+                    #Status value can sometimes be a string, in that case we want to send that string to the cloud
+                    commands.append({"code": dpcode, "value": status_value})
                 else:
+                    #Otherwise, we want to send the lock/unlock command as a boolean
                     commands.append({"code": dpcode, "value": not lock})
-            self.multi_manager.send_commands(device_id=device.id, commands=commands)
+            return self.multi_manager.send_commands(device_id=device.id, commands=commands)
+        return False
+
+    def send_lock_unlock_command_multi_api(
+        self, device: XTDevice, lock: bool, force_locking_mecanism: XTLockingMecanism = XTLockingMecanism.AUTO, api: XTIOTOpenAPI | None = None
+    ) -> bool:
+        if api is None:
+            if self.send_lock_unlock_command_multi_api(device, lock, force_locking_mecanism, self.non_user_api):
+                return True
+            else:
+                return self.send_lock_unlock_command_multi_api(device, lock, force_locking_mecanism, self.api)
+        
+        match force_locking_mecanism:
+            case XTLockingMecanism.DOOR_OPERATE:
+                return self._lock_unlock_command_door_operate(device, lock, api, self.get_supported_unlock_types(device, api))
+            case XTLockingMecanism.DOOR_OPEN:
+                return self._lock_unlock_command_door_open(device, lock, api, self.get_supported_unlock_types(device, api))
+            case XTLockingMecanism.DPCODE_COMMAND:
+                return self._lock_unlock_command_dpcode_command(device, lock, api)
+            case _:
+                # Default to AUTO behavior
+                unlock_types = self.get_supported_unlock_types(device, api)
+                if self._lock_unlock_command_door_operate(device, lock, api, unlock_types):
+                    return True
+                if self._lock_unlock_command_door_open(device, lock, api, unlock_types):
+                    return True
+                if self._lock_unlock_command_dpcode_command(device, lock, api):
+                    return True
         return False
 
     def test_lock_api_subscription(
@@ -896,7 +921,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                     f"{MESSAGE_SOURCE_TUYA_IOT}{XTDevice.XTDevicePreference.LOCK_CALL_DOOR_OPERATE}",
                     api_to_use,
                 )
-                ###return True #Don't return true even if it looks like it worked, some locks are weird
+                return True
         return False
 
     def call_door_open(self, device: XTDevice, api: XTIOTOpenAPI) -> bool:
@@ -920,5 +945,5 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                     f"{MESSAGE_SOURCE_TUYA_IOT}{XTDevice.XTDevicePreference.LOCK_CALL_DOOR_OPEN}",
                     api_to_use,
                 )
-                ###return True #Don't return true even if it looks like it worked, some locks are weird
+                return True
         return False

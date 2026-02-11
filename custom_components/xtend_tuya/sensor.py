@@ -1029,6 +1029,13 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             refresh_device_after_load=True,
             wrapper_class=(TuyaDPCodeBooleanWrapper,),
         ),
+        XTSensorEntityDescription(
+            key=XTDPCode.XT_LOCK_UNLOCK_MECANISM,
+            translation_key="xt_lock_unlock_mecanism",
+            entity_registry_visible_default=False,
+            restoredata=True,
+            refresh_device_after_load=True,
+        ),
     ),
     "cl": (*BATTERY_SENSORS,),
     "dbl": (

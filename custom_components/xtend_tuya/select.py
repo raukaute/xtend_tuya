@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from typing import cast
+from dataclasses import dataclass
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -15,6 +16,7 @@ from .multi_manager.multi_manager import (
     XTDevice,
 )
 from .const import (
+    CROSS_CATEGORY_DEVICE_DESCRIPTOR,
     TUYA_DISCOVERY_NEW,
     XTDPCode,
     XTMultiManagerPostSetupCallbackPriority,
@@ -29,7 +31,7 @@ from .ha_tuya_integration.tuya_integration_imports import (
     TuyaDPCodeEnumWrapper,
 )
 
-
+@dataclass(frozen=True)
 class XTSelectEntityDescription(TuyaSelectEntityDescription):
     """Describe an Tuya select entity."""
 
@@ -38,6 +40,8 @@ class XTSelectEntityDescription(TuyaSelectEntityDescription):
 
     # duplicate the entity if handled by another integration
     ignore_other_dp_code_handler: bool = False
+
+    dont_send_to_cloud: bool = False
 
     def get_entity_instance(
         self,
@@ -71,6 +75,14 @@ TEMPERATURE_SELECTS: tuple[XTSelectEntityDescription, ...] = (
 # default instructions set of each category end up being a select.
 # https://developer.tuya.com/en/docs/iot/standarddescription?id=K9i5ql6waswzq
 SELECTS: dict[str, tuple[XTSelectEntityDescription, ...]] = {
+    CROSS_CATEGORY_DEVICE_DESCRIPTOR:(
+        XTSelectEntityDescription(
+            key=XTDPCode.XT_LOCK_UNLOCK_MECANISM,
+            translation_key="xt_lock_unlock_mecanism",
+            entity_category=EntityCategory.CONFIG,
+            dont_send_to_cloud=True,
+        ),
+    ),
     "cz": (
         XTSelectEntityDescription(
             key=XTDPCode.SOLAR_EN_TOTAL,
@@ -442,3 +454,11 @@ class XTSelectEntity(XTEntity, TuyaSelectEntity):
             XTSelectEntityDescription(**description.__dict__),
             dpcode_wrapper,
         )
+    
+    async def async_select_option(self, option: str) -> None:
+        """Change the selected option."""
+        if hasattr(self.entity_description, "dont_send_to_cloud") and self.entity_description.dont_send_to_cloud: # type: ignore
+            self.device.status[self.entity_description.key] = option
+            self.device_manager.multi_device_listener.update_device(self.device, [self.entity_description.key])
+        else:
+            await super().async_select_option(option)
