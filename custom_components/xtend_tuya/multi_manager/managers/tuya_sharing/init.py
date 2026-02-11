@@ -336,6 +336,7 @@ class XTTuyaSharingDeviceManagerInterface(XTDeviceManagerInterface):
             )
 
         for device in self.sharing_account.device_manager.device_map.values():
+            LOGGER.warning(f"Reporting device after setup: {device.name}")
             # This should in theory already be done, I kept it here just to be safe...
             self.sharing_account.device_manager.copy_statuses_to_tuya(device)
 
