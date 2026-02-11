@@ -5,6 +5,7 @@ import hashlib
 import time
 from datetime import datetime
 import json
+from tuya_sharing import SharingTokenListener
 from tuya_sharing.customerapi import (
     CustomerApi,
     CustomerTokenInfo,
@@ -24,6 +25,16 @@ class XTSharingTokenInfo(CustomerTokenInfo):
 
 
 class XTSharingAPI(CustomerApi):
+    def __init__(
+            self,
+            token_info: CustomerTokenInfo,
+            client_id: str,
+            user_code: str,
+            end_point: str,
+            listener: SharingTokenListener
+    ):
+        super().__init__(token_info, client_id, user_code, end_point, listener)
+
     @staticmethod
     def get_api_from_customer_api(other_api: CustomerApi) -> XTSharingAPI:
         new_api = XTSharingAPI(
@@ -165,6 +176,7 @@ class XTSharingAPI(CustomerApi):
         ret = response.json()
 
         if not ret.get("success"):
+            LOGGER.warning(f"[SHARING API]API call error: Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}, Response: {json.dumps(ret, ensure_ascii=False, indent=2)}")
             raise Exception(
                 f"[SHARING API]API call error: Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}, Response: {json.dumps(ret, ensure_ascii=False, indent=2)}"
             )

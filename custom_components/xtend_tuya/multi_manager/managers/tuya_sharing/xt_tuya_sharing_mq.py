@@ -58,11 +58,10 @@ class XTSharingMQ(SharingMQ):
         self.shutting_down = False
 
     def subscribe_device(self, dev_id: str, device: CustomerDevice):
+        if device is None:
+            return
         self.device.append(device)
-        topic1 = self.subscribe_topic(dev_id, True)
-        topic2 = self.subscribe_topic(dev_id, False)
-        if self.client is not None:
-            self.client.subscribe([(topic1, 0), (topic2, 0)])
+        self.subscribe_to_mqtt_topics(dev_id)
     
     def un_subscribe_device(self, dev_id: str, support_local: bool):
         topic1 = self.subscribe_topic(dev_id, True)
@@ -107,3 +106,31 @@ class XTSharingMQ(SharingMQ):
 
         for listener in self.message_listeners:
             listener(msg_dict)
+    
+    def subscribe_to_mqtt_topics(self, dev_id: str) -> None:
+        topic1 = self.subscribe_topic(dev_id, True)
+        topic2 = self.subscribe_topic(dev_id, False)
+        if self.client is not None:
+            self.client.subscribe([(topic1, 0), (topic2, 0)])
+
+    def _on_connect(self, mqttc: mqtt.Client, user_data: Any, flags, rc):
+        if rc == 0:
+            if self.mq_config is None:
+                return
+            for owner_id in self.owner_ids:
+                mqttc.subscribe(self.mq_config.owner_topic.format(ownerId=owner_id))
+            batch_size = 10
+            for i in range(0, len(self.device), batch_size):
+                batch_devices = self.device[i:i + batch_size]
+                topics_to_subscribe = []
+                for dev in batch_devices:
+                    dev_id = dev.id
+                    topic_str = self.subscribe_topic(dev_id, False)
+                    topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
+                    topic_str = self.subscribe_topic(dev_id, True)
+                    topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
+
+                if topics_to_subscribe:
+                    mqttc.subscribe(topics_to_subscribe)
+        else:
+            super()._on_connect(mqttc, user_data, flags, rc)
