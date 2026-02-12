@@ -143,19 +143,25 @@ class CloudFixes:
 
     @staticmethod
     def _fix_isolated_status_range_and_function(device: XTDevice):
-        # Remove status_ranges and functions that are not linked to any local strategy item
+        # Remove status_ranges and functions that are not linked to any local strategy item or status
         status_range_pop: list[str] = []
         for status in device.status_range:
             dp_id: int = device.status_range[status].dp_id
-            if dp_id == 0 or dp_id not in device.local_strategy:
-                status_range_pop.append(status)
+            if dp_id != 0 and dp_id in device.local_strategy:
+                continue
+            if status in device.status:
+                continue
+            status_range_pop.append(status)
         for status in status_range_pop:
             device.status_range.pop(status)
         function_pop: list[str] = []
         for function in device.function:
             dp_id: int = device.function[function].dp_id
-            if dp_id == 0 or dp_id not in device.local_strategy:
-                function_pop.append(function)
+            if dp_id != 0 and dp_id in device.local_strategy:
+                continue
+            if function in device.status:
+                continue
+            function_pop.append(function)
         for function in function_pop:
             device.function.pop(function)
 
