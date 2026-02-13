@@ -295,7 +295,7 @@ class XTClimateHvacModeWrapper(TuyaClimateHvacModeWrapper):
                         has_heating = True
                     case HVACAction.COOLING:
                         has_cooling = True
-        LOGGER.warning(f"Remap found mode: has_heating({has_heating}), has_cooling({has_cooling}))")
+
         if has_heating and has_cooling:
             #Device has both cooling and heating, don't change anything
             return
@@ -569,6 +569,37 @@ class XTClimateEntity(XTEntity, TuyaClimateEntity):
         self.device_manager = device_manager
         self.entity_description = description
         self._hvac_action_wrapper = hvac_action_wrapper
+
+        # Re-Determine HVAC modes
+        self._attr_hvac_modes = []
+        if hvac_mode_wrapper:
+            self._attr_hvac_modes = [HVACMode.OFF]
+            for mode in hvac_mode_wrapper.options:
+                if mode != HVACMode.OFF:
+                    # OFF is always added first
+                    self._attr_hvac_modes.append(HVACMode(mode))
+
+        elif switch_wrapper:
+            self._attr_hvac_modes = [
+                HVACMode.OFF,
+                description.switch_only_hvac_mode,
+            ]
+
+        # Determine preset modes (ignore if empty options)
+        if preset_wrapper and preset_wrapper.options:
+            for option in preset_wrapper.options:
+                if hvac_mode := XT_HVAC_TO_HA.get(option):
+                    if hvac_mode not in self._attr_hvac_modes:
+                        self._attr_hvac_modes.append(hvac_mode)
+            if isinstance(self._hvac_mode_wrapper, XTClimateHvacModeWrapper):
+                if self._hvac_mode_wrapper.replace_heat_cool_with is not None:
+                    if HVACMode.HEAT_COOL in self._attr_hvac_modes:
+                        self._attr_hvac_modes.remove(HVACMode.HEAT_COOL)
+                    if self._hvac_mode_wrapper.replace_heat_cool_with not in self._attr_hvac_modes:
+                        self._attr_hvac_modes.append(self._hvac_mode_wrapper.replace_heat_cool_with)
+
+        else:
+            self._attr_hvac_modes.append(description.switch_only_hvac_mode)
 
     @property
     def hvac_action(self) -> HVACAction | None:  # type: ignore
