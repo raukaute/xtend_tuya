@@ -71,7 +71,7 @@ XT_HVAC_TO_HA = {
 }
 
 XT_HVAC_ACTION_TO_HA = {
-    "heating ": HVACAction.HEATING,
+    "heating": HVACAction.HEATING,
     "stop": HVACAction.IDLE,
 }
 
