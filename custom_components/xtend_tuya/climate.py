@@ -291,6 +291,7 @@ class XTClimateHvacModeWrapper(TuyaClimateHvacModeWrapper):
                         has_heating = True
                     case HVACAction.COOLING:
                         has_cooling = True
+        LOGGER.warning(f"Remap found mode: has_heating({has_heating}), has_cooling({has_cooling}))")
         if has_heating and has_cooling:
             #Device has both cooling and heating, don't change anything
             return
