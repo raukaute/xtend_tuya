@@ -578,6 +578,12 @@ class XTClimateEntity(XTEntity, TuyaClimateEntity):
         return self._attr_hvac_action
 
     @property
+    def hvac_mode(self) -> HVACMode | None:
+        value = super().hvac_mode
+        LOGGER.warning(f"HVAC_MODE: {value}")
+        return value
+
+    @property
     def preset_mode(self) -> str | None:
         """Return preset mode."""
         value = self._read_wrapper(self._preset_wrapper)
