@@ -304,6 +304,10 @@ class XTClimateHvacModeWrapper(TuyaClimateHvacModeWrapper):
         for mapping in self._mappings:
             if self._mappings[mapping] == HVACMode.HEAT_COOL:
                 self._mappings[mapping] = replace_hvac_with
+        self.options = [
+            ha_mode for ha_mode in self._mappings.values() if ha_mode is not None
+        ]
+            
         
 
 
