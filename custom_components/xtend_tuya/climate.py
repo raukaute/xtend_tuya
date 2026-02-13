@@ -253,15 +253,12 @@ class XTClimatePresetWrapper(TuyaClimatePresetWrapper):
         self.options = [
             tuya_mode for tuya_mode, ha_mode in mappings.items() if ha_mode is None
         ]
-        LOGGER.warning(f"PresetWrapper init: {self.options}")
 
     def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
         """Read the device status."""
-        raw = super(TuyaDPCodeEnumWrapper, self).read_device_status(device)
-        LOGGER.warning(f"Preset returned {raw} as value")
-        if raw in XT_HVAC_TO_HA:
-            return None
-        return raw
+        if (raw := super(TuyaDPCodeEnumWrapper, self).read_device_status(device)) in self.options:
+            return raw
+        return None
 
 class XTClimateHvacModeWrapper(TuyaClimateHvacModeWrapper):
     def __init__(self, dpcode: str, type_information: TuyaEnumTypeInformation) -> None:
@@ -548,7 +545,6 @@ class XTClimateEntity(XTEntity, TuyaClimateEntity):
     def preset_mode(self) -> str | None:
         """Return preset mode."""
         value = self._read_wrapper(self._preset_wrapper)
-        LOGGER.warning(f"Device {self.device.name}, preset_mode: {value}")
         return value
 
     @staticmethod
