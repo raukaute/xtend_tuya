@@ -599,7 +599,8 @@ class XTClimateEntity(XTEntity, TuyaClimateEntity):
                         self._attr_hvac_modes.append(self._hvac_mode_wrapper.replace_heat_cool_with)
 
         else:
-            self._attr_hvac_modes.append(description.switch_only_hvac_mode)
+            if description.switch_only_hvac_mode not in self._attr_hvac_modes:
+                self._attr_hvac_modes.append(description.switch_only_hvac_mode)
 
     @property
     def hvac_action(self) -> HVACAction | None:  # type: ignore
