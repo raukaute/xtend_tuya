@@ -540,6 +540,13 @@ class XTClimateEntity(XTEntity, TuyaClimateEntity):
         if raw_value in XT_HVAC_ACTION_TO_HA:
             return XT_HVAC_ACTION_TO_HA[raw_value]
         return self._attr_hvac_action
+    
+    @property
+    def preset_mode(self) -> str | None:
+        """Return preset mode."""
+        value = self._read_wrapper(self._preset_wrapper)
+        LOGGER.warning(f"Device {self.device.name}, preset_mode: {value}")
+        return value
 
     @staticmethod
     def get_entity_instance(
