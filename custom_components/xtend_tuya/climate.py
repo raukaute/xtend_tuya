@@ -597,11 +597,7 @@ class XTClimateEntity(XTEntity, TuyaClimateEntity):
                         self._attr_hvac_modes.remove(HVACMode.HEAT_COOL)
                     if self._hvac_mode_wrapper.replace_heat_cool_with not in self._attr_hvac_modes:
                         self._attr_hvac_modes.append(self._hvac_mode_wrapper.replace_heat_cool_with)
-
-        else:
-            if description.switch_only_hvac_mode not in self._attr_hvac_modes:
-                self._attr_hvac_modes.append(description.switch_only_hvac_mode)
-
+        
     @property
     def hvac_action(self) -> HVACAction | None:  # type: ignore
         """Return the current running hvac operation if supported."""
