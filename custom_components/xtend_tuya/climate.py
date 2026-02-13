@@ -270,14 +270,18 @@ class XTClimateHvacModeWrapper(TuyaClimateHvacModeWrapper):
         self.options = [
             ha_mode for ha_mode in self._mappings.values() if ha_mode is not None
         ]
+        self.replace_heat_cool_with: HVACMode | None = None
 
     def read_device_status(self, device: TuyaCustomerDevice) -> HVACMode | None:
         """Read the device status."""
         if (
             raw := super(TuyaDPCodeEnumWrapper, self).read_device_status(device)
-        ) not in self._mappings:
+        ) not in XT_HVAC_TO_HA:
             return None
-        return self._mappings[raw]
+        base_value = XT_HVAC_TO_HA[raw]
+        if base_value == HVACMode.HEAT_COOL and self.replace_heat_cool_with is not None:
+            return self.replace_heat_cool_with
+        return base_value
     
     def remap_heat_cool_based_on_action_wrapper(self, action_wrapper: TuyaDPCodeEnumWrapper | None):
         if action_wrapper is None:
@@ -295,20 +299,11 @@ class XTClimateHvacModeWrapper(TuyaClimateHvacModeWrapper):
         if has_heating and has_cooling:
             #Device has both cooling and heating, don't change anything
             return
-        replace_hvac_with = HVACMode.HEAT_COOL
         if has_heating:
-            replace_hvac_with = HVACMode.HEAT
+            self.replace_heat_cool_with = HVACMode.HEAT
         
         if has_cooling:
-            replace_hvac_with = HVACMode.COOL
-
-        for mapping in self._mappings:
-            if self._mappings[mapping] == HVACMode.HEAT_COOL:
-                self._mappings[mapping] = replace_hvac_with
-        self.options = [
-            ha_mode for ha_mode in self._mappings.values() if ha_mode is not None
-        ]
-        LOGGER.warning(f"Remap result: {self._mappings} <=> {self.options}")
+            self.replace_heat_cool_with = HVACMode.COOL
             
         
 
