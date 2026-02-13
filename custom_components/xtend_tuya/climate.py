@@ -307,6 +307,7 @@ class XTClimateHvacModeWrapper(TuyaClimateHvacModeWrapper):
         self.options = [
             ha_mode for ha_mode in self._mappings.values() if ha_mode is not None
         ]
+        LOGGER.warning(f"Remap result: {self._mappings} <=> {self.options}")
             
         
 
