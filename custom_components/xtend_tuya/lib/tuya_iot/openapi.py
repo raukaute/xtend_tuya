@@ -154,6 +154,7 @@ class TuyaOpenAPI:
         return sign, t
 
     def __refresh_access_token_if_need(self, path: str):
+        logger.debug(f"Check if need to refresh access token. {self.token_info}")
         if self.token_info.is_valid() is True:
             logger.debug(f"Access token is valid, no need to refresh. {self.token_info}")
             return
