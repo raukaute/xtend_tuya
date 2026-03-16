@@ -99,7 +99,7 @@ class TuyaOpenMQ(threading.Thread):
         self.topics: str = topics
 
     def _get_mqtt_config(self, first_pass=True) -> TuyaMQConfig:
-        if self.api.is_connect() is False and self.api.reconnect() is False:
+        if self.api.is_token_valid() is False and self.api.reconnect() is False:
             return TuyaMQConfig()
         if self.api.token_info.is_valid() is False:
             return TuyaMQConfig()
