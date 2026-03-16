@@ -155,9 +155,11 @@ class TuyaOpenAPI:
 
     def __refresh_access_token_if_need(self, path: str):
         if self.token_info.is_valid() is True:
+            logger.debug(f"Access token is valid, no need to refresh. {self.token_info}")
             return
 
         if path.startswith(self.__refresh_path):
+            logger.debug(f"Already requesting refresh token, no need to refresh again. {self.token_info}")
             return
 
         self.token_info.access_token = ""
@@ -170,6 +172,7 @@ class TuyaOpenAPI:
             response = self.get(
                 TO_C_SMART_HOME_REFRESH_TOKEN_API + self.token_info.refresh_token
             )
+        logger.debug(f"Refresh token response: {response}")
         self.token_info = TuyaTokenInfo(response)
 
     def set_dev_channel(self, dev_channel: str):
