@@ -1866,7 +1866,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         self, history: dict[str, dict[float, float]]
     ) -> None:
         LOGGER.warning(
-            f"Importing consumption history for {self.entity_id} with history {history}"
+            f"Importing consumption history for {self.entity_id}"
         )
         pass
 
