@@ -391,7 +391,7 @@
                 "name": "Manual lock"
             },
             "xt_import_electrical_history": {
-                "name": "Import consuimption history"
+                "name": "Import consumption history"
             },
             "xt_reset_add_ele": {
                 "name": "Reset consumption"

@@ -243,6 +243,7 @@ class DescriptionVirtualFunction:
     virtual_function_name: str
     virtual_function_value: VirtualFunctions | None = None
     vf_reset_state: list[XTDPCode] = field(default_factory=list)
+    vf_history_import_dpcodes: list[XTDPCode] = field(default_factory=list)
 
 
 class WorkMode(StrEnum):

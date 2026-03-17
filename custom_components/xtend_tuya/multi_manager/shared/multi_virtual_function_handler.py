@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any
+from datetime import datetime
 from ...const import (
     VirtualFunctions,
     DescriptionVirtualFunction,
@@ -60,7 +61,8 @@ class XTVirtualFunctionHandler:
                                 description.key,
                                 virtual_function.name,
                                 VirtualFunctions(virtual_function.value),
-                                description.vf_reset_state,
+                                description.vf_reset_state if description.vf_reset_state is not None else [],
+                                description.vf_history_import_dpcodes if description.vf_history_import_dpcodes is not None else [],
                             )
                             to_return.append(found_virtual_function)
         return to_return
@@ -85,9 +87,11 @@ class XTVirtualFunctionHandler:
                     if needs_update:
                         self.multi_manager.multi_device_listener.update_device(device)
                 case VirtualFunctions.FUNCTION_IMPORT_ELECTRICAL_HISTORY:
+                    now = datetime.now()
+                    start_date = now.replace(year=now.year - 5)
                     result = self.multi_manager.get_device_consumption_statistics_by_day(
                         device_id=device_id,
-                        start_day="20260101",
-                        end_day="20260201",
+                        start_day=start_date.strftime("%Y%m%d"),
+                        end_day=now.strftime("%Y%m%d"),
                     )
                     LOGGER.warning(f"Importing electrical history for device {device_id}, got result: {result}")
