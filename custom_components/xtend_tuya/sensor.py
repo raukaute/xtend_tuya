@@ -1,7 +1,7 @@
 """Support for Tuya sensors."""
 
 from __future__ import annotations
-from typing import cast, Callable
+from typing import cast, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
 from datetime import datetime
 from homeassistant.components.sensor import (
@@ -47,11 +47,6 @@ from .util import (
     restrict_descriptor_category,
     b64todatetime,
 )
-from .multi_manager.multi_manager import (
-    XTConfigEntry,
-    MultiManager,
-    XTDevice,
-)
 from .const import (
     TUYA_DISCOVERY_NEW,
     XTDPCode,
@@ -81,6 +76,13 @@ from .ha_tuya_integration.tuya_integration_imports import (
 from .models import (
     XTDPCodeIntegerNoMinMaxCheckWrapper,
 )
+
+if TYPE_CHECKING:
+    from .multi_manager.multi_manager import (
+        XTConfigEntry,
+        MultiManager,
+        XTDevice,
+    )
 
 COMPOUND_KEY: list[str | tuple[str, ...]] = ["key", "dpcode"]
 
@@ -1857,9 +1859,13 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             return
         self.device.status[dpcode] = default_value
         self.schedule_update_ha_state()
-    
-    def import_consumption_history(self, history: dict[str, dict[float, float]]) -> None:
-        LOGGER.warning(f"Importing consumption history for {self.entity_id} with history {history}")
+
+    def import_consumption_history(
+        self, history: dict[str, dict[float, float]]
+    ) -> None:
+        LOGGER.warning(
+            f"Importing consumption history for {self.entity_id} with history {history}"
+        )
         pass
 
     async def async_added_to_hass(self) -> None:
