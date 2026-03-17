@@ -97,8 +97,8 @@ class XTVirtualFunctionHandler:
                     )
                     result_hours = self.multi_manager.get_device_consumption_statistics_by_hour(
                         device_id=device_id,
-                        start_day_and_hour=five_years_and_six_days_ago.strftime("%Y%m%d%H"),
-                        end_day_and_hour=six_days_ago.strftime("%Y%m%d%H"),
+                        start_day_and_hour=six_days_ago.strftime("%Y%m%d%H"),
+                        end_day_and_hour=now.strftime("%Y%m%d%H"),
                     )
                     overall_result = dict(result_days if result_days else {})
                     overall_result.update(result_hours if result_hours else {})
