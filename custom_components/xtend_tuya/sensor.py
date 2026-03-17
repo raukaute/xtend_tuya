@@ -1,6 +1,7 @@
 """Support for Tuya sensors."""
 
 from __future__ import annotations
+import asyncio
 from typing import cast, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -72,6 +73,9 @@ from .ha_tuya_integration.tuya_integration_imports import (
     TuyaDPCodeEnumWrapper,
     TuyaDPCodeStringWrapper,
     tuya_sensor_get_dpcode_wrapper,
+)
+from .multi_manager.shared.threading import (
+    XTEventLoopProtector,
 )
 from .models import (
     XTDPCodeIntegerNoMinMaxCheckWrapper,
@@ -1868,7 +1872,36 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         LOGGER.warning(
             f"Importing consumption history for {self.entity_id}"
         )
-        pass
+        XTEventLoopProtector.execute_out_of_event_loop(self._import_consumption_history, history)
+
+    async def _import_consumption_history(
+        self, history: dict[str, dict[float, float]]
+    ) -> None:
+        LOGGER.warning(
+            f"Started importing consumption history for {self.entity_id}"
+        )
+
+        if await self._clear_statistics():
+            LOGGER.warning(
+                f"Cleared existing statistics for {self.entity_id} successfully"
+            )
+
+    async def _clear_statistics(self) -> bool:
+        """Clear statistics for this sensor."""
+        done_event = asyncio.Event()
+
+        def clear_statistics_done() -> None:
+            self.hass.loop.call_soon_threadsafe(done_event.set)
+
+        get_recorder_instance(self.hass).async_clear_statistics(
+            [self.entity_id], on_done=clear_statistics_done
+        )
+        try:
+            async with asyncio.timeout(300):
+                await done_event.wait()
+        except TimeoutError:
+            return False
+        return True
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
