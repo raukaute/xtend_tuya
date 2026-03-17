@@ -13,6 +13,13 @@ from homeassistant.components.sensor import (
 from homeassistant.components.sensor.const import (
     DEVICE_CLASS_UNITS as SENSOR_DEVICE_CLASS_UNITS,
 )
+from homeassistant.components.recorder.models.statistics import (
+    StatisticMeanType,
+)
+from homeassistant.components.recorder.statistics import (
+    StatisticsRow,
+    async_import_statistics,
+)
 from homeassistant.const import (
     UnitOfEnergy,
     UnitOfTime,
@@ -32,6 +39,9 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.typing import (
     StateType,
 )
+from homeassistant.helpers.recorder import (
+    get_instance as get_recorder_instance,
+)
 from .util import (
     get_default_value,
     restrict_descriptor_category,
@@ -50,6 +60,7 @@ from .const import (
     CROSS_CATEGORY_DEVICE_DESCRIPTOR,
     XTMultiManagerPostSetupCallbackPriority,
     LOGGER,
+    XTMultiManagerProperties,
 )
 from .entity import (
     XTEntity,
@@ -1819,6 +1830,19 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         self.device = device
         self.device_manager = device_manager
         self.entity_description = description  # type: ignore
+        all_energy_sensors: dict[str, list[XTSensorEntity]] = cast(
+            dict[str, list[XTSensorEntity]],
+            self.device_manager.get_general_property(
+                XTMultiManagerProperties.ENERGY_SENSOR, {}
+            ),
+        )
+        if self.device.id not in all_energy_sensors:
+            all_energy_sensors[self.device.id] = [self]
+        else:
+            all_energy_sensors[self.device.id].append(self)
+        self.device_manager.set_general_property(
+            XTMultiManagerProperties.ENERGY_SENSOR, all_energy_sensors
+        )
 
     def reset_value(self, _: datetime | None, manual_call: bool = False) -> None:
         if manual_call and self.cancel_reset_after_x_seconds is not None:
@@ -1833,6 +1857,10 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             return
         self.device.status[dpcode] = default_value
         self.schedule_update_ha_state()
+    
+    def import_consumption_history(self, history: dict[str, dict[float, float]]) -> None:
+        LOGGER.warning(f"Importing consumption history for {self.entity_id} with history {history}")
+        pass
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""

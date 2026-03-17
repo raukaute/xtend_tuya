@@ -157,6 +157,7 @@ class XTMultiManagerProperties(StrEnum):
     LOCK_DEVICE_ID = "lock_device_id"
     CAMERA_DEVICE_ID = "camera_device_id"
     IR_DEVICE_ID = "ir_device_id"
+    ENERGY_SENSOR = "energy_sensor"
 
 
 class XTLockingMechanism(StrEnum):
