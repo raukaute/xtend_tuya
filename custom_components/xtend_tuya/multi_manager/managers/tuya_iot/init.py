@@ -534,12 +534,12 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                 )
         return False
 
-    def get_device_consumption_statistics_by_day(self, device_id: str, start_day: str, end_day: str) -> dict[str, dict[str, float]] | None:
+    def get_device_consumption_statistics_by_day(self, device_id: str, start_day: str, end_day: str) -> dict[str, dict[float, float]] | None:
         if self.iot_account is None:
             return None
         
         supported_codes = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/all-statistic-type")
-        return_dict: dict[str, dict[str, float]] = {}
+        return_dict: dict[str, dict[float, float]] = {}
         for supported_code in supported_codes.get("result", []):
             stat_type = supported_code.get("stat_type")
             code = supported_code.get("code")
@@ -552,17 +552,50 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                 "stat_type": "sum"
             }
             stat_result = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/statistics/days", params)
+            temp_dict: dict[str, str] = {}
             if result := stat_result.get("result", None):
-                return_dict[code] = result.get("days", {})
-            return_copy = copy.deepcopy(return_dict)
-            for code in return_copy:
-                for day in return_copy[code]:
-                    if return_copy[code][day] == "0.00":
-                        del return_dict[code][day]
+                temp_dict = result.get("days", {})
+                for day in copy.deepcopy(temp_dict):
+                    if temp_dict[day] == "0.00":
+                        del temp_dict[day]
                     else:
                         break
-                for day in return_dict[code]:
-                    return_dict[code][day] = float(return_dict[code][day])
+                for day in temp_dict:
+                    if code not in return_dict:
+                        return_dict[code] = {}
+                    return_dict[code][datetime.strptime(day, "%Y%m%d").timestamp()] = float(temp_dict[day])
+        return return_dict
+    
+    def get_device_consumption_statistics_by_hour(self, device_id: str, start_day_and_hour: str, end_day_and_hour: str) -> dict[str, dict[float, float]] | None:
+        if self.iot_account is None:
+            return None
+        
+        supported_codes = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/all-statistic-type")
+        return_dict: dict[str, dict[float, float]] = {}
+        for supported_code in supported_codes.get("result", []):
+            stat_type = supported_code.get("stat_type")
+            code = supported_code.get("code")
+            if stat_type != "sum":
+                continue
+            params = {
+                "code": code,
+                "start_hour": start_day_and_hour,
+                "end_hour": end_day_and_hour,
+                "stat_type": "sum"
+            }
+            stat_result = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/statistics/hours", params)
+            temp_dict: dict[str, str] = {}
+            if result := stat_result.get("result", None):
+                temp_dict = result.get("hours", {})
+                for day_and_hour in copy.deepcopy(temp_dict):
+                    if temp_dict[day_and_hour] == "0.00":
+                        del temp_dict[day_and_hour]
+                    else:
+                        break
+                for day_and_hour in temp_dict:
+                    if code not in return_dict:
+                        return_dict[code] = {}
+                    return_dict[code][datetime.strptime(day_and_hour, "%Y%m%d%H").timestamp()] = float(temp_dict[day_and_hour])
         return return_dict
 
     def convert_to_xt_device(

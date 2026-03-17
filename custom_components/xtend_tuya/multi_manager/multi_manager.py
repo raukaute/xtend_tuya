@@ -548,9 +548,15 @@ class MultiManager:  # noqa: F811
             if account.trigger_scene(home_id, scene_id):
                 return
     
-    def get_device_consumption_statistics_by_day(self, device_id: str, start_day: str, end_day: str) -> dict[str, dict[str, float]] | None:
+    def get_device_consumption_statistics_by_day(self, device_id: str, start_day: str, end_day: str) -> dict[str, dict[float, float]] | None:
         for account in self.accounts.values():
             if stats := account.get_device_consumption_statistics_by_day(device_id, start_day, end_day):
+                return stats
+        return None
+    
+    def get_device_consumption_statistics_by_hour(self, device_id: str, start_day_and_hour: str, end_day_and_hour: str) -> dict[str, dict[float, float]] | None:
+        for account in self.accounts.values():
+            if stats := account.get_device_consumption_statistics_by_hour(device_id, start_day_and_hour, end_day_and_hour):
                 return stats
         return None
 
