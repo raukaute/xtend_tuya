@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, TYPE_CHECKING, cast
+from typing import Any, cast
 from datetime import datetime
 from ...const import (
     VirtualFunctions,
@@ -11,8 +11,7 @@ import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.shared_classes as shared
 import custom_components.xtend_tuya.multi_manager.shared.merging_manager as merging_manager
 
-if TYPE_CHECKING:
-    from ...sensor import XTSensorEntity
+import custom_components.xtend_tuya.sensor as sensor
 
 
 class XTVirtualFunctionHandler:
@@ -128,8 +127,8 @@ class XTVirtualFunctionHandler:
                         result_days if result_days is not None else {},
                         result_hours if result_hours is not None else {},
                     ))
-                    all_energy_sensors: dict[str, list[XTSensorEntity]] = cast(
-                        dict[str, list[XTSensorEntity]],
+                    all_energy_sensors: dict[str, list[sensor.XTSensorEntity]] = cast(
+                        dict[str, list[sensor.XTSensorEntity]],
                         self.multi_manager.get_general_property(
                             XTMultiManagerProperties.ENERGY_SENSOR, {}
                         ),
