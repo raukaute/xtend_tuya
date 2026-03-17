@@ -1832,19 +1832,21 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         self.device = device
         self.device_manager = device_manager
         self.entity_description = description  # type: ignore
-        all_energy_sensors: dict[str, list[XTSensorEntity]] = cast(
-            dict[str, list[XTSensorEntity]],
-            self.device_manager.get_general_property(
-                XTMultiManagerProperties.ENERGY_SENSOR, {}
-            ),
-        )
-        if self.device.id not in all_energy_sensors:
-            all_energy_sensors[self.device.id] = [self]
-        else:
-            all_energy_sensors[self.device.id].append(self)
-        self.device_manager.set_general_property(
-            XTMultiManagerProperties.ENERGY_SENSOR, all_energy_sensors
-        )
+        if (self.entity_description.state_class in [SensorStateClass.TOTAL_INCREASING, SensorStateClass.TOTAL]
+            and self.entity_description.device_class in [SensorDeviceClass.ENERGY]):
+            all_energy_sensors: dict[str, list[XTSensorEntity]] = cast(
+                dict[str, list[XTSensorEntity]],
+                self.device_manager.get_general_property(
+                    XTMultiManagerProperties.ENERGY_SENSOR, {}
+                ),
+            )
+            if self.device.id not in all_energy_sensors:
+                all_energy_sensors[self.device.id] = [self]
+            else:
+                all_energy_sensors[self.device.id].append(self)
+            self.device_manager.set_general_property(
+                XTMultiManagerProperties.ENERGY_SENSOR, all_energy_sensors
+            )
 
     def reset_value(self, _: datetime | None, manual_call: bool = False) -> None:
         if manual_call and self.cancel_reset_after_x_seconds is not None:
