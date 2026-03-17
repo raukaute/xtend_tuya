@@ -583,7 +583,6 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             else:
                 query_ranges.append((start_day_and_hour_dt.strftime("%Y%m%d%H"), end_day_and_hour_dt.strftime("%Y%m%d%H")))
                 break
-        LOGGER.warning(f"Querying hourly statistics for device {device_id} with the following ranges: {query_ranges}")
         for supported_code in supported_codes.get("result", []):
             stat_type = supported_code.get("stat_type")
             code = supported_code.get("code")
