@@ -533,6 +533,36 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                 )
         return False
 
+    def get_device_consumption_statistics_by_day(self, device_id: str, start_day: str, end_day: str) -> dict[str, dict[str, float]] | None:
+        if self.iot_account is None:
+            return None
+        
+        supported_codes = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/all-statistic-type")
+        return_dict: dict[str, dict[str, float]] = {}
+        for supported_code in supported_codes.get("result", []):
+            stat_type = supported_code.get("stat_type")
+            code = supported_code.get("code")
+            if stat_type != "sum":
+                continue
+            params = {
+                "code": code,
+                "start_day": start_day,
+                "end_day": end_day,
+                "stat_type": "sum"
+            }
+            stat_result = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/statistics/days", params)
+            if result := stat_result.get("result", None):
+                return_dict[code] = result.get("days", {})
+            for code in return_dict:
+                for day in return_dict[code]:
+                    if return_dict[code][day] == "0.00":
+                        del return_dict[code][day]
+                    else:
+                        break
+                for day in return_dict[code]:
+                    return_dict[code][day] = float(return_dict[code][day])
+        return return_dict
+
     def convert_to_xt_device(
         self, device: Any, device_source_priority: XTDeviceSourcePriority | None = None
     ) -> XTDevice:
@@ -556,9 +586,9 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             params = json.loads(payload)
         match method:
             case "GET":
-                return self.iot_account.device_manager.non_user_api.get(url, params)
+                return self.iot_account.device_manager.api.get(url, params)
             case "POST":
-                return self.iot_account.device_manager.non_user_api.post(url, params)
+                return self.iot_account.device_manager.api.post(url, params)
         return None
 
     def get_webrtc_sdp_answer(

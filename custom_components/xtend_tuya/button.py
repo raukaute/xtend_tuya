@@ -50,6 +50,29 @@ from .multi_manager.shared.data_entry.ir_device_data_entry import (
     XTDataEntryManager,
 )
 
+XT_ELECTRICITY_DPCODES: list[XTDPCode] = [
+    XTDPCode.ADD_ELE,
+    XTDPCode.ADD_ELE_TODAY,
+    XTDPCode.ADD_ELE_THIS_MONTH,
+    XTDPCode.ADD_ELE_THIS_YEAR,
+    XTDPCode.ADD_ELE2,
+    XTDPCode.ADD_ELE2_TODAY,
+    XTDPCode.ADD_ELE2_THIS_MONTH,
+    XTDPCode.ADD_ELE2_THIS_YEAR,
+    XTDPCode.ELECTRIC,
+    XTDPCode.ELECTRIC_TODAY,
+    XTDPCode.ELECTRIC_THIS_MONTH,
+    XTDPCode.ELECTRIC_THIS_YEAR,
+    XTDPCode.POWER_CONSUMPTION,
+    XTDPCode.REVERSE_ENERGY_A,
+    XTDPCode.REVERSE_ENERGY_B,
+    XTDPCode.REVERSE_ENERGY_C,
+    XTDPCode.REVERSE_ENERGY_T,
+    XTDPCode.REVERSE_ENERGY_TOTAL,
+    XTDPCode.TOTALENERGYCONSUMED,
+    XTDPCode.TOTAL_FORWARD_ENERGY,
+]
+
 
 class XTVirtualButtonTypeInformation(TuyaBooleanTypeInformation):
     """XT Virtual Button Type Information."""
@@ -178,6 +201,7 @@ class XTIRActionDPCodeWrapper(TuyaDPCodeWrapper):
 class XTButtonEntityDescription(TuyaButtonEntityDescription):
     virtual_function: VirtualFunctions | None = None
     vf_reset_state: list[XTDPCode] | None = None
+    vf_history_import_dpcodes: list[XTDPCode] | None = None
     is_ir_descriptor: bool = False
     ir_hub_information: XTIRHubInformation | None = None
     ir_remote_information: XTIRRemoteInformation | None = None
@@ -207,31 +231,17 @@ IR_HUB_CATEGORY_LIST: list[str] = [
 
 CONSUMPTION_BUTTONS: tuple[XTButtonEntityDescription, ...] = (
     XTButtonEntityDescription(
-        key=XTDPCode.RESET_ADD_ELE,
+        key=XTDPCode.XT_RESET_ADD_ELE,
         virtual_function=VirtualFunctions.FUNCTION_RESET_STATE,
-        vf_reset_state=[
-            XTDPCode.ADD_ELE,
-            XTDPCode.ADD_ELE_TODAY,
-            XTDPCode.ADD_ELE_THIS_MONTH,
-            XTDPCode.ADD_ELE_THIS_YEAR,
-            XTDPCode.ADD_ELE2,
-            XTDPCode.ADD_ELE2_TODAY,
-            XTDPCode.ADD_ELE2_THIS_MONTH,
-            XTDPCode.ADD_ELE2_THIS_YEAR,
-            XTDPCode.ELECTRIC,
-            XTDPCode.ELECTRIC_TODAY,
-            XTDPCode.ELECTRIC_THIS_MONTH,
-            XTDPCode.ELECTRIC_THIS_YEAR,
-            XTDPCode.POWER_CONSUMPTION,
-            XTDPCode.REVERSE_ENERGY_A,
-            XTDPCode.REVERSE_ENERGY_B,
-            XTDPCode.REVERSE_ENERGY_C,
-            XTDPCode.REVERSE_ENERGY_T,
-            XTDPCode.REVERSE_ENERGY_TOTAL,
-            XTDPCode.TOTALENERGYCONSUMED,
-            XTDPCode.TOTAL_FORWARD_ENERGY,
-        ],
-        translation_key="reset_add_ele",
+        vf_reset_state=XT_ELECTRICITY_DPCODES,
+        translation_key="xt_reset_add_ele",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    XTButtonEntityDescription(
+        key=XTDPCode.XT_IMPORT_ELECTRICAL_HISTORY,
+        virtual_function=VirtualFunctions.FUNCTION_IMPORT_ELECTRICAL_HISTORY,
+        vf_history_import_dpcodes=XT_ELECTRICITY_DPCODES,
+        translation_key="xt_import_electrical_history",
         entity_category=EntityCategory.CONFIG,
     ),
 )
@@ -511,6 +521,27 @@ async def async_setup_entry(
                         ):
                             for reset_state in description.vf_reset_state:
                                 if reset_state in device.status:
+                                    if dpcode_wrapper := XTVirtualButtonDPCodeWrapper.find_dpcode(
+                                        device,
+                                        description.key,
+                                        prefer_function=True,
+                                    ):
+                                        entities.append(
+                                            XTButtonEntity.get_entity_instance(
+                                                description,
+                                                device,
+                                                hass_data.manager,
+                                                dpcode_wrapper,
+                                            )
+                                        )
+                                    break
+                    for description in category_descriptions:
+                        if (
+                            hasattr(description, "vf_history_import_dpcodes")
+                            and description.vf_history_import_dpcodes
+                        ):
+                            for history_import_dpcode in description.vf_history_import_dpcodes:
+                                if history_import_dpcode in device.status:
                                     if dpcode_wrapper := XTVirtualButtonDPCodeWrapper.find_dpcode(
                                         device,
                                         description.key,

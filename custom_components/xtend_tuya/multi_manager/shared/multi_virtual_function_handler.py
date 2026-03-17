@@ -3,6 +3,7 @@ from typing import Any
 from ...const import (
     VirtualFunctions,
     DescriptionVirtualFunction,
+    LOGGER,
 )
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.shared_classes as shared
@@ -74,14 +75,19 @@ class XTVirtualFunctionHandler:
             virtual_function: DescriptionVirtualFunction = command["virtual_function"]
             """command_code: str = command["code"]
             command_value: Any = command["value"]"""
-            if (
-                virtual_function.virtual_function_value
-                == VirtualFunctions.FUNCTION_RESET_STATE
-            ):
-                needs_update = False
-                for state_to_reset in virtual_function.vf_reset_state:
-                    if state_to_reset in device.status:
-                        device.status[state_to_reset] = 0
-                        needs_update = True
-                if needs_update:
-                    self.multi_manager.multi_device_listener.update_device(device)
+            match virtual_function.virtual_function_value:
+                case VirtualFunctions.FUNCTION_RESET_STATE:
+                    needs_update = False
+                    for state_to_reset in virtual_function.vf_reset_state:
+                        if state_to_reset in device.status:
+                            device.status[state_to_reset] = 0
+                            needs_update = True
+                    if needs_update:
+                        self.multi_manager.multi_device_listener.update_device(device)
+                case VirtualFunctions.FUNCTION_IMPORT_ELECTRICAL_HISTORY:
+                    result = self.multi_manager.get_device_consumption_statistics_by_day(
+                        device_id=device_id,
+                        start_day="20260101",
+                        end_day="20260201",
+                    )
+                    LOGGER.warning(f"Importing electrical history for device {device_id}, got result: {result}")

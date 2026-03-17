@@ -44,6 +44,9 @@ class XTDeviceManagerAPIInterface(ABC):
 
     def trigger_scene(self, home_id: str, scene_id: str) -> bool:
         return False
+    
+    def get_device_consumption_statistics_by_day(self, device_id: str, start_day: str, end_day: str) -> dict[str, dict[str, float]] | None:
+        return None
 
 
 class XTDeviceManagerInfraRedInterface(ABC):

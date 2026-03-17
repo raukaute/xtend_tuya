@@ -547,6 +547,12 @@ class MultiManager:  # noqa: F811
         for account in self.accounts.values():
             if account.trigger_scene(home_id, scene_id):
                 return
+    
+    def get_device_consumption_statistics_by_day(self, device_id: str, start_day: str, end_day: str) -> dict[str, dict[str, float]] | None:
+        for account in self.accounts.values():
+            if stats := account.get_device_consumption_statistics_by_day(device_id, start_day, end_day):
+                return stats
+        return None
 
     def update_device_online_status(self, device_id: str):
         if device := self.device_map.get(device_id, None):
