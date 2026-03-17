@@ -1,7 +1,7 @@
 from __future__ import annotations
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import copy
 from typing import Optional, Literal, Any
 from enum import StrEnum
@@ -572,30 +572,43 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
         
         supported_codes = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/all-statistic-type")
         return_dict: dict[str, dict[float, float]] = {}
+        query_ranges: list[tuple[str, str]] = []
+        start_day_and_hour_dt = datetime.strptime(start_day_and_hour, "%Y%m%d%H")
+        end_day_and_hour_dt = datetime.strptime(end_day_and_hour, "%Y%m%d%H")
+        while start_day_and_hour_dt < end_day_and_hour_dt:
+            end_of_start_day = start_day_and_hour_dt.replace(hour=23)
+            if end_of_start_day < end_day_and_hour_dt:
+                query_ranges.append((start_day_and_hour_dt.strftime("%Y%m%d%H"), end_of_start_day.strftime("%Y%m%d%H")))
+                start_day_and_hour_dt = end_of_start_day.replace(hour=0) + timedelta(days=1)
+            else:
+                query_ranges.append((start_day_and_hour_dt.strftime("%Y%m%d%H"), end_day_and_hour_dt.strftime("%Y%m%d%H")))
+                break
+        LOGGER.warning(f"Querying hourly statistics for device {device_id} with the following ranges: {query_ranges}")
         for supported_code in supported_codes.get("result", []):
             stat_type = supported_code.get("stat_type")
             code = supported_code.get("code")
             if stat_type != "sum":
                 continue
-            params = {
-                "code": code,
-                "start_hour": start_day_and_hour,
-                "end_hour": end_day_and_hour,
-                "stat_type": "sum"
-            }
-            stat_result = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/statistics/hours", params)
-            temp_dict: dict[str, str] = {}
-            if result := stat_result.get("result", None):
-                temp_dict = result.get("hours", {})
-                for day_and_hour in copy.deepcopy(temp_dict):
-                    if temp_dict[day_and_hour] == "0.00":
-                        del temp_dict[day_and_hour]
-                    else:
-                        break
-                for day_and_hour in temp_dict:
-                    if code not in return_dict:
-                        return_dict[code] = {}
-                    return_dict[code][datetime.strptime(day_and_hour, "%Y%m%d%H").timestamp()] = float(temp_dict[day_and_hour])
+            for start, end in query_ranges:
+                params = {
+                    "code": code,
+                    "start_hour": start,
+                    "end_hour": end,
+                    "stat_type": "sum"
+                }
+                stat_result = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/statistics/hours", params)
+                temp_dict: dict[str, str] = {}
+                if result := stat_result.get("result", None):
+                    temp_dict = result.get("hours", {})
+                    for day_and_hour in copy.deepcopy(temp_dict):
+                        if temp_dict[day_and_hour] == "0.00":
+                            del temp_dict[day_and_hour]
+                        else:
+                            break
+                    for day_and_hour in temp_dict:
+                        if code not in return_dict:
+                            return_dict[code] = {}
+                        return_dict[code][datetime.strptime(day_and_hour, "%Y%m%d%H").timestamp()] = float(temp_dict[day_and_hour])
         return return_dict
 
     def convert_to_xt_device(
