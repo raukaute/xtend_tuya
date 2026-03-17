@@ -2,6 +2,7 @@ from __future__ import annotations
 import requests
 import json
 from datetime import datetime
+import copy
 from typing import Optional, Literal, Any
 from enum import StrEnum
 from webrtc_models import (
@@ -553,9 +554,10 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             stat_result = self.iot_account.device_manager.api.get(f"/v1.0/devices/{device_id}/statistics/days", params)
             if result := stat_result.get("result", None):
                 return_dict[code] = result.get("days", {})
-            for code in return_dict:
-                for day in return_dict[code]:
-                    if return_dict[code][day] == "0.00":
+            return_copy = copy.deepcopy(return_dict)
+            for code in return_copy:
+                for day in return_copy[code]:
+                    if return_copy[code][day] == "0.00":
                         del return_dict[code][day]
                     else:
                         break
