@@ -8,6 +8,7 @@ from ...const import (
 )
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.shared_classes as shared
+import custom_components.xtend_tuya.multi_manager.shared.merging_manager as merging_manager
 
 
 class XTVirtualFunctionHandler:
@@ -89,17 +90,17 @@ class XTVirtualFunctionHandler:
                 case VirtualFunctions.FUNCTION_IMPORT_ELECTRICAL_HISTORY:
                     now = datetime.now()
                     six_days_ago = now.replace(day=now.day - 6, hour=0, minute=0, second=0, microsecond=0)
+                    seven_days_ago = now.replace(day=now.day - 7, hour=0, minute=0, second=0, microsecond=0)
                     five_years_and_six_days_ago = six_days_ago.replace(year=six_days_ago.year - 5)
                     result_days = self.multi_manager.get_device_consumption_statistics_by_day(
                         device_id=device_id,
                         start_day=five_years_and_six_days_ago.strftime("%Y%m%d"),
-                        end_day=six_days_ago.strftime("%Y%m%d"),
+                        end_day=seven_days_ago.strftime("%Y%m%d"),
                     )
                     result_hours = self.multi_manager.get_device_consumption_statistics_by_hour(
                         device_id=device_id,
                         start_day_and_hour=six_days_ago.strftime("%Y%m%d%H"),
                         end_day_and_hour=now.strftime("%Y%m%d%H"),
                     )
-                    overall_result = dict(result_days if result_days else {})
-                    overall_result.update(result_hours if result_hours else {})
+                    overall_result = merging_manager.XTMergingManager.smart_merge(result_days if result_days is not None else {}, result_hours if result_hours is not None else {})
                     LOGGER.warning(f"Importing electrical history for device {device_id}, got result: {overall_result}")
