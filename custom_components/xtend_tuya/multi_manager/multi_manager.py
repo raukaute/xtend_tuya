@@ -53,7 +53,9 @@ from .shared.multi_device_listener import (
 from .shared.multi_virtual_state_handler import (
     XTVirtualStateHandler,
 )
-import custom_components.xtend_tuya.multi_manager.shared.multi_virtual_function_handler as multi_virtual_function_handler
+from .shared.multi_virtual_function_handler import (
+    XTVirtualFunctionHandler,
+)
 from ..util import (
     append_lists,
 )
@@ -70,7 +72,7 @@ class MultiManager:  # noqa: F811
     def __init__(self, hass: HomeAssistant, config_entry: XTConfigEntry) -> None:
         self.config_entry = config_entry
         self.virtual_state_handler = XTVirtualStateHandler(self)
-        self.virtual_function_handler = multi_virtual_function_handler.XTVirtualFunctionHandler(self)
+        self.virtual_function_handler = XTVirtualFunctionHandler(self)
         self.multi_mqtt_queue: MultiMQTTQueue = MultiMQTTQueue(self)
         self.multi_device_listener: MultiDeviceListener = MultiDeviceListener(
             hass, self

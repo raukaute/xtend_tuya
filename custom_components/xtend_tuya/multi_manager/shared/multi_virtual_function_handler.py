@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, cast
+from typing import Any, cast, TYPE_CHECKING
 from datetime import datetime
 from ...const import (
     VirtualFunctions,
@@ -7,12 +7,12 @@ from ...const import (
     LOGGER,  # noqa: F401
     XTMultiManagerProperties,
 )
-import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.shared_classes as shared
 import custom_components.xtend_tuya.multi_manager.shared.merging_manager as merging_manager
 
 import custom_components.xtend_tuya.sensor as sensor
-
+if TYPE_CHECKING:
+    import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 
 class XTVirtualFunctionHandler:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
