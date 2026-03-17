@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 from typing import cast, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, UTC
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
@@ -16,9 +16,10 @@ from homeassistant.components.sensor.const import (
 )
 from homeassistant.components.recorder.models.statistics import (
     StatisticMeanType,
+    StatisticMetaData,
+    StatisticData,
 )
 from homeassistant.components.recorder.statistics import (
-    StatisticsRow,
     async_import_statistics,
 )
 from homeassistant.const import (
@@ -57,6 +58,7 @@ from .const import (
     XTMultiManagerPostSetupCallbackPriority,
     LOGGER,
     XTMultiManagerProperties,
+    DOMAIN,
 )
 from .entity import (
     XTEntity,
@@ -1836,8 +1838,10 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         self.device = device
         self.device_manager = device_manager
         self.entity_description = description  # type: ignore
-        if (self.entity_description.state_class in [SensorStateClass.TOTAL_INCREASING, SensorStateClass.TOTAL]
-            and self.entity_description.device_class in [SensorDeviceClass.ENERGY]):
+        if self.entity_description.state_class in [
+            SensorStateClass.TOTAL_INCREASING,
+            SensorStateClass.TOTAL,
+        ] and self.entity_description.device_class in [SensorDeviceClass.ENERGY]:
             all_energy_sensors: dict[str, list[XTSensorEntity]] = cast(
                 dict[str, list[XTSensorEntity]],
                 self.device_manager.get_general_property(
@@ -1869,22 +1873,66 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     def import_consumption_history(
         self, history: dict[str, dict[float, float]]
     ) -> None:
-        LOGGER.warning(
-            f"Importing consumption history for {self.entity_id}"
+        LOGGER.warning(f"Importing consumption history for {self.entity_id}")
+        XTEventLoopProtector.execute_out_of_event_loop(
+            self._import_consumption_history, history
         )
-        XTEventLoopProtector.execute_out_of_event_loop(self._import_consumption_history, history)
 
     async def _import_consumption_history(
         self, history: dict[str, dict[float, float]]
     ) -> None:
-        LOGGER.warning(
-            f"Started importing consumption history for {self.entity_id}"
-        )
+        LOGGER.warning(f"Started importing consumption history for {self.entity_id}")
 
         if await self._clear_statistics():
             LOGGER.warning(
                 f"Cleared existing statistics for {self.entity_id} successfully"
             )
+            if await self._import_consumption_history_to_recorder(history):
+                LOGGER.warning(
+                    f"Finished importing consumption history for {self.entity_id} successfully"
+                )
+            else:
+                LOGGER.warning(
+                    f"Failed to import consumption history for {self.entity_id}"
+                )
+        else:
+            LOGGER.warning(f"Failed to clear existing statistics for {self.entity_id}")
+
+    async def _import_consumption_history_to_recorder(
+        self, history: dict[str, dict[float, float]]
+    ) -> bool:
+        """Import consumption history to recorder."""
+        metadata = StatisticMetaData(
+            has_mean=False,
+            mean_type=StatisticMeanType.NONE,
+            has_sum=True,
+            name=None,
+            source=DOMAIN,
+            statistic_id=self.entity_id,
+            unit_class=self.device_class,
+            unit_of_measurement=self.unit_of_measurement,
+        )
+        stats: list[StatisticData] = []
+        for dpcode in history:
+            if dpcode != self.entity_description.key:
+                continue
+            state: float = 0.0
+            for timestamp, value in history[dpcode].items():
+                state += value
+                stats.append(
+                    StatisticData(
+                        start = datetime.fromtimestamp(timestamp, tz=UTC),
+                        state = state,
+                        sum = state,
+                        min = 0,
+                        max = 0,
+                        mean = 0,
+                        mean_weight = 0,
+                        last_reset = None,
+                    )
+                )
+        async_import_statistics(self.hass, metadata, stats)
+        return False
 
     async def _clear_statistics(self) -> bool:
         """Clear statistics for this sensor."""
@@ -1897,7 +1945,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             [self.entity_id], on_done=clear_statistics_done
         )
         try:
-            async with asyncio.timeout(300):
+            async with asyncio.timeout(900):
                 await done_event.wait()
         except TimeoutError:
             return False
