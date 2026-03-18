@@ -88,10 +88,16 @@ class TuyaOpenAPI:
 
         self.auth_type = auth_type
         if self.auth_type == AuthType.CUSTOM:
-            self.__login_path = TO_C_CUSTOM_TOKEN_API
+            if non_user_specific_api is True:
+                self.__login_path = TO_C_CUSTOM_REFRESH_TOKEN_API
+            else:
+                self.__login_path = TO_C_CUSTOM_TOKEN_API
             self.__refresh_path = TO_C_CUSTOM_REFRESH_TOKEN_API
         else:
-            self.__login_path = TO_C_SMART_HOME_TOKEN_API
+            if non_user_specific_api is True:
+                self.__login_path = TO_C_SMART_HOME_REFRESH_TOKEN_API
+            else:
+                self.__login_path = TO_C_SMART_HOME_TOKEN_API
             self.__refresh_path = TO_C_SMART_HOME_REFRESH_TOKEN_API
 
         self.non_user_specific_api = non_user_specific_api
@@ -307,6 +313,13 @@ class TuyaOpenAPI:
             self.connect(
                 self.__username, self.__password, self.__country_code, self.__schema
             )
+        elif self.__is_connecting is True:
+            wait_time = 0.5
+            loop_pass = 0
+            while self.__is_connecting is True:
+                time.sleep(wait_time)
+                loop_pass += 1
+            logger.debug(f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds.")
         return self.is_token_valid()
 
     def __request(
@@ -371,7 +384,7 @@ class TuyaOpenAPI:
             )
 
         if result.get("code", -1) == TUYA_ERROR_CODE_TOKEN_INVALID:
-            if first_pass is True and self.reconnect() is True:
+            if first_pass is True and path.startswith(self.__login_path) is False and self.reconnect() is True:
                 return self.__request(method, path, params, body, False)
 
         return result
