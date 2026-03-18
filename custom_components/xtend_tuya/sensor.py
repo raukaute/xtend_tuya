@@ -59,7 +59,6 @@ from .const import (
     XTMultiManagerPostSetupCallbackPriority,
     LOGGER,
     XTMultiManagerProperties,
-    DOMAIN,
 )
 from .entity import (
     XTEntity,

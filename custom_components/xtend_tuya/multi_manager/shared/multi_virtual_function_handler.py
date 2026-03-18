@@ -107,8 +107,7 @@ class XTVirtualFunctionHandler:
                         day=now.day - 7, hour=0, minute=0, second=0, microsecond=0
                     )
                     five_years_and_six_days_ago = six_days_ago.replace(
-                        #year=six_days_ago.year - 5
-                        month=(six_days_ago.month - 1) if six_days_ago.month > 1 else 12,
+                        year=six_days_ago.year - 5,
                     )
                     result_days = (
                         self.multi_manager.get_device_consumption_statistics_by_day(
@@ -128,7 +127,6 @@ class XTVirtualFunctionHandler:
                         result_days if result_days is not None else {},
                         result_hours if result_hours is not None else {},
                     ))
-                    LOGGER.warning(f"Importing electrical history for device {device_id} with the following data: {overall_result}")
                     all_energy_sensors: dict[str, list[sensor.XTSensorEntity]] = cast(
                         dict[str, list[sensor.XTSensorEntity]],
                         self.multi_manager.get_general_property(
