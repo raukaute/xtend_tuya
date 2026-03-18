@@ -1874,7 +1874,9 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     def import_consumption_history(
         self, history: dict[str, dict[float, float]]
     ) -> None:
-        registry = er.async_get(self.hass)
+        if XTEventLoopProtector.hass is None:
+            return
+        registry = er.async_get(XTEventLoopProtector.hass)
         entry = registry.async_get(self.entity_id)
         if entry is None or entry.disabled:
             return
