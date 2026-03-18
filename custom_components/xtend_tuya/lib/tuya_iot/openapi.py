@@ -316,11 +316,11 @@ class TuyaOpenAPI:
         elif self.__is_connecting is True:
             wait_time = 0.5
             loop_pass = 0
-            logger.warning("Already connecting to tuya cloud, wait for it to finish.")
+            logger.debug("Already connecting to tuya cloud, wait for it to finish.")
             while self.__is_connecting is True:
                 time.sleep(wait_time)
                 loop_pass += 1
-            logger.warning(f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds.")
+            logger.debug(f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds.")
         return self.is_token_valid()
 
     def __request(
