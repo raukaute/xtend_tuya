@@ -173,7 +173,7 @@ class TuyaOpenAPI:
             logger.debug("Access token is valid, no need to refresh.")
             return
 
-        if path.startswith(self.__refresh_path):
+        if path.startswith(self.__refresh_path) or path.startswith(self.__login_path):
             logger.debug("Already requesting refresh token, no need to refresh again.")
             return
 
