@@ -107,7 +107,8 @@ class XTVirtualFunctionHandler:
                         day=now.day - 7, hour=0, minute=0, second=0, microsecond=0
                     )
                     five_years_and_six_days_ago = six_days_ago.replace(
-                        year=six_days_ago.year - 5
+                        #year=six_days_ago.year - 5
+                        month=(six_days_ago.month - 1) if six_days_ago.month > 1 else 12,
                     )
                     result_days = (
                         self.multi_manager.get_device_consumption_statistics_by_day(

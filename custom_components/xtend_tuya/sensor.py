@@ -1932,7 +1932,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                     )
                 )
         async_import_statistics(self.hass, metadata, stats)
-        return False
+        return True
 
     async def _clear_statistics(self) -> bool:
         """Clear statistics for this sensor."""
