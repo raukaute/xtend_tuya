@@ -5,6 +5,7 @@ import asyncio
 from typing import cast, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
 from datetime import datetime, UTC
+from homeassistant.helpers import entity_registry as er
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
@@ -1873,6 +1874,10 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     def import_consumption_history(
         self, history: dict[str, dict[float, float]]
     ) -> None:
+        registry = er.async_get(self.hass)
+        entry = registry.async_get(self.entity_id)
+        if entry is None or entry.disabled:
+            return
         LOGGER.warning(f"Importing consumption history for {self.entity_id}")
         XTEventLoopProtector.execute_out_of_event_loop(
             self._import_consumption_history, history
@@ -1922,7 +1927,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 stats.append(
                     StatisticData(
                         start = datetime.fromtimestamp(timestamp, tz=UTC),
-                        state = state,
+                        state = 0,
                         sum = state,
                         min = 0,
                         max = 0,
@@ -1931,8 +1936,10 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                         last_reset = None,
                     )
                 )
-        async_import_statistics(self.hass, metadata, stats)
-        return True
+        if stats:
+            async_import_statistics(self.hass, metadata, stats)
+            return True
+        return False
 
     async def _clear_statistics(self) -> bool:
         """Clear statistics for this sensor."""
