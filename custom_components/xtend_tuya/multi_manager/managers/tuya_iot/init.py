@@ -563,7 +563,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                 for day in temp_dict:
                     if code not in return_dict:
                         return_dict[code] = {}
-                    return_dict[code][datetime.strptime(day, "%Y%m%d").timestamp()] = float(temp_dict[day])
+                    return_dict[code][datetime.strptime(f"{day}12", "%Y%m%d%H").timestamp()] = float(temp_dict[day])
         return return_dict
     
     def get_device_consumption_statistics_by_hour(self, device_id: str, start_day_and_hour: str, end_day_and_hour: str) -> dict[str, dict[float, float]] | None:
