@@ -1889,15 +1889,8 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     ) -> None:
         LOGGER.warning(f"Started importing consumption history for {self.entity_id}")
 
-        if await self._clear_statistics():
-            LOGGER.warning(
-                f"Cleared existing statistics for {self.entity_id} successfully"
-            )
-            if await self._import_consumption_history_to_recorder(history):
-                LOGGER.warning(
-                    f"Finished importing consumption history for {self.entity_id} successfully"
-                )
-            else:
+        if await self._clear_statistics() is True:
+            if await self._import_consumption_history_to_recorder(history) is False:
                 LOGGER.warning(
                     f"Failed to import consumption history for {self.entity_id}"
                 )
