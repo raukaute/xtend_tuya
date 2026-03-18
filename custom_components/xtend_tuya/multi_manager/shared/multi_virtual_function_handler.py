@@ -128,6 +128,7 @@ class XTVirtualFunctionHandler:
                         result_days if result_days is not None else {},
                         result_hours if result_hours is not None else {},
                     ))
+                    LOGGER.warning(f"Importing electrical history for device {device_id} with the following data: {overall_result}")
                     all_energy_sensors: dict[str, list[sensor.XTSensorEntity]] = cast(
                         dict[str, list[sensor.XTSensorEntity]],
                         self.multi_manager.get_general_property(
