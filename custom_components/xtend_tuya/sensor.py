@@ -1922,21 +1922,23 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             unit_of_measurement=self.unit_of_measurement,
         )
         stats: list[StatisticData] = []
+        sum: float = 0.0
         for dpcode in history:
             if dpcode != self.entity_description.key:
                 continue
-            state: float = 0.0
             for timestamp, value in history[dpcode].items():
-                state += value
+                sum += value
                 stats.append(
                     StatisticData(
                         start=datetime.fromtimestamp(timestamp, tz=UTC),
                         state=value,
-                        sum=state,
+                        sum=sum,
                     )
                 )
         if stats:
             async_import_statistics(self.hass, metadata, stats)
+            if self.entity_description.key in self.device.status:
+                self.device.status[self.entity_description.key] = sum
             return True
         return False
 
