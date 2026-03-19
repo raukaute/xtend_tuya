@@ -1938,7 +1938,8 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         if stats:
             async_import_statistics(self.hass, metadata, stats)
             if self.entity_description.key in self.device.status:
-                self.device.status[self.entity_description.key] = sum
+                scaled_value_back = self.scale_value_back(sum)
+                self.device.status[self.entity_description.key] = scaled_value_back
             return True
         return False
 
@@ -1946,15 +1947,18 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         """Clear statistics for this sensor."""
         done_event = asyncio.Event()
 
+        recorder = get_recorder_instance(self.hass)
+
         def clear_statistics_done() -> None:
             self.hass.loop.call_soon_threadsafe(done_event.set)
 
-        get_recorder_instance(self.hass).async_clear_statistics(
+        recorder.async_clear_statistics(
             [self.entity_id], on_done=clear_statistics_done
         )
         try:
             async with asyncio.timeout(900):
                 await done_event.wait()
+                await recorder.async_block_till_done()
         except TimeoutError:
             return False
         return True
@@ -2017,24 +2021,21 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                     f"Restoring {self.entity_description.key} of {self.device.name} with value {self._restored_data.native_value} and type information {type_information}, isinstance: {isinstance(type_information, TuyaIntegerTypeInformation)}",
                     self.device,
                 )
-                if isinstance(type_information, TuyaIntegerTypeInformation):
-                    scaled_value_back = type_information.scale_value_back(
-                        self._restored_data.native_value  # type: ignore
-                    )
-                    self.device_manager.device_watcher.report_message(
-                        self.device.id,
-                        f"Scaled back value is {scaled_value_back}",
-                        self.device,
-                    )
-                    self._restored_data.native_value = scaled_value_back
+                restored_value = self.scale_value_back(self._restored_data.native_value)  # type: ignore
 
                 if device := self.device_manager.device_map.get(self.device.id, None):
-                    device.status[dpcode] = self._restored_data.native_value
+                    device.status[dpcode] = restored_value
 
         if self.entity_description.refresh_device_after_load:
             self.device_manager.multi_device_listener.update_device(
                 self.device, [dpcode]
             )
+    
+    def scale_value_back(self, value: float) -> StateType:
+        type_information = self.get_type_information()
+        if isinstance(type_information, TuyaIntegerTypeInformation):
+            return type_information.scale_value_back(value)
+        return value
 
     @staticmethod
     def get_entity_instance(
