@@ -253,7 +253,7 @@ BATTERY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
 CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     XTSensorEntityDescription(
         key=XTDPCode.ADD_ELE,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM
         | VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         vs_copy_to_state=[
             XTDPCode.ADD_ELE2,
@@ -385,7 +385,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.ELECTRIC,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM
         | VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         vs_copy_to_state=[
             XTDPCode.ELECTRIC_TODAY,
@@ -459,7 +459,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.FORWARD_ENERGY_TOTAL,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM,
         vs_copy_to_state=[
             XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
@@ -479,7 +479,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.POWER_CONSUMPTION,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM
         | VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         vs_copy_to_state=[
             XTDPCode.ADD_ELE2,
@@ -529,7 +529,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.TOTALENERGYCONSUMED,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM,
         vs_copy_to_state=[
             XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
@@ -549,7 +549,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.TOTAL_FORWARD_ENERGY,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM,
         vs_copy_to_state=[
             XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
@@ -1915,7 +1915,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             has_mean=False,
             mean_type=StatisticMeanType.NONE,
             has_sum=True,
-            name=f"{self.name} Consumption History",
+            name=f"{self.entity_id} Consumption History",
             source="recorder",
             statistic_id=self.entity_id,
             unit_class=self.device_class,
@@ -1928,13 +1928,12 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 continue
             for timestamp, value in history[dpcode].items():
                 sum += value
-                stats.append(
-                    StatisticData(
-                        start=datetime.fromtimestamp(timestamp, tz=UTC),
-                        state=value,
-                        sum=sum,
-                    )
+                statistics_data = StatisticData(
+                    start=datetime.fromtimestamp(timestamp, tz=UTC),
+                    state=sum,
+                    sum=value,
                 )
+                stats.append(statistics_data)
         if stats:
             async_import_statistics(self.hass, metadata, stats)
             if self.entity_description.key in self.device.status:
@@ -1952,9 +1951,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         def clear_statistics_done() -> None:
             self.hass.loop.call_soon_threadsafe(done_event.set)
 
-        recorder.async_clear_statistics(
-            [self.entity_id], on_done=clear_statistics_done
-        )
+        recorder.async_clear_statistics([self.entity_id], on_done=clear_statistics_done)
         try:
             async with asyncio.timeout(900):
                 await done_event.wait()
@@ -2030,7 +2027,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             self.device_manager.multi_device_listener.update_device(
                 self.device, [dpcode]
             )
-    
+
     def scale_value_back(self, value: float) -> StateType:
         type_information = self.get_type_information()
         if isinstance(type_information, TuyaIntegerTypeInformation):
