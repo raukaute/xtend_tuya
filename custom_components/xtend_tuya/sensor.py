@@ -1838,6 +1838,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         self.device = device
         self.device_manager = device_manager
         self.entity_description = description  # type: ignore
+        self._currently_importing_statistics = False
         if self.entity_description.state_class in [
             SensorStateClass.TOTAL_INCREASING,
             SensorStateClass.TOTAL,
@@ -1887,7 +1888,11 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     async def _import_consumption_history(
         self, history: dict[str, dict[float, float]]
     ) -> None:
-        LOGGER.warning(f"Started importing consumption history for {self.entity_id}")
+        self._currently_importing_statistics = True
+        LOGGER.debug(f"Started importing consumption history for {self.entity_id}")
+        self.device_manager.multi_device_listener.update_device(
+            self.device, [self.entity_description.key]
+        )
 
         if await self._clear_statistics() is True:
             if await self._import_consumption_history_to_recorder(history) is False:
@@ -1896,6 +1901,11 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 )
         else:
             LOGGER.warning(f"Failed to clear existing statistics for {self.entity_id}")
+        LOGGER.debug(f"Finished importing consumption history for {self.entity_id}")
+        self._currently_importing_statistics = False
+        self.device_manager.multi_device_listener.update_device(
+            self.device, [self.entity_description.key]
+        )
 
     async def _import_consumption_history_to_recorder(
         self, history: dict[str, dict[float, float]]
@@ -1920,9 +1930,9 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 state += value
                 stats.append(
                     StatisticData(
-                        start = datetime.fromtimestamp(timestamp, tz=UTC),
-                        state = value,
-                        sum = state,
+                        start=datetime.fromtimestamp(timestamp, tz=UTC),
+                        state=value,
+                        sum=state,
                     )
                 )
         if stats:
@@ -2062,6 +2072,8 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     # Use custom native_value function
     @property
     def native_value(self) -> StateType:  # type: ignore
+        if self._currently_importing_statistics:
+            return None
         if self.entity_description.native_value is not None:
             value = self._dpcode_wrapper.read_device_status(self.device)
             value = self.entity_description.native_value(value)
