@@ -1840,7 +1840,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         self.device_manager = device_manager
         self.entity_description = description  # type: ignore
         self._currently_importing_statistics = False
-        if self.entity_description.state_class in [
+        if self._attr_state_class in [
             SensorStateClass.TOTAL_INCREASING,
             SensorStateClass.TOTAL,
         ] and self.entity_description.device_class in [SensorDeviceClass.ENERGY]:
@@ -1933,7 +1933,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 statistics_data = StatisticData(
                     start=datetime.fromtimestamp(timestamp, tz=UTC),
                     state=round(sum, 5),
-                    #sum=round(sum, 5),
+                    sum=round(sum, 5),
                 )
                 stats.append(statistics_data)
         if stats:
