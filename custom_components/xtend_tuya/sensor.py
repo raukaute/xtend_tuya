@@ -1918,7 +1918,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             has_sum=True,
             name=f"{self.entity_id} Consumption History",
             source="recorder",
-            statistic_id=f"{self.entity_id}_energy",
+            statistic_id=self.entity_id,
             unit_class=SensorDeviceClass.ENERGY,
             unit_of_measurement=self.unit_of_measurement,
         )
