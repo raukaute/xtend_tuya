@@ -1931,7 +1931,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 statistics_data = StatisticData(
                     start=datetime.fromtimestamp(timestamp, tz=UTC),
                     state=sum,
-                    sum=value,
+                    sum=sum,
                 )
                 stats.append(statistics_data)
         if stats:
