@@ -1935,10 +1935,9 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 )
                 stats.append(statistics_data)
         if stats:
+            self.set_sensor_value(sum)
             async_import_statistics(self.hass, metadata, stats)
-            if self.entity_description.key in self.device.status:
-                scaled_value_back = self.scale_value_back(sum)
-                self.device.status[self.entity_description.key] = scaled_value_back
+            self.set_sensor_value(sum)
             return True
         return False
 
@@ -2011,27 +2010,28 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 self._restored_data is not None
                 and self._restored_data.native_value is not None
             ):
-                # Scale integer/float value
-                type_information = self.get_type_information()
-                self.device_manager.device_watcher.report_message(
-                    self.device.id,
-                    f"Restoring {self.entity_description.key} of {self.device.name} with value {self._restored_data.native_value} and type information {type_information}, isinstance: {isinstance(type_information, TuyaIntegerTypeInformation)}",
-                    self.device,
-                )
-                restored_value = self.scale_value_back(self._restored_data.native_value)  # type: ignore
-
-                if device := self.device_manager.device_map.get(self.device.id, None):
-                    device.status[dpcode] = restored_value
+                if isinstance(self._restored_data.native_value, (str, int, float)):
+                    self.set_sensor_value(self._restored_data.native_value)
 
         if self.entity_description.refresh_device_after_load:
             self.device_manager.multi_device_listener.update_device(
                 self.device, [dpcode]
             )
 
-    def scale_value_back(self, value: float) -> StateType:
+    def set_sensor_value(self, value: StateType) -> None:
+        dpcode = getattr(self._dpcode_wrapper, "dpcode", None)
+        if dpcode is None:
+            return
+        if device := self.device_manager.device_map.get(self.device.id, None):
+            scaled_value_back = self.scale_value_back(value)
+            device.status[dpcode] = scaled_value_back
+            self.async_write_ha_state()
+
+    def scale_value_back(self, value: StateType) -> StateType:
         type_information = self.get_type_information()
         if isinstance(type_information, TuyaIntegerTypeInformation):
-            return type_information.scale_value_back(value)
+            if isinstance(value, (int, float)):
+                return type_information.scale_value_back(value)
         return value
 
     @staticmethod
