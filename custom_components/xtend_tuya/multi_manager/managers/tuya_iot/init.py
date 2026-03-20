@@ -576,7 +576,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                         return_dict[code] = {}
                     return_dict[code][
                         datetime.strptime(f"{day}12", "%Y%m%d%H").timestamp()
-                    ] = round(float(temp_dict[day]), 2)
+                    ] = round(float(temp_dict[day]), 5)
         return return_dict
 
     def get_device_consumption_statistics_by_hour(
@@ -640,7 +640,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                             return_dict[code] = {}
                         return_dict[code][
                             datetime.strptime(day_and_hour, "%Y%m%d%H").timestamp()
-                        ] = round(float(temp_dict[day_and_hour]), 2)
+                        ] = round(float(temp_dict[day_and_hour]), 5)
         return return_dict
 
     def convert_to_xt_device(
