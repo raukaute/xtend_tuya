@@ -20,6 +20,10 @@ from homeassistant.components.recorder.models.statistics import (
     StatisticMetaData,
     StatisticData,
 )
+from homeassistant.components.recorder.db_schema import (
+    Statistics,
+    StatisticsShortTerm,
+)
 from homeassistant.components.recorder.statistics import (
     async_import_statistics,
 )
@@ -1930,7 +1934,8 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             if dpcode != self.entity_description.key:
                 continue
             for timestamp, value in history[dpcode].items():
-                global_sum -= value
+                #global_sum -= value
+                pass
             for timestamp, value in history[dpcode].items():
                 sum += value
                 statistics_data = StatisticData(
@@ -1939,10 +1944,12 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                     sum=round(global_sum + sum, 5),
                 )
                 stats.append(statistics_data)
-        if stats:
+        if stats and statistics_data:
             self.set_sensor_value(sum)
-            async_import_statistics(self.hass, metadata, stats)
-            self.set_sensor_value(sum)
+            recorder = get_recorder_instance(self.hass)
+            recorder.async_import_statistics(metadata=metadata, stats=stats, table=Statistics)
+            recorder.async_import_statistics(metadata=metadata, stats=[statistics_data], table=StatisticsShortTerm)
+            await recorder.async_block_till_done()
             return True
         return False
 

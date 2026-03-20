@@ -102,8 +102,7 @@ class XTVirtualFunctionHandler:
                         self.multi_manager.multi_device_listener.update_device(device)
                 case VirtualFunctions.FUNCTION_IMPORT_ELECTRICAL_HISTORY:
                     now = datetime.now()
-                    now = now.replace(minute=0, second=0, microsecond=0)
-                    now_minus_1_hour = now - timedelta(hours=1)
+                    beginning_of_this_hour = now.replace(minute=0, second=0, microsecond=0)
                     six_days_ago = now.replace(hour=0) - timedelta(days=6)
                     seven_days_ago = now.replace(hour=0) - timedelta(days=7)
                     five_years_and_six_days_ago = six_days_ago.replace(year=six_days_ago.year - 5)
@@ -118,7 +117,7 @@ class XTVirtualFunctionHandler:
                         self.multi_manager.get_device_consumption_statistics_by_hour(
                             device_id=device_id,
                             start_day_and_hour=six_days_ago.strftime("%Y%m%d%H"),
-                            end_day_and_hour=now_minus_1_hour.strftime("%Y%m%d%H"),
+                            end_day_and_hour=beginning_of_this_hour.strftime("%Y%m%d%H"),
                         )
                     )
                     overall_result = cast(
