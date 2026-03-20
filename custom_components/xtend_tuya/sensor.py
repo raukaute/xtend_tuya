@@ -1828,6 +1828,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         super(XTSensorEntity, self).__init__(
             device, device_manager, description, dpcode_wrapper=dpcode_wrapper
         )
+        self._attr_state_class = description.state_class
         super(XTEntity, self).__init__(
             device,
             device_manager,  # type: ignore
@@ -1914,11 +1915,11 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         metadata = StatisticMetaData(
             has_mean=False,
             mean_type=StatisticMeanType.NONE,
-            has_sum=False,
+            has_sum=True,
             name=f"{self.entity_id} Consumption History",
             source="recorder",
-            statistic_id=self.entity_id,
-            unit_class=self.device_class,
+            statistic_id=f"{self.entity_id}_energy",
+            unit_class=SensorDeviceClass.ENERGY,
             unit_of_measurement=self.unit_of_measurement,
         )
         stats: list[StatisticData] = []
@@ -1935,8 +1936,6 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                     #sum=round(sum, 5),
                 )
                 stats.append(statistics_data)
-        if statistics_data is not None:
-            statistics_data["last_reset"] = datetime.now(tz=UTC)
         if stats:
             self.set_sensor_value(sum)
             async_import_statistics(self.hass, metadata, stats)
