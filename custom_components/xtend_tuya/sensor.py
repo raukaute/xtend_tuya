@@ -1924,11 +1924,13 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         stats: list[StatisticData] = []
         sum: float = 0.0
         global_sum: float = 0.0
+        statistics_data: StatisticData | None = None
         for dpcode in history:
             if dpcode != self.entity_description.key:
                 continue
             for timestamp, value in history[dpcode].items():
-                global_sum -= value
+                #global_sum -= value
+                pass
             for timestamp, value in history[dpcode].items():
                 sum += value
                 statistics_data = StatisticData(
@@ -1937,6 +1939,8 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                     sum=round(global_sum + sum, 5),
                 )
                 stats.append(statistics_data)
+        if statistics_data is not None:
+            statistics_data["last_reset"] = datetime.now(tz=UTC)
         if stats:
             self.set_sensor_value(sum)
             async_import_statistics(self.hass, metadata, stats)
