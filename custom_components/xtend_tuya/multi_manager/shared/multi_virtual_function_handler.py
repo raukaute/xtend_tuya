@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, cast, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, timedelta
 from ...const import (
     VirtualFunctions,
     DescriptionVirtualFunction,
@@ -11,8 +11,10 @@ import custom_components.xtend_tuya.multi_manager.shared.shared_classes as share
 import custom_components.xtend_tuya.multi_manager.shared.merging_manager as merging_manager
 
 import custom_components.xtend_tuya.sensor as sensor
+
 if TYPE_CHECKING:
     import custom_components.xtend_tuya.multi_manager.multi_manager as mm
+
 
 class XTVirtualFunctionHandler:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
@@ -100,15 +102,11 @@ class XTVirtualFunctionHandler:
                         self.multi_manager.multi_device_listener.update_device(device)
                 case VirtualFunctions.FUNCTION_IMPORT_ELECTRICAL_HISTORY:
                     now = datetime.now()
-                    six_days_ago = now.replace(
-                        day=now.day - 6, hour=0, minute=0, second=0, microsecond=0
-                    )
-                    seven_days_ago = now.replace(
-                        day=now.day - 7, hour=0, minute=0, second=0, microsecond=0
-                    )
-                    five_years_and_six_days_ago = six_days_ago.replace(
-                        year=six_days_ago.year - 5,
-                    )
+                    now = now.replace(minute=0, second=0, microsecond=0)
+                    now_minus_1_hour = now - timedelta(hours=1)
+                    six_days_ago = now.replace(hour=0) - timedelta(days=6)
+                    seven_days_ago = now.replace(hour=0) - timedelta(days=7)
+                    five_years_and_six_days_ago = six_days_ago.replace(year=six_days_ago.year - 5)
                     result_days = (
                         self.multi_manager.get_device_consumption_statistics_by_day(
                             device_id=device_id,
@@ -120,13 +118,16 @@ class XTVirtualFunctionHandler:
                         self.multi_manager.get_device_consumption_statistics_by_hour(
                             device_id=device_id,
                             start_day_and_hour=six_days_ago.strftime("%Y%m%d%H"),
-                            end_day_and_hour=now.strftime("%Y%m%d%H"),
+                            end_day_and_hour=now_minus_1_hour.strftime("%Y%m%d%H"),
                         )
                     )
-                    overall_result = cast(dict[str, dict[float, float]], merging_manager.XTMergingManager.smart_merge(
-                        result_days if result_days is not None else {},
-                        result_hours if result_hours is not None else {},
-                    ))
+                    overall_result = cast(
+                        dict[str, dict[float, float]],
+                        merging_manager.XTMergingManager.smart_merge(
+                            result_days if result_days is not None else {},
+                            result_hours if result_hours is not None else {},
+                        ),
+                    )
                     all_energy_sensors: dict[str, list[sensor.XTSensorEntity]] = cast(
                         dict[str, list[sensor.XTSensorEntity]],
                         self.multi_manager.get_general_property(
