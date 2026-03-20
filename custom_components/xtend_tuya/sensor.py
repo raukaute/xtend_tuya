@@ -1914,7 +1914,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         metadata = StatisticMetaData(
             has_mean=False,
             mean_type=StatisticMeanType.NONE,
-            has_sum=True,
+            has_sum=False,
             name=f"{self.entity_id} Consumption History",
             source="recorder",
             statistic_id=self.entity_id,
