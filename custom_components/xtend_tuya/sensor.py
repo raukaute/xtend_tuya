@@ -1930,13 +1930,13 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             if dpcode != self.entity_description.key:
                 continue
             for timestamp, value in history[dpcode].items():
-                global_sum += value
+                global_sum -= value
             for timestamp, value in history[dpcode].items():
                 sum += value
                 statistics_data = StatisticData(
                     start=datetime.fromtimestamp(timestamp, tz=UTC),
-                    state=round(global_sum - sum, 5),
-                    sum=round(global_sum - sum, 5),
+                    state=round(global_sum + sum, 5),
+                    sum=round(global_sum + sum, 5),
                 )
                 stats.append(statistics_data)
         if stats:
