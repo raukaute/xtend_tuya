@@ -24,9 +24,6 @@ from homeassistant.components.recorder.db_schema import (
     Statistics,
     StatisticsShortTerm,
 )
-from homeassistant.components.recorder.statistics import (
-    async_import_statistics,
-)
 from homeassistant.const import (
     UnitOfEnergy,
     UnitOfTime,
