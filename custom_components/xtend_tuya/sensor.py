@@ -1928,25 +1928,25 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         )
         stats: list[StatisticData] = []
         sum: float = 0.0
-        statistics_data: StatisticData | None = None
         for dpcode in history:
             if dpcode != self.entity_description.key:
                 continue
             for timestamp, value in history[dpcode].items():
                 sum += value
-                statistics_data = StatisticData(
+                stats.append(StatisticData(
                     start=datetime.fromtimestamp(timestamp, tz=UTC),
                     state=round(sum, 5),
                     sum=round(sum, 5),
-                )
-                stats.append(statistics_data)
-        if stats and statistics_data:
-            self.set_sensor_value(sum)
-            recorder = get_recorder_instance(self.hass)
-            recorder.async_import_statistics(metadata=metadata, stats=stats, table=Statistics)
-            recorder.async_import_statistics(metadata=metadata, stats=[statistics_data], table=StatisticsShortTerm)
-            await recorder.async_block_till_done()
-            return True
+                ))
+        if stats:
+            last_statistic: StatisticData = stats.pop(-1)
+            if stats:
+                self.set_sensor_value(sum)
+                recorder = get_recorder_instance(self.hass)
+                recorder.async_import_statistics(metadata=metadata, stats=stats, table=Statistics)
+                recorder.async_import_statistics(metadata=metadata, stats=[last_statistic], table=StatisticsShortTerm)
+                await recorder.async_block_till_done()
+                return True
         return False
 
     async def _clear_statistics(self) -> bool:
