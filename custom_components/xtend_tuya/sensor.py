@@ -1,9 +1,11 @@
 """Support for Tuya sensors."""
 
 from __future__ import annotations
-from typing import cast, Callable
+import asyncio
+from typing import cast, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, UTC
+from homeassistant.helpers import entity_registry as er
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
@@ -12,6 +14,15 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.components.sensor.const import (
     DEVICE_CLASS_UNITS as SENSOR_DEVICE_CLASS_UNITS,
+)
+from homeassistant.components.recorder.models.statistics import (
+    StatisticMeanType,
+    StatisticMetaData,
+    StatisticData,
+)
+from homeassistant.components.recorder.db_schema import (
+    Statistics,
+    StatisticsShortTerm,
 )
 from homeassistant.const import (
     UnitOfEnergy,
@@ -32,15 +43,13 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.typing import (
     StateType,
 )
+from homeassistant.helpers.recorder import (
+    get_instance as get_recorder_instance,
+)
 from .util import (
     get_default_value,
     restrict_descriptor_category,
     b64todatetime,
-)
-from .multi_manager.multi_manager import (
-    XTConfigEntry,
-    MultiManager,
-    XTDevice,
 )
 from .const import (
     TUYA_DISCOVERY_NEW,
@@ -50,6 +59,7 @@ from .const import (
     CROSS_CATEGORY_DEVICE_DESCRIPTOR,
     XTMultiManagerPostSetupCallbackPriority,
     LOGGER,
+    XTMultiManagerProperties,
 )
 from .entity import (
     XTEntity,
@@ -67,9 +77,19 @@ from .ha_tuya_integration.tuya_integration_imports import (
     TuyaDPCodeStringWrapper,
     tuya_sensor_get_dpcode_wrapper,
 )
+from .multi_manager.shared.threading import (
+    XTEventLoopProtector,
+)
 from .models import (
     XTDPCodeIntegerNoMinMaxCheckWrapper,
 )
+
+if TYPE_CHECKING:
+    from .multi_manager.multi_manager import (
+        XTConfigEntry,
+        MultiManager,
+        XTDevice,
+    )
 
 COMPOUND_KEY: list[str | tuple[str, ...]] = ["key", "dpcode"]
 
@@ -110,7 +130,7 @@ def xt_get_dpcode_wrapper(
             device_manager.execute_device_entity_function(
                 XTDeviceEntityFunctions.RECALCULATE_PERCENT_SCALE,
                 device,
-                function_code=description.key,
+                function_code=description.dpcode or description.key,
                 scale_threshold=description.recalculate_scale_for_percentage_threshold,
             )
     return tuya_sensor_get_dpcode_wrapper(device, description)
@@ -123,8 +143,8 @@ class XTSensorEntityDescription(TuyaSensorEntityDescription, frozen=True):
     dpcode: XTDPCode | TuyaDPCode | str | None = None  # type: ignore
 
     virtual_state: VirtualStates | None = None
-    vs_copy_to_state: list[XTDPCode] | None = field(default_factory=list)
-    vs_copy_delta_to_state: list[XTDPCode] | None = field(default_factory=list)
+    vs_copy_to_state: list[XTDPCode] = field(default_factory=list)
+    vs_copy_delta_to_state: list[XTDPCode] = field(default_factory=list)
 
     reset_daily: bool = False
     reset_monthly: bool = False
@@ -149,12 +169,14 @@ class XTSensorEntityDescription(TuyaSensorEntityDescription, frozen=True):
         device_manager: MultiManager,
         description: XTSensorEntityDescription,
         dpcode_wrapper: TuyaDPCodeWrapper,
+        supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
     ) -> XTSensorEntity:
         return XTSensorEntity(
             device=device,
             device_manager=device_manager,
             description=XTSensorEntityDescription(**description.__dict__),
             dpcode_wrapper=dpcode_wrapper,
+            supported_descriptors=supported_descriptors,
         )
 
 
@@ -237,27 +259,17 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
         | VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         vs_copy_to_state=[
-            XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
+            XTDPCode.ADD_ELE2,
         ],
+        vs_copy_delta_to_state=[],
         translation_key="add_ele",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         entity_registry_enabled_default=True,
-        restoredata=True,
-        ignore_other_dp_code_handler=True,
-        wrapper_class=(XTDPCodeIntegerNoMinMaxCheckWrapper,),
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.ADD_ELE2,
-        translation_key="add_ele2",
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        entity_registry_enabled_default=False,
         restoredata=True,
         ignore_other_dp_code_handler=True,
         wrapper_class=(XTDPCodeIntegerNoMinMaxCheckWrapper,),
@@ -296,6 +308,27 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         entity_registry_enabled_default=True,
         restoredata=True,
         reset_yearly=True,
+        wrapper_class=(XTDPCodeIntegerNoMinMaxCheckWrapper,),
+    ),
+    XTSensorEntityDescription(
+        # The ADD_ELE2 dpcode takes the opposite direction than ADD_ELE, if ADD_ELE is supposed
+        # to contain an incremental value, ADD_ELE2 assumes a total value
+        # same logic but reversed, if ADD_ELE should report a total value then we assume that
+        # ADD_ELE2 is an incremental
+        key=XTDPCode.ADD_ELE2,
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
+        vs_copy_to_state=[
+            XTDPCode.ADD_ELE2_TODAY,
+            XTDPCode.ADD_ELE2_THIS_MONTH,
+            XTDPCode.ADD_ELE2_THIS_YEAR,
+        ],
+        translation_key="add_ele2",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        entity_registry_enabled_default=False,
+        restoredata=True,
+        ignore_other_dp_code_handler=True,
         wrapper_class=(XTDPCodeIntegerNoMinMaxCheckWrapper,),
     ),
     XTSensorEntityDescription(
@@ -443,14 +476,11 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
         vs_copy_to_state=[
             XTDPCode.ADD_ELE2,
+        ],
+        vs_copy_delta_to_state=[
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
-        ],
-        vs_copy_delta_to_state=[
-            XTDPCode.ADD_ELE2_TODAY,
-            XTDPCode.ADD_ELE2_THIS_MONTH,
-            XTDPCode.ADD_ELE2_THIS_YEAR,
         ],
         translation_key="total_energy",
         device_class=SensorDeviceClass.ENERGY,
@@ -463,11 +493,12 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
         | VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         vs_copy_to_state=[
-            XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
+            XTDPCode.ADD_ELE2,
         ],
+        vs_copy_delta_to_state=[],
         translation_key="add_ele",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -513,14 +544,11 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
         vs_copy_to_state=[
             XTDPCode.ADD_ELE2,
+        ],
+        vs_copy_delta_to_state=[
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
-        ],
-        vs_copy_delta_to_state=[
-            XTDPCode.ADD_ELE2_TODAY,
-            XTDPCode.ADD_ELE2_THIS_MONTH,
-            XTDPCode.ADD_ELE2_THIS_YEAR,
         ],
         translation_key="total_energy",
         device_class=SensorDeviceClass.ENERGY,
@@ -533,14 +561,11 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
         vs_copy_to_state=[
             XTDPCode.ADD_ELE2,
+        ],
+        vs_copy_delta_to_state=[
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
-        ],
-        vs_copy_delta_to_state=[
-            XTDPCode.ADD_ELE2_TODAY,
-            XTDPCode.ADD_ELE2_THIS_MONTH,
-            XTDPCode.ADD_ELE2_THIS_YEAR,
         ],
         translation_key="total_energy",
         device_class=SensorDeviceClass.ENERGY,
@@ -1691,7 +1716,11 @@ async def async_setup_entry(
                     ):
                         entities.append(
                             XTSensorEntity.get_entity_instance(
-                                descriptor, device, hass_data.manager, dpcode_wrapper
+                                descriptor,
+                                device,
+                                hass_data.manager,
+                                dpcode_wrapper,
+                                supported_descriptors,
                             )
                         )
         async_add_entities(entities)
@@ -1721,16 +1750,21 @@ async def async_setup_entry(
                             ),
                         )
                     # for description in category_descriptions:
+                    #     dpcode = description.dpcode or description.key
                     #     if (
                     #         hasattr(description, "virtual_state")
                     #         and description.virtual_state
                     #         and description.virtual_state & VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD
-                    #         and description.key in device.status_range
+                    #         and (dpcode) in device.status_range
                     #     ):
-                    #         device.status_range[description.key].report_type = "sum"
+                    #         device.status_range[dpcode].report_type = "sum"
                     entities.extend(
                         XTSensorEntity.get_entity_instance(
-                            description, device, hass_data.manager, dpcode_wrapper
+                            description,
+                            device,
+                            hass_data.manager,
+                            dpcode_wrapper,
+                            supported_descriptors,
                         )
                         for description in category_descriptions
                         if (
@@ -1754,7 +1788,11 @@ async def async_setup_entry(
                     )
                     entities.extend(
                         XTSensorEntity.get_entity_instance(
-                            description, device, hass_data.manager, dpcode_wrapper
+                            description,
+                            device,
+                            hass_data.manager,
+                            dpcode_wrapper,
+                            supported_descriptors,
                         )
                         for description in category_descriptions
                         if (
@@ -1804,11 +1842,13 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         device_manager: MultiManager,
         description: XTSensorEntityDescription,
         dpcode_wrapper: TuyaDPCodeWrapper,
+        supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
     ) -> None:
         """Init XT sensor."""
         super(XTSensorEntity, self).__init__(
             device, device_manager, description, dpcode_wrapper=dpcode_wrapper
         )
+        self._attr_state_class = description.state_class
         super(XTEntity, self).__init__(
             device,
             device_manager,  # type: ignore
@@ -1819,6 +1859,25 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         self.device = device
         self.device_manager = device_manager
         self.entity_description = description  # type: ignore
+        self.supported_descriptors = supported_descriptors
+        self._currently_importing_statistics = False
+        if self._attr_state_class in [
+            SensorStateClass.TOTAL_INCREASING,
+            SensorStateClass.TOTAL,
+        ] and self.entity_description.device_class in [SensorDeviceClass.ENERGY]:
+            all_energy_sensors: dict[str, list[XTSensorEntity]] = cast(
+                dict[str, list[XTSensorEntity]],
+                self.device_manager.get_general_property(
+                    XTMultiManagerProperties.ENERGY_SENSOR, {}
+                ),
+            )
+            if self.device.id not in all_energy_sensors:
+                all_energy_sensors[self.device.id] = [self]
+            else:
+                all_energy_sensors[self.device.id].append(self)
+            self.device_manager.set_general_property(
+                XTMultiManagerProperties.ENERGY_SENSOR, all_energy_sensors
+            )
 
     def reset_value(self, _: datetime | None, manual_call: bool = False) -> None:
         if manual_call and self.cancel_reset_after_x_seconds is not None:
@@ -1833,6 +1892,152 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             return
         self.device.status[dpcode] = default_value
         self.schedule_update_ha_state()
+
+    def import_consumption_history(
+        self, history: dict[str, dict[float, float]]
+    ) -> None:
+        if XTEventLoopProtector.hass is None:
+            return
+        registry = er.async_get(XTEventLoopProtector.hass)
+        entry = registry.async_get(self.entity_id)
+        if entry is None or entry.disabled:
+            return
+        for dpcode in history:
+            all_dependant_dpcodes = self._get_dpcodes_based_on_dpcode(dpcode)
+            if (
+                self._get_description_dpcode(self.entity_description)
+                in all_dependant_dpcodes
+            ):
+                XTEventLoopProtector.execute_out_of_event_loop(
+                    self._import_consumption_history, history[dpcode]
+                )
+                break
+
+    def _get_dpcode_descriptor(self, dpcode: str) -> XTSensorEntityDescription | None:
+        category_descriptors = self.supported_descriptors.get(
+            self.device.category, tuple()
+        )
+        for descriptor in category_descriptors:
+            if self._get_description_dpcode(descriptor) == dpcode and isinstance(
+                descriptor, XTSensorEntityDescription
+            ):
+                return descriptor
+        return None
+
+    def _get_dpcodes_based_on_dpcode(self, dpcode: str) -> list[str]:
+        dpcodes = [dpcode]
+        if descriptor := self._get_dpcode_descriptor(dpcode):
+            for copy_dpcode in descriptor.vs_copy_to_state:
+                copy_dpcodes = self._get_dpcodes_based_on_dpcode(copy_dpcode)
+                dpcodes.extend(
+                    dpcode for dpcode in copy_dpcodes if dpcode not in dpcodes
+                )
+            for copy_delta_dpcode in descriptor.vs_copy_delta_to_state:
+                copy_delta_dpcodes = self._get_dpcodes_based_on_dpcode(
+                    copy_delta_dpcode
+                )
+                dpcodes.extend(
+                    dpcode for dpcode in copy_delta_dpcodes if dpcode not in dpcodes
+                )
+        return dpcodes
+
+    async def _import_consumption_history(self, history: dict[float, float]) -> None:
+        self._currently_importing_statistics = True
+        self.device_manager.multi_device_listener.update_device(
+            self.device, [self._get_description_dpcode(self.entity_description)]
+        )
+
+        if await self._clear_statistics() is True:
+            if await self._import_consumption_history_to_recorder(history) is False:
+                LOGGER.warning(
+                    f"Failed to import consumption history for {self.entity_id}"
+                )
+        else:
+            LOGGER.warning(f"Failed to clear existing statistics for {self.entity_id}")
+        self._currently_importing_statistics = False
+        self.device_manager.multi_device_listener.update_device(
+            self.device, [self._get_description_dpcode(self.entity_description)]
+        )
+
+    async def _import_consumption_history_to_recorder(
+        self, history: dict[float, float]
+    ) -> bool:
+        """Import consumption history to recorder."""
+        metadata = StatisticMetaData(
+            has_mean=False,
+            mean_type=StatisticMeanType.NONE,
+            has_sum=True,
+            name=f"{self.entity_id} Consumption History",
+            source="recorder",
+            statistic_id=self.entity_id,
+            unit_class=SensorDeviceClass.ENERGY,
+            unit_of_measurement=self.unit_of_measurement,
+        )
+        stats: list[StatisticData] = []
+        sum: float = 0.0
+        last_timestamp: datetime | None = None
+        for timestamp, value in history.items():
+            current_timestamp = datetime.fromtimestamp(timestamp, tz=UTC)
+            should_reset_sum: bool = False
+            if last_timestamp is not None:
+                if (
+                    self.entity_description.reset_daily
+                    and last_timestamp.day != current_timestamp.day
+                ):
+                    should_reset_sum = True
+                elif (
+                    self.entity_description.reset_monthly
+                    and last_timestamp.month != current_timestamp.month
+                ):
+                    should_reset_sum = True
+                elif (
+                    self.entity_description.reset_yearly
+                    and last_timestamp.year != current_timestamp.year
+                ):
+                    should_reset_sum = True
+            if should_reset_sum is True:
+                sum = 0.0
+            sum += value
+            stats.append(
+                StatisticData(
+                    start=current_timestamp,
+                    state=round(sum, 5),
+                    sum=round(sum, 5),
+                )
+            )
+            last_timestamp = current_timestamp
+        if stats:
+            last_statistic: StatisticData = stats.pop(-1)
+            if stats:
+                self.set_sensor_value(sum)
+                recorder = get_recorder_instance(self.hass)
+                recorder.async_import_statistics(
+                    metadata=metadata, stats=stats, table=Statistics
+                )
+                recorder.async_import_statistics(
+                    metadata=metadata, stats=[last_statistic], table=StatisticsShortTerm
+                )
+                await recorder.async_block_till_done()
+                return True
+        return False
+
+    async def _clear_statistics(self) -> bool:
+        """Clear statistics for this sensor."""
+        done_event = asyncio.Event()
+
+        recorder = get_recorder_instance(self.hass)
+
+        def clear_statistics_done() -> None:
+            self.hass.loop.call_soon_threadsafe(done_event.set)
+
+        recorder.async_clear_statistics([self.entity_id], on_done=clear_statistics_done)
+        try:
+            async with asyncio.timeout(900):
+                await done_event.wait()
+                await recorder.async_block_till_done()
+        except TimeoutError:
+            return False
+        return True
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
@@ -1885,31 +2090,28 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 self._restored_data is not None
                 and self._restored_data.native_value is not None
             ):
-                # Scale integer/float value
-                type_information = self.get_type_information()
-                self.device_manager.device_watcher.report_message(
-                    self.device.id,
-                    f"Restoring {self.entity_description.key} of {self.device.name} with value {self._restored_data.native_value} and type information {type_information}, isinstance: {isinstance(type_information, TuyaIntegerTypeInformation)}",
-                    self.device,
-                )
-                if isinstance(type_information, TuyaIntegerTypeInformation):
-                    scaled_value_back = type_information.scale_value_back(
-                        self._restored_data.native_value  # type: ignore
-                    )
-                    self.device_manager.device_watcher.report_message(
-                        self.device.id,
-                        f"Scaled back value is {scaled_value_back}",
-                        self.device,
-                    )
-                    self._restored_data.native_value = scaled_value_back
-
-                if device := self.device_manager.device_map.get(self.device.id, None):
-                    device.status[dpcode] = self._restored_data.native_value
+                if isinstance(self._restored_data.native_value, (str, int, float)):
+                    self.set_sensor_value(self._restored_data.native_value)
 
         if self.entity_description.refresh_device_after_load:
             self.device_manager.multi_device_listener.update_device(
                 self.device, [dpcode]
             )
+
+    def set_sensor_value(self, value: StateType) -> None:
+        dpcode = getattr(self._dpcode_wrapper, "dpcode", None)
+        if dpcode is None:
+            return
+        scaled_value_back = self.scale_value_back(value)
+        self.device.status[dpcode] = scaled_value_back
+        self.async_write_ha_state()
+
+    def scale_value_back(self, value: StateType) -> StateType:
+        type_information = self.get_type_information()
+        if isinstance(type_information, TuyaIntegerTypeInformation):
+            if isinstance(value, (int, float)):
+                return type_information.scale_value_back(value)
+        return value
 
     @staticmethod
     def get_entity_instance(
@@ -1917,18 +2119,24 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         device: XTDevice,
         device_manager: MultiManager,
         dpcode_wrapper: TuyaDPCodeWrapper,
+        supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
     ) -> XTSensorEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")
         ):
             return description.get_entity_instance(
-                device, device_manager, description, dpcode_wrapper
+                device,
+                device_manager,
+                description,
+                dpcode_wrapper,
+                supported_descriptors,
             )
         return XTSensorEntity(
             device,
             device_manager,
             XTSensorEntityDescription(**description.__dict__),
             dpcode_wrapper,
+            supported_descriptors,
         )
 
     @staticmethod
@@ -1949,6 +2157,8 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     # Use custom native_value function
     @property
     def native_value(self) -> StateType:  # type: ignore
+        if self._currently_importing_statistics:
+            return None
         if self.entity_description.native_value is not None:
             value = self._dpcode_wrapper.read_device_status(self.device)
             value = self.entity_description.native_value(value)

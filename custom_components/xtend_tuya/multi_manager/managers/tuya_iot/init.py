@@ -1,7 +1,8 @@
 from __future__ import annotations
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+import copy
 from typing import Optional, Literal, Any
 from enum import StrEnum
 from webrtc_models import (
@@ -398,6 +399,33 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                         },
                         learn_more_url="https://github.com/azerty9971/xtend_tuya/blob/main/docs/configure_ir.md",
                     )
+        
+        if energy_sensor_entities := multi_manager.get_general_property(
+            XTMultiManagerProperties.ENERGY_SENSOR, None
+        ):
+            # Verify if we are subscribed to the energy statistic service
+            for device_id in energy_sensor_entities:
+                if device := multi_manager.device_map.get(device_id, None):
+                    test_api = (
+                        await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+                            self.iot_account.device_manager.test_sensor_energy_statistic_api_subscription, device
+                        )
+                    )
+                    if not test_api:
+                        await self.raise_issue(
+                            hass=hass,
+                            config_entry=config_entry,
+                            is_fixable=True,
+                            severity=IssueSeverity.WARNING,
+                            translation_key="tuya_iot_sensor_energy_stat_not_subscribed",
+                            translation_placeholders={
+                                "name": DOMAIN,
+                                "config_entry_id": config_entry.title
+                                or "Config entry not found",
+                            },
+                            learn_more_url="https://github.com/azerty9971/xtend_tuya/blob/main/docs/configure_energy_sensor_statistics.md",
+                        )
+                break
 
     def get_ir_hub_information(self, device: XTDevice) -> XTIRHubInformation | None:
         if self.iot_account is None:
@@ -468,10 +496,13 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
     def get_platform_descriptors_to_merge(self, platform: Platform) -> Any:
         pass
 
-    def send_command(self, device_id: str, command: dict[str, Any], reverse_filters: bool = False) -> bool:
+    def send_command(
+        self, device_id: str, command: dict[str, Any], reverse_filters: bool = False
+    ) -> bool:
         class XTApiList(StrEnum):
             OPEN_API_REGULAR = "open_api_regular"
             PROPERTY_UPDATE = "property_update"
+
         api_priority_list: list[XTApiList] = []
         device = self.multi_manager.device_map.get(device_id)
         dpId: int | None = None
@@ -491,7 +522,9 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             else:
                 if reverse_filters is True:
                     return False
-            property_update: bool = device.local_strategy[dpId].get("property_update", False)
+            property_update: bool = device.local_strategy[dpId].get(
+                "property_update", False
+            )
             if property_update:
                 api_priority_list.append(XTApiList.PROPERTY_UPDATE)
                 api_priority_list.append(XTApiList.OPEN_API_REGULAR)
@@ -523,7 +556,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                         self.iot_account.device_manager.send_property_update(
                             device_id, command_list
                         )
-                
+
                 # If the command fails, the caller returns an exception, so we assume it worked if we reach here
                 return True
             except Exception as e:
@@ -533,6 +566,110 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                 )
         return False
 
+    def get_device_consumption_statistics_by_day(
+        self, device_id: str, start_day: str, end_day: str
+    ) -> dict[str, dict[float, float]] | None:
+        if self.iot_account is None:
+            return None
+
+        supported_codes = self.iot_account.device_manager.api.get(
+            f"/v1.0/devices/{device_id}/all-statistic-type"
+        )
+        return_dict: dict[str, dict[float, float]] = {}
+        for supported_code in supported_codes.get("result", []):
+            stat_type = supported_code.get("stat_type")
+            code = supported_code.get("code")
+            if stat_type != "sum":
+                continue
+            params = {
+                "code": code,
+                "start_day": start_day,
+                "end_day": end_day,
+                "stat_type": "sum",
+            }
+            stat_result = self.iot_account.device_manager.api.get(
+                f"/v1.0/devices/{device_id}/statistics/days", params
+            )
+            temp_dict: dict[str, str] = {}
+            if result := stat_result.get("result", None):
+                temp_dict = result.get("days", {})
+                for day in copy.deepcopy(temp_dict):
+                    if temp_dict[day] == "0.00":
+                        del temp_dict[day]
+                    else:
+                        break
+                for day in temp_dict:
+                    if code not in return_dict:
+                        return_dict[code] = {}
+                    return_dict[code][
+                        datetime.strptime(f"{day}12", "%Y%m%d%H").timestamp()
+                    ] = round(float(temp_dict[day]), 5)
+        return return_dict
+
+    def get_device_consumption_statistics_by_hour(
+        self, device_id: str, start_day_and_hour: str, end_day_and_hour: str
+    ) -> dict[str, dict[float, float]] | None:
+        if self.iot_account is None:
+            return None
+
+        supported_codes = self.iot_account.device_manager.api.get(
+            f"/v1.0/devices/{device_id}/all-statistic-type"
+        )
+        return_dict: dict[str, dict[float, float]] = {}
+        query_ranges: list[tuple[str, str]] = []
+        start_day_and_hour_dt = datetime.strptime(start_day_and_hour, "%Y%m%d%H")
+        end_day_and_hour_dt = datetime.strptime(end_day_and_hour, "%Y%m%d%H")
+        while start_day_and_hour_dt < end_day_and_hour_dt:
+            end_of_start_day = start_day_and_hour_dt.replace(hour=23)
+            if end_of_start_day < end_day_and_hour_dt:
+                query_ranges.append(
+                    (
+                        start_day_and_hour_dt.strftime("%Y%m%d%H"),
+                        end_of_start_day.strftime("%Y%m%d%H"),
+                    )
+                )
+                start_day_and_hour_dt = end_of_start_day.replace(hour=0) + timedelta(
+                    days=1
+                )
+            else:
+                query_ranges.append(
+                    (
+                        start_day_and_hour_dt.strftime("%Y%m%d%H"),
+                        end_day_and_hour_dt.strftime("%Y%m%d%H"),
+                    )
+                )
+                break
+        for supported_code in supported_codes.get("result", []):
+            stat_type = supported_code.get("stat_type")
+            code = supported_code.get("code")
+            if stat_type != "sum":
+                continue
+            for start, end in query_ranges:
+                params = {
+                    "code": code,
+                    "start_hour": start,
+                    "end_hour": end,
+                    "stat_type": "sum",
+                }
+                stat_result = self.iot_account.device_manager.api.get(
+                    f"/v1.0/devices/{device_id}/statistics/hours", params
+                )
+                temp_dict: dict[str, str] = {}
+                if result := stat_result.get("result", None):
+                    temp_dict = result.get("hours", {})
+                    for day_and_hour in copy.deepcopy(temp_dict):
+                        if temp_dict[day_and_hour] == "0.00":
+                            del temp_dict[day_and_hour]
+                        else:
+                            break
+                    for day_and_hour in temp_dict:
+                        if code not in return_dict:
+                            return_dict[code] = {}
+                        return_dict[code][
+                            datetime.strptime(day_and_hour, "%Y%m%d%H").timestamp()
+                        ] = round(float(temp_dict[day_and_hour]), 5)
+        return return_dict
+
     def convert_to_xt_device(
         self, device: Any, device_source_priority: XTDeviceSourcePriority | None = None
     ) -> XTDevice:
@@ -541,10 +678,17 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             device.device_source_priority = device_source_priority
         return device
 
-    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO) -> bool:
+    def send_lock_unlock_command(
+        self,
+        device: XTDevice,
+        lock: bool,
+        force_unlock_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO,
+    ) -> bool:
         if self.iot_account is None:
             return False
-        return self.iot_account.device_manager.send_lock_unlock_command(device, lock, force_unlock_mechanism)
+        return self.iot_account.device_manager.send_lock_unlock_command(
+            device, lock, force_unlock_mechanism
+        )
 
     def call_api(
         self, method: str, url: str, payload: str | None

@@ -124,6 +124,12 @@ PLATFORMS = [
     Platform.VACUUM,
 ]
 
+TUYA_TEST_API_BAD_RETURN_CODES = [
+    28841101,
+    28841102,
+    28841105,
+    28841106,
+]
 
 class AllowedPlugins:
     @staticmethod
@@ -144,6 +150,7 @@ class VirtualFunctions(IntFlag):
     """Virtual functions"""
 
     FUNCTION_RESET_STATE = 0x0001  # Reset the specified states
+    FUNCTION_IMPORT_ELECTRICAL_HISTORY = 0x0002  # Import the electrical history of the entity
 
 
 class XTDeviceEntityFunctions(StrEnum):
@@ -156,14 +163,16 @@ class XTMultiManagerProperties(StrEnum):
     LOCK_DEVICE_ID = "lock_device_id"
     CAMERA_DEVICE_ID = "camera_device_id"
     IR_DEVICE_ID = "ir_device_id"
+    ENERGY_SENSOR = "energy_sensor"
+
 
 class XTLockingMechanism(StrEnum):
     """Locking mecanism for the multi manager"""
 
-    AUTO            = "auto"
-    DOOR_OPEN       = "door_open"
-    DOOR_OPERATE    = "door_operate"
-    DPCODE_COMMAND  = "dpcode_command"
+    AUTO = "auto"
+    DOOR_OPEN = "door_open"
+    DOOR_OPERATE = "door_operate"
+    DPCODE_COMMAND = "dpcode_command"
 
 
 class XTMultiManagerPostSetupCallbackPriority(IntEnum):
@@ -241,6 +250,7 @@ class DescriptionVirtualFunction:
     virtual_function_name: str
     virtual_function_value: VirtualFunctions | None = None
     vf_reset_state: list[XTDPCode] = field(default_factory=list)
+    vf_history_import_dpcodes: list[XTDPCode] = field(default_factory=list)
 
 
 class WorkMode(StrEnum):
@@ -250,6 +260,7 @@ class WorkMode(StrEnum):
     MUSIC = "music"
     SCENE = "scene"
     WHITE = "white"
+
 
 class XTDPCode(StrEnum):
     """Data Point Codes used by XT.
@@ -880,7 +891,6 @@ class XTDPCode(StrEnum):
     REMAININGTIME = "RemainingTime"
     REMOTE_NO_DP_KEY = "remote_no_dp_key"
     REPORT_SENSITIVITY = "report_sensitivity"
-    RESET_ADD_ELE = "reset_add_ele"
     RESIDUAL_ELECTRICITY = "residual_electricity"
     RESPIRATORY_RATE = "respiratory_rate"
     RESTORE_FACTORY_SETTINGS = "restore_factory_settings"
@@ -1004,7 +1014,9 @@ class XTDPCode(StrEnum):
     WORK_STATUS = "WorkStatus"
     XT_COVER_INVERT_CONTROL = "xt_cover_invert_control"
     XT_COVER_INVERT_STATUS = "xt_cover_invert_status"
+    XT_IMPORT_ELECTRICAL_HISTORY = "xt_import_electrical_history"
     XT_LOCK_UNLOCK_MECHANISM = "xt_lock_unlock_mechanism"
+    XT_RESET_ADD_ELE = "xt_reset_add_ele"
     # END OF DPCODES FROM XT
 
     @staticmethod
@@ -1018,23 +1030,15 @@ class XTDPCode(StrEnum):
 UOM_MAPPING_DICT: dict[str, str | None] = {
     "kwh": "kWh",
     "kW·h": "kWh",
-
     "kVar": "kvar",
-
     "％": "%",
-
     "℃": "°C",
     "C": "°C",
-
     "℉": "°F",
-
     "分钟": "min",
-
     "gal ": "gal",
-
     "小时": "h",
     "秒": "s",
-
     "": None,
     "ADC": None,
     "格": None,
@@ -1049,7 +1053,7 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "today_acc_energy1": "energy",
     "today_energy_add1": "energy",
     "total_energy1": "energy",
-
+    "charge_energy": "energy",
     "ALARM_HIGH_HUMID": "humidity",
     "ALARM_LOW_HUMID": "humidity",
     "AUTO_HIGH_HUMID": "humidity",
@@ -1061,7 +1065,6 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "huid_revise": "humidity",
     "maxhum_set": "humidity",
     "minihum_set": "humidity",
-
     "ALARM_HIGH_TEMP": "temperature",
     "ALARM_LOW_TEMP": "temperature",
     "AUTO_HIGH_TEMP": "temperature",
@@ -1082,17 +1085,15 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "temp_set_huas": "temperature",
     "upper_temp": "temperature",
     "upper_temp_f": "temperature",
-
     "qidongwencha": "temperature_delta",
-
     "water_total_h": "water",
-
     "percent_control": None,
     "percent_state": None,
     "position_best": None,
     "switch_wrap": None,
     "valve_open_degree": None,
 }
+
 
 @dataclass
 class Country:

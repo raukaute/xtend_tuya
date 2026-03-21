@@ -159,10 +159,12 @@ class InkbirdSensorEntityDescription(XTSensorEntityDescription):
         device_manager: MultiManager,
         description: XTSensorEntityDescription,
         dpcode_wrapper: TuyaDPCodeWrapper,
+        supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
     ) -> XTSensorEntity:
         return XTSensorEntity(
             device=device,
             device_manager=device_manager,
             description=description,
             dpcode_wrapper=dpcode_wrapper,
+            supported_descriptors=supported_descriptors,
         )

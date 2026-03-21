@@ -26,6 +26,7 @@ from ....const import (
     XTIRRemoteInformation,
     XTIRRemoteKeysInformation,
     XTLockingMechanism,
+    TUYA_TEST_API_BAD_RETURN_CODES,
 )
 from ...shared.shared_classes import (
     XTDevice,
@@ -596,7 +597,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             return False
         ticket = api.post(f"/v1.0/devices/{device.id}/door-lock/password-ticket")
         if code := ticket.get("code", None):
-            if code == 28841101:
+            if code in TUYA_TEST_API_BAD_RETURN_CODES:
                 return False
         return True
 
@@ -610,7 +611,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             return False
         ticket = api.get(f"/v1.0/devices/{device.id}/webrtc-configs")
         if code := ticket.get("code", None):
-            if code == 28841106:
+            if code in TUYA_TEST_API_BAD_RETURN_CODES:
                 return False
         return True
 
@@ -624,7 +625,23 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             return False
         ticket = api.get(f"/v2.0/infrareds/{device.id}/remotes")
         if code := ticket.get("code", None):
-            if code == 28841105:
+            if code in TUYA_TEST_API_BAD_RETURN_CODES:
+                return False
+        return True
+    
+    def test_sensor_energy_statistic_api_subscription(
+        self, device: XTDevice, api: XTIOTOpenAPI | None = None
+    ) -> bool:
+        if api is None:
+            if self.test_sensor_energy_statistic_api_subscription(device, self.api):
+                if self.test_sensor_energy_statistic_api_subscription(device, self.non_user_api):
+                    return True
+            return False
+        stat_type = api.get(
+            f"/v1.0/devices/{device.id}/all-statistic-type"
+        )
+        if code := stat_type.get("code", None):
+            if code in TUYA_TEST_API_BAD_RETURN_CODES:
                 return False
         return True
 
