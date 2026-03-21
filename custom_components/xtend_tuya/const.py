@@ -124,6 +124,12 @@ PLATFORMS = [
     Platform.VACUUM,
 ]
 
+TUYA_TEST_API_BAD_RETURN_CODES = [
+    28841101,
+    28841102,
+    28841105,
+    28841106,
+]
 
 class AllowedPlugins:
     @staticmethod
