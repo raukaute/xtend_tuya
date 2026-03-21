@@ -1053,6 +1053,7 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "today_acc_energy1": "energy",
     "today_energy_add1": "energy",
     "total_energy1": "energy",
+    "charge_energy": "energy",
     "ALARM_HIGH_HUMID": "humidity",
     "ALARM_LOW_HUMID": "humidity",
     "AUTO_HIGH_HUMID": "humidity",
