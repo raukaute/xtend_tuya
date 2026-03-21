@@ -636,10 +636,11 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 if self.test_sensor_energy_statistic_api_subscription(device, self.non_user_api):
                     return True
             return False
-        ticket = api.get(
+        stat_type = api.get(
             f"/v1.0/devices/{device.id}/all-statistic-type"
         )
-        if code := ticket.get("code", None):
+        LOGGER.warning(f"Result of test_sensor_energy_statistic_api_subscription: {stat_type}")
+        if code := stat_type.get("code", None):
             if code == 28841105:
                 return False
         return True
