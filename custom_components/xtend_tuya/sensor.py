@@ -130,7 +130,7 @@ def xt_get_dpcode_wrapper(
             device_manager.execute_device_entity_function(
                 XTDeviceEntityFunctions.RECALCULATE_PERCENT_SCALE,
                 device,
-                function_code=description.key,
+                function_code=description.dpcode or description.key,
                 scale_threshold=description.recalculate_scale_for_percentage_threshold,
             )
     return tuya_sensor_get_dpcode_wrapper(device, description)
@@ -1748,13 +1748,14 @@ async def async_setup_entry(
                             ),
                         )
                     # for description in category_descriptions:
+                    #     dpcode = description.dpcode or description.key
                     #     if (
                     #         hasattr(description, "virtual_state")
                     #         and description.virtual_state
                     #         and description.virtual_state & VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD
-                    #         and description.key in device.status_range
+                    #         and (dpcode) in device.status_range
                     #     ):
-                    #         device.status_range[description.key].report_type = "sum"
+                    #         device.status_range[dpcode].report_type = "sum"
                     entities.extend(
                         XTSensorEntity.get_entity_instance(
                             description,
@@ -1901,11 +1902,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             return
         for dpcode in history:
             all_dependant_dpcodes = self._get_dpcodes_based_on_dpcode(dpcode)
-            if dpcode == self.entity_description.key:
-                LOGGER.warning(
-                    f"Dependant DPcodes of {dpcode}: {all_dependant_dpcodes}"
-                )
-            if self.entity_description.key in all_dependant_dpcodes:
+            if self._get_description_dpcode(self.entity_description) in all_dependant_dpcodes:
                 XTEventLoopProtector.execute_out_of_event_loop(
                     self._import_consumption_history, history[dpcode]
                 )
@@ -1916,7 +1913,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             self.device.category, tuple()
         )
         for descriptor in category_descriptors:
-            if descriptor.key == dpcode and isinstance(
+            if self._get_description_dpcode(descriptor) == dpcode and isinstance(
                 descriptor, XTSensorEntityDescription
             ):
                 return descriptor
@@ -1942,7 +1939,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     async def _import_consumption_history(self, history: dict[float, float]) -> None:
         self._currently_importing_statistics = True
         self.device_manager.multi_device_listener.update_device(
-            self.device, [self.entity_description.key]
+            self.device, [self._get_description_dpcode(self.entity_description)]
         )
 
         if await self._clear_statistics() is True:
@@ -1954,7 +1951,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             LOGGER.warning(f"Failed to clear existing statistics for {self.entity_id}")
         self._currently_importing_statistics = False
         self.device_manager.multi_device_listener.update_device(
-            self.device, [self.entity_description.key]
+            self.device, [self._get_description_dpcode(self.entity_description)]
         )
 
     async def _import_consumption_history_to_recorder(
