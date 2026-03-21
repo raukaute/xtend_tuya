@@ -596,7 +596,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             return False
         ticket = api.post(f"/v1.0/devices/{device.id}/door-lock/password-ticket")
         if code := ticket.get("code", None):
-            if code == 28841101:
+            if code == 28841101 or code == 28841105:
                 return False
         return True
 
@@ -610,7 +610,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             return False
         ticket = api.get(f"/v1.0/devices/{device.id}/webrtc-configs")
         if code := ticket.get("code", None):
-            if code == 28841106:
+            if code == 28841106 or code == 28841101 or code == 28841105:
                 return False
         return True
 
@@ -624,7 +624,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             return False
         ticket = api.get(f"/v2.0/infrareds/{device.id}/remotes")
         if code := ticket.get("code", None):
-            if code == 28841105:
+            if code == 28841101 or code == 28841105:
                 return False
         return True
     
@@ -640,7 +640,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             f"/v1.0/devices/{device.id}/all-statistic-type"
         )
         if code := stat_type.get("code", None):
-            if code == 28841101:
+            if code == 28841101 or code == 28841105:
                 return False
         return True
 
