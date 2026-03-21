@@ -627,6 +627,22 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             if code == 28841105:
                 return False
         return True
+    
+    def test_sensor_energy_statistic_api_subscription(
+        self, device: XTDevice, api: XTIOTOpenAPI | None = None
+    ) -> bool:
+        if api is None:
+            if self.test_sensor_energy_statistic_api_subscription(device, self.api):
+                if self.test_sensor_energy_statistic_api_subscription(device, self.non_user_api):
+                    return True
+            return False
+        ticket = api.get(
+            f"/v1.0/devices/{device.id}/all-statistic-type"
+        )
+        if code := ticket.get("code", None):
+            if code == 28841105:
+                return False
+        return True
 
     def get_ir_hub_information(
         self, device: XTDevice, api: XTIOTOpenAPI | None = None

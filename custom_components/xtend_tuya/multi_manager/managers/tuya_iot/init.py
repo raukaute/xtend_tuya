@@ -399,6 +399,31 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                         },
                         learn_more_url="https://github.com/azerty9971/xtend_tuya/blob/main/docs/configure_ir.md",
                     )
+        
+        if energy_sensor_entities := multi_manager.get_general_property(
+            XTMultiManagerProperties.ENERGY_SENSOR, None
+        ):
+            # Verify if we are subscribed to the energy statistic service
+            if device := multi_manager.device_map.get(energy_sensor_entities[0], None):
+                test_api = (
+                    await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+                        self.iot_account.device_manager.test_sensor_energy_statistic_api_subscription, device
+                    )
+                )
+                if not test_api:
+                    await self.raise_issue(
+                        hass=hass,
+                        config_entry=config_entry,
+                        is_fixable=True,
+                        severity=IssueSeverity.WARNING,
+                        translation_key="tuya_iot_sensor_energy_stat_not_subscribed",
+                        translation_placeholders={
+                            "name": DOMAIN,
+                            "config_entry_id": config_entry.title
+                            or "Config entry not found",
+                        },
+                        learn_more_url="https://github.com/azerty9971/xtend_tuya/blob/main/docs/configure_energy_sensor_statistics.md",
+                    )
 
     def get_ir_hub_information(self, device: XTDevice) -> XTIRHubInformation | None:
         if self.iot_account is None:
