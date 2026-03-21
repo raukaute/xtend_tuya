@@ -1970,15 +1970,28 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         )
         stats: list[StatisticData] = []
         sum: float = 0.0
+        last_timestamp: datetime | None = None
         for timestamp, value in history.items():
+            current_timestamp = datetime.fromtimestamp(timestamp, tz=UTC)
+            should_reset_sum: bool = False
+            if last_timestamp is not None:
+                if self.entity_description.reset_daily and last_timestamp.day != current_timestamp.day:
+                    should_reset_sum = True
+                elif self.entity_description.reset_monthly and last_timestamp.month != current_timestamp.month:
+                    should_reset_sum = True
+                elif self.entity_description.reset_yearly and last_timestamp.year != current_timestamp.year:
+                    should_reset_sum = True
+            if should_reset_sum is True:
+                sum = 0.0
             sum += value
             stats.append(
                 StatisticData(
-                    start=datetime.fromtimestamp(timestamp, tz=UTC),
+                    start=current_timestamp,
                     state=round(sum, 5),
                     sum=round(sum, 5),
                 )
             )
+            last_timestamp = current_timestamp
         if stats:
             last_statistic: StatisticData = stats.pop(-1)
             if stats:
@@ -2075,10 +2088,9 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         dpcode = getattr(self._dpcode_wrapper, "dpcode", None)
         if dpcode is None:
             return
-        if device := self.device_manager.device_map.get(self.device.id, None):
-            scaled_value_back = self.scale_value_back(value)
-            device.status[dpcode] = scaled_value_back
-            self.async_write_ha_state()
+        scaled_value_back = self.scale_value_back(value)
+        self.device.status[dpcode] = scaled_value_back
+        self.async_write_ha_state()
 
     def scale_value_back(self, value: StateType) -> StateType:
         type_information = self.get_type_information()
