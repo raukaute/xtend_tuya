@@ -74,7 +74,7 @@ class XTVirtualStateHandler:
         for virtual_state in virtual_states:
             if (
                 virtual_state.virtual_state_value
-                == VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM
+                == VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
             ):
                 if virtual_state.key in device.status:
                     if virtual_state.key in device.status_range:
@@ -214,7 +214,7 @@ class XTVirtualStateHandler:
         for virtual_state in virtual_states:
             if (
                 virtual_state.virtual_state_value
-                == VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM
+                == VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
             ):
                 for item in status:
                     code, dpId, new_key_value, result_ok = (

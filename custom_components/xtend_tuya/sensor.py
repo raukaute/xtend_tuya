@@ -256,30 +256,21 @@ BATTERY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
 CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     XTSensorEntityDescription(
         key=XTDPCode.ADD_ELE,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
         | VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         vs_copy_to_state=[
-            XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
+        ],
+        vs_copy_delta_to_state=[
+            XTDPCode.ADD_ELE2,
         ],
         translation_key="add_ele",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         entity_registry_enabled_default=True,
-        restoredata=True,
-        ignore_other_dp_code_handler=True,
-        wrapper_class=(XTDPCodeIntegerNoMinMaxCheckWrapper,),
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.ADD_ELE2,
-        translation_key="add_ele2",
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        entity_registry_enabled_default=False,
         restoredata=True,
         ignore_other_dp_code_handler=True,
         wrapper_class=(XTDPCodeIntegerNoMinMaxCheckWrapper,),
@@ -321,8 +312,24 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         wrapper_class=(XTDPCodeIntegerNoMinMaxCheckWrapper,),
     ),
     XTSensorEntityDescription(
+        key=XTDPCode.ADD_ELE2,
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
+        vs_copy_delta_to_state=[
+            XTDPCode.ADD_ELE2_TODAY,
+            XTDPCode.ADD_ELE2_THIS_MONTH,
+            XTDPCode.ADD_ELE2_THIS_YEAR,
+        ],
+        translation_key="add_ele2",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        entity_registry_enabled_default=False,
+        restoredata=True,
+        ignore_other_dp_code_handler=True,
+        wrapper_class=(XTDPCodeIntegerNoMinMaxCheckWrapper,),
+    ),
+    XTSensorEntityDescription(
         key=XTDPCode.ADD_ELE2_TODAY,
-        virtual_state=VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         translation_key="add_ele2_today",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -334,7 +341,6 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.ADD_ELE2_THIS_MONTH,
-        virtual_state=VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         translation_key="add_ele2_this_month",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -346,7 +352,6 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.ADD_ELE2_THIS_YEAR,
-        virtual_state=VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         translation_key="add_ele2_this_year",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -388,7 +393,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.ELECTRIC,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
         | VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         vs_copy_to_state=[
             XTDPCode.ELECTRIC_TODAY,
@@ -462,17 +467,14 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.FORWARD_ENERGY_TOTAL,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM,
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
         vs_copy_to_state=[
-            XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
         ],
         vs_copy_delta_to_state=[
-            XTDPCode.ADD_ELE2_TODAY,
-            XTDPCode.ADD_ELE2_THIS_MONTH,
-            XTDPCode.ADD_ELE2_THIS_YEAR,
+            XTDPCode.ADD_ELE2,
         ],
         translation_key="total_energy",
         device_class=SensorDeviceClass.ENERGY,
@@ -482,13 +484,15 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.POWER_CONSUMPTION,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME
         | VirtualStates.STATE_SUMMED_IN_REPORTING_PAYLOAD,
         vs_copy_to_state=[
-            XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
+        ],
+        vs_copy_delta_to_state=[
+            XTDPCode.ADD_ELE2,
         ],
         translation_key="add_ele",
         device_class=SensorDeviceClass.ENERGY,
@@ -532,17 +536,14 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.TOTALENERGYCONSUMED,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM,
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
         vs_copy_to_state=[
-            XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
         ],
         vs_copy_delta_to_state=[
-            XTDPCode.ADD_ELE2_TODAY,
-            XTDPCode.ADD_ELE2_THIS_MONTH,
-            XTDPCode.ADD_ELE2_THIS_YEAR,
+            XTDPCode.ADD_ELE2,
         ],
         translation_key="total_energy",
         device_class=SensorDeviceClass.ENERGY,
@@ -552,17 +553,14 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     ),
     XTSensorEntityDescription(
         key=XTDPCode.TOTAL_FORWARD_ENERGY,
-        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM,
+        virtual_state=VirtualStates.STATE_COPY_TO_MULTIPLE_STATE_NAME,
         vs_copy_to_state=[
-            XTDPCode.ADD_ELE2,
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
         ],
         vs_copy_delta_to_state=[
-            XTDPCode.ADD_ELE2_TODAY,
-            XTDPCode.ADD_ELE2_THIS_MONTH,
-            XTDPCode.ADD_ELE2_THIS_YEAR,
+            XTDPCode.ADD_ELE2,
         ],
         translation_key="total_energy",
         device_class=SensorDeviceClass.ENERGY,
@@ -1901,7 +1899,9 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         for dpcode in history:
             all_dependant_dpcodes = self._get_dpcodes_based_on_dpcode(dpcode)
             if dpcode == self.entity_description.key:
-                LOGGER.warning(f"Dependant DPcodes of {dpcode}: {all_dependant_dpcodes}")
+                LOGGER.warning(
+                    f"Dependant DPcodes of {dpcode}: {all_dependant_dpcodes}"
+                )
             if self.entity_description.key in all_dependant_dpcodes:
                 XTEventLoopProtector.execute_out_of_event_loop(
                     self._import_consumption_history, history[dpcode]
@@ -1909,9 +1909,13 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 break
 
     def _get_dpcode_descriptor(self, dpcode: str) -> XTSensorEntityDescription | None:
-        category_descriptors = self.supported_descriptors.get(self.device.category, tuple())
+        category_descriptors = self.supported_descriptors.get(
+            self.device.category, tuple()
+        )
         for descriptor in category_descriptors:
-            if descriptor.key == dpcode and isinstance(descriptor, XTSensorEntityDescription):
+            if descriptor.key == dpcode and isinstance(
+                descriptor, XTSensorEntityDescription
+            ):
                 return descriptor
         return None
 
@@ -1920,15 +1924,19 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         if descriptor := self._get_dpcode_descriptor(dpcode):
             for copy_dpcode in descriptor.vs_copy_to_state:
                 copy_dpcodes = self._get_dpcodes_based_on_dpcode(copy_dpcode)
-                dpcodes.extend(dpcode for dpcode in copy_dpcodes if dpcode not in dpcodes)
+                dpcodes.extend(
+                    dpcode for dpcode in copy_dpcodes if dpcode not in dpcodes
+                )
             for copy_delta_dpcode in descriptor.vs_copy_delta_to_state:
-                copy_delta_dpcodes = self._get_dpcodes_based_on_dpcode(copy_delta_dpcode)
-                dpcodes.extend(dpcode for dpcode in copy_delta_dpcodes if dpcode not in dpcodes)
+                copy_delta_dpcodes = self._get_dpcodes_based_on_dpcode(
+                    copy_delta_dpcode
+                )
+                dpcodes.extend(
+                    dpcode for dpcode in copy_delta_dpcodes if dpcode not in dpcodes
+                )
         return dpcodes
 
-    async def _import_consumption_history(
-        self, history: dict[float, float]
-    ) -> None:
+    async def _import_consumption_history(self, history: dict[float, float]) -> None:
         self._currently_importing_statistics = True
         self.device_manager.multi_device_listener.update_device(
             self.device, [self.entity_description.key]

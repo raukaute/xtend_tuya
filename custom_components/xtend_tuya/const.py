@@ -134,7 +134,7 @@ class AllowedPlugins:
 class VirtualStates(IntFlag):
     """Virtual states"""
 
-    STATE_COPY_TO_MULTIPLE_STATE_NAME_BEFORE_SUM = (
+    STATE_COPY_TO_MULTIPLE_STATE_NAME = (
         0x0001  # Copy the state so that it can be used with other virtual states
     )
     STATE_SUMMED_IN_REPORTING_PAYLOAD = 0x0002  # Spoof the state value to make it a total instead of an incremental value
