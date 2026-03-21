@@ -264,9 +264,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
             XTDPCode.ADD_ELE_THIS_YEAR,
             XTDPCode.ADD_ELE2,
         ],
-        vs_copy_delta_to_state=[
-            
-        ],
+        vs_copy_delta_to_state=[],
         translation_key="add_ele",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -500,9 +498,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
             XTDPCode.ADD_ELE_THIS_YEAR,
             XTDPCode.ADD_ELE2,
         ],
-        vs_copy_delta_to_state=[
-            
-        ],
+        vs_copy_delta_to_state=[],
         translation_key="add_ele",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -567,7 +563,6 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
             XTDPCode.ADD_ELE2,
         ],
         vs_copy_delta_to_state=[
-            
             XTDPCode.ADD_ELE_TODAY,
             XTDPCode.ADD_ELE_THIS_MONTH,
             XTDPCode.ADD_ELE_THIS_YEAR,
@@ -1909,7 +1904,10 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             return
         for dpcode in history:
             all_dependant_dpcodes = self._get_dpcodes_based_on_dpcode(dpcode)
-            if self._get_description_dpcode(self.entity_description) in all_dependant_dpcodes:
+            if (
+                self._get_description_dpcode(self.entity_description)
+                in all_dependant_dpcodes
+            ):
                 XTEventLoopProtector.execute_out_of_event_loop(
                     self._import_consumption_history, history[dpcode]
                 )
@@ -1982,11 +1980,20 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             current_timestamp = datetime.fromtimestamp(timestamp, tz=UTC)
             should_reset_sum: bool = False
             if last_timestamp is not None:
-                if self.entity_description.reset_daily and last_timestamp.day != current_timestamp.day:
+                if (
+                    self.entity_description.reset_daily
+                    and last_timestamp.day != current_timestamp.day
+                ):
                     should_reset_sum = True
-                elif self.entity_description.reset_monthly and last_timestamp.month != current_timestamp.month:
+                elif (
+                    self.entity_description.reset_monthly
+                    and last_timestamp.month != current_timestamp.month
+                ):
                     should_reset_sum = True
-                elif self.entity_description.reset_yearly and last_timestamp.year != current_timestamp.year:
+                elif (
+                    self.entity_description.reset_yearly
+                    and last_timestamp.year != current_timestamp.year
+                ):
                     should_reset_sum = True
             if should_reset_sum is True:
                 sum = 0.0
