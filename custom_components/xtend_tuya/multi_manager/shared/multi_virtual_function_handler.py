@@ -64,15 +64,15 @@ class XTVirtualFunctionHandler:
                         ):
                             # This virtual_state is applied to this key, let's return it
                             found_virtual_function = DescriptionVirtualFunction(
-                                description.key,
-                                virtual_function.name,
-                                VirtualFunctions(virtual_function.value),
-                                (
+                                key=description.key,
+                                virtual_function_name=virtual_function.name,
+                                virtual_function_value=VirtualFunctions(virtual_function.value),
+                                vf_reset_state=(
                                     description.vf_reset_state
                                     if description.vf_reset_state is not None
                                     else []
                                 ),
-                                (
+                                vf_history_import_dpcodes=(
                                     description.vf_history_import_dpcodes
                                     if description.vf_history_import_dpcodes is not None
                                     else []
