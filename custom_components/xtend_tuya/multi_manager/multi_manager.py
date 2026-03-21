@@ -20,6 +20,7 @@ from ..const import (
     XTIRRemoteInformation,
     XTIRRemoteKeysInformation,
     XTLockingMechanism,
+    MESSAGE_SOURCE_TUYA_SHARING,
 )
 from .shared.shared_classes import (
     DeviceWatcher,
@@ -357,10 +358,12 @@ class MultiManager:  # noqa: F811
         return code, dpId, value, True
 
     def convert_device_report_status_list(
-        self, device_id: str, status_in: list
+        self, device_id: str, status_in: list, source: str
     ) -> list[dict[str, Any]]:
         status = copy.deepcopy(status_in)
         for item in status:
+            if "t" in item and source in [MESSAGE_SOURCE_TUYA_SHARING]:
+                item["t"] = int(item["t"] / 1000)  # Convert from ms to s
             code, dpId, value, result_ok = self._read_code_dpid_value_from_state(
                 device_id, item
             )
@@ -544,6 +547,18 @@ class MultiManager:  # noqa: F811
         for account in self.accounts.values():
             if account.trigger_scene(home_id, scene_id):
                 return
+    
+    def get_device_consumption_statistics_by_day(self, device_id: str, start_day: str, end_day: str) -> dict[str, dict[float, float]] | None:
+        for account in self.accounts.values():
+            if stats := account.get_device_consumption_statistics_by_day(device_id, start_day, end_day):
+                return stats
+        return None
+    
+    def get_device_consumption_statistics_by_hour(self, device_id: str, start_day_and_hour: str, end_day_and_hour: str) -> dict[str, dict[float, float]] | None:
+        for account in self.accounts.values():
+            if stats := account.get_device_consumption_statistics_by_hour(device_id, start_day_and_hour, end_day_and_hour):
+                return stats
+        return None
 
     def update_device_online_status(self, device_id: str):
         if device := self.device_map.get(device_id, None):

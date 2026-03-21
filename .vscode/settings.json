@@ -1,2 +1,9 @@
 {
+    "python-envs.pythonProjects": [
+        {
+            "path": "custom_components",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
+    ]
 }

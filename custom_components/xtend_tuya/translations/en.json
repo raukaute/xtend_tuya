@@ -390,7 +390,10 @@
             "manual_lock": {
                 "name": "Manual lock"
             },
-            "reset_add_ele": {
+            "xt_import_electrical_history": {
+                "name": "Import consumption history"
+            },
+            "xt_reset_add_ele": {
                 "name": "Reset consumption"
             },
             "xt_add_ir_device": {
@@ -3122,6 +3125,17 @@
                     "confirm": {
                         "description": "The integration \"{name}\" (`{config_entry_id}`) Does not have a Tuya OpenAPI account that is subscribed to the IR Control Hub Open Service service\n\nWithout this, IR devices will not function properly.\n\nTo fix this warning please follow the guide at the URL by clicking the button below, then restart Home Assistant.",
                         "title": "Tuya OpenAPI account badly configured (IR)"
+                    }
+                }
+            }
+        },
+        "tuya_iot_sensor_energy_stat_not_subscribed": {
+            "title": "Tuya OpenAPI account badly configured (Energy stat)",
+            "fix_flow": {
+                "step": {
+                    "confirm": {
+                        "description": "The integration \"{name}\" (`{config_entry_id}`) Does not have a Tuya OpenAPI account that is subscribed to the Beta API service\n\nWithout this, fetching energy sensor consumption history will not function properly.\n\nTo fix this warning please follow the guide at the URL by clicking the button below, then restart Home Assistant.",
+                        "title": "Tuya OpenAPI account badly configured (Energy stat)"
                     }
                 }
             }
