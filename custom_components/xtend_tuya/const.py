@@ -958,6 +958,9 @@ class XTDPCode(StrEnum):
     TIME_GET_IN_BED = "time_get_in_bed"
     TIMER_ON = "timer_on"
     TOTALENERGYCONSUMED = "TotalEnergyConsumed"
+    TOTAL_FORWARD_ENERGY_THIS_MONTH = "total_forward_energy_this_month"
+    TOTAL_FORWARD_ENERGY_THIS_YEAR = "total_forward_energy_this_year"
+    TOTAL_FORWARD_ENERGY_TODAY = "total_forward_energy_today"
     TRASH_STATUS = "trash_status"
     TRIGGER_SENSITIVITY = "trigger_sensitivity"
     UNIT = "unit"
@@ -1025,6 +1028,10 @@ class XTDPCode(StrEnum):
     XT_IMPORT_ELECTRICAL_HISTORY = "xt_import_electrical_history"
     XT_LOCK_UNLOCK_MECHANISM = "xt_lock_unlock_mechanism"
     XT_RESET_ADD_ELE = "xt_reset_add_ele"
+    XT_TOTAL_FORWARD_ENERGY = "xt_total_forward_energy"
+    XT_TOTAL_FORWARD_ENERGY_THIS_MONTH = "xt_total_forward_energy_this_month"
+    XT_TOTAL_FORWARD_ENERGY_THIS_YEAR = "xt_total_forward_energy_this_year"
+    XT_TOTAL_FORWARD_ENERGY_TODAY = "xt_total_forward_energy_today"
     # END OF DPCODES FROM XT
 
     @staticmethod

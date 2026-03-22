@@ -2553,6 +2553,27 @@
             "total_energy": {
                 "name": "Total energy"
             },
+            "total_energy_today": {
+                "name": "Daily total energy"
+            },
+            "total_energy_this_month": {
+                "name": "Monthly total energy"
+            },
+            "total_energy_this_year": {
+                "name": "Yearly total energy"
+            },
+            "xt_total_energy": {
+                "name": "Total energy (method B)"
+            },
+            "xt_total_energy_today": {
+                "name": "Daily total energy (method B)"
+            },
+            "xt_total_energy_this_month": {
+                "name": "Monthly total energy (method B)"
+            },
+            "xt_total_energy_this_year": {
+                "name": "Yearly total energy (method B)"
+            },
             "total_operating_time": {
                 "name": "Total operating time"
             },
