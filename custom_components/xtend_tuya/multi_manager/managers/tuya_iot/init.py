@@ -579,13 +579,13 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
         for supported_code in supported_codes.get("result", []):
             stat_type = supported_code.get("stat_type")
             code = supported_code.get("code")
-            if stat_type != "sum":
-                continue
+            #if stat_type != "sum":
+            #    continue
             params = {
                 "code": code,
                 "start_day": start_day,
                 "end_day": end_day,
-                "stat_type": "sum",
+                "stat_type": stat_type,
             }
             stat_result = self.iot_account.device_manager.api.get(
                 f"/v1.0/devices/{device_id}/statistics/days", params
@@ -642,14 +642,14 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
         for supported_code in supported_codes.get("result", []):
             stat_type = supported_code.get("stat_type")
             code = supported_code.get("code")
-            if stat_type != "sum":
-                continue
+            #if stat_type != "sum":
+            #    continue
             for start, end in query_ranges:
                 params = {
                     "code": code,
                     "start_hour": start,
                     "end_hour": end,
-                    "stat_type": "sum",
+                    "stat_type": stat_type,
                 }
                 stat_result = self.iot_account.device_manager.api.get(
                     f"/v1.0/devices/{device_id}/statistics/hours", params
