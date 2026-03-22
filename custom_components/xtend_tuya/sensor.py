@@ -1833,6 +1833,13 @@ async def async_setup_entry(
 class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     """XT Sensor Entity."""
 
+    @dataclass
+    class XTSensorConsumptionData:
+        metadata: StatisticMetaData
+        long_term_stats: list[StatisticData]
+        short_term_stats: list[StatisticData]
+        current_value: float
+
     entity_description: XTSensorEntityDescription
     _restored_data: SensorExtraStoredData | None = None
 
@@ -1908,10 +1915,72 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 self._get_description_dpcode(self.entity_description)
                 in all_dependant_dpcodes
             ):
-                XTEventLoopProtector.execute_out_of_event_loop(
-                    self._import_consumption_history, history[dpcode]
+                consumption_data = self._get_consumption_stat_data(history[dpcode])
+                if consumption_data is not None:
+                    XTEventLoopProtector.execute_out_of_event_loop(
+                        self._import_consumption_history, consumption_data
+                    )
+                    break
+
+    def _get_consumption_stat_data(
+        self, history: dict[float, float]
+    ) -> XTSensorEntity.XTSensorConsumptionData | None:
+        metadata = StatisticMetaData(
+            has_mean=False,
+            mean_type=StatisticMeanType.NONE,
+            has_sum=True,
+            name=f"{self.entity_id} Consumption History",
+            source="recorder",
+            statistic_id=self.entity_id,
+            unit_class=SensorDeviceClass.ENERGY,
+            unit_of_measurement=self.unit_of_measurement,
+        )
+        long_term_stats: list[StatisticData] = []
+        sum: float = 0.0
+        last_timestamp: datetime | None = None
+        start_of_this_hour = datetime.now(tz=UTC).replace(
+            minute=0, second=0, microsecond=0
+        )
+        for timestamp, value in history.items():
+            current_timestamp = datetime.fromtimestamp(timestamp, tz=UTC)
+            should_reset_sum: bool = False
+            if last_timestamp is not None:
+                if (
+                    self.entity_description.reset_daily
+                    and last_timestamp.day != current_timestamp.day
+                ):
+                    should_reset_sum = True
+                elif (
+                    self.entity_description.reset_monthly
+                    and last_timestamp.month != current_timestamp.month
+                ):
+                    should_reset_sum = True
+                elif (
+                    self.entity_description.reset_yearly
+                    and last_timestamp.year != current_timestamp.year
+                ):
+                    should_reset_sum = True
+            if should_reset_sum is True:
+                sum = 0.0
+            sum += value
+            if current_timestamp < start_of_this_hour:
+                long_term_stats.append(
+                    StatisticData(
+                        start=current_timestamp,
+                        state=round(sum, 5),
+                        sum=round(sum, 5),
+                    )
                 )
-                break
+                last_timestamp = current_timestamp
+        if len(long_term_stats) < 2:
+            return None
+        short_term_stats = [long_term_stats.pop(-1)]
+        return XTSensorEntity.XTSensorConsumptionData(
+            metadata=metadata,
+            long_term_stats=long_term_stats,
+            short_term_stats=short_term_stats,
+            current_value=sum,
+        )
 
     def _get_dpcode_descriptor(self, dpcode: str) -> XTSensorEntityDescription | None:
         category_descriptors = self.supported_descriptors.get(
@@ -1941,17 +2010,14 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 )
         return dpcodes
 
-    async def _import_consumption_history(self, history: dict[float, float]) -> None:
+    async def _import_consumption_history(self, history: XTSensorEntity.XTSensorConsumptionData) -> None:
         self._currently_importing_statistics = True
         self.device_manager.multi_device_listener.update_device(
             self.device, [self._get_description_dpcode(self.entity_description)]
         )
-
+        self.set_sensor_value(history.current_value)
         if await self._clear_statistics() is True:
-            if await self._import_consumption_history_to_recorder(history) is False:
-                LOGGER.warning(
-                    f"Failed to import consumption history for {self.entity_id}"
-                )
+            await self._import_consumption_history_to_recorder(history)
         else:
             LOGGER.warning(f"Failed to clear existing statistics for {self.entity_id}")
         self._currently_importing_statistics = False
@@ -1960,67 +2026,18 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         )
 
     async def _import_consumption_history_to_recorder(
-        self, history: dict[float, float]
-    ) -> bool:
+        self, history: XTSensorEntity.XTSensorConsumptionData
+    ) -> None:
         """Import consumption history to recorder."""
-        metadata = StatisticMetaData(
-            has_mean=False,
-            mean_type=StatisticMeanType.NONE,
-            has_sum=True,
-            name=f"{self.entity_id} Consumption History",
-            source="recorder",
-            statistic_id=self.entity_id,
-            unit_class=SensorDeviceClass.ENERGY,
-            unit_of_measurement=self.unit_of_measurement,
+        recorder = get_recorder_instance(self.hass)
+        recorder.async_import_statistics(
+            metadata=history.metadata, stats=history.long_term_stats, table=Statistics
         )
-        stats: list[StatisticData] = []
-        sum: float = 0.0
-        last_timestamp: datetime | None = None
-        for timestamp, value in history.items():
-            current_timestamp = datetime.fromtimestamp(timestamp, tz=UTC)
-            should_reset_sum: bool = False
-            if last_timestamp is not None:
-                if (
-                    self.entity_description.reset_daily
-                    and last_timestamp.day != current_timestamp.day
-                ):
-                    should_reset_sum = True
-                elif (
-                    self.entity_description.reset_monthly
-                    and last_timestamp.month != current_timestamp.month
-                ):
-                    should_reset_sum = True
-                elif (
-                    self.entity_description.reset_yearly
-                    and last_timestamp.year != current_timestamp.year
-                ):
-                    should_reset_sum = True
-            if should_reset_sum is True:
-                sum = 0.0
-            sum += value
-            stats.append(
-                StatisticData(
-                    start=current_timestamp,
-                    state=round(sum, 5),
-                    sum=round(sum, 5),
-                )
-            )
-            last_timestamp = current_timestamp
-        if stats:
-            last_statistic: StatisticData = stats.pop(-1)
-            if stats:
-                self.set_sensor_value(sum)
-                recorder = get_recorder_instance(self.hass)
-                recorder.async_import_statistics(
-                    metadata=metadata, stats=stats, table=Statistics
-                )
-                recorder.async_import_statistics(
-                    metadata=metadata, stats=[last_statistic], table=StatisticsShortTerm
-                )
-                await recorder.async_block_till_done()
-                return True
-        return False
-
+        recorder.async_import_statistics(
+            metadata=history.metadata, stats=history.short_term_stats, table=StatisticsShortTerm
+        )
+        await recorder.async_block_till_done()
+        
     async def _clear_statistics(self) -> bool:
         """Clear statistics for this sensor."""
         done_event = asyncio.Event()
