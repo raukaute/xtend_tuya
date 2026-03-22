@@ -1539,28 +1539,28 @@
                 "name": "Grid voltage"
             },
             "add_ele": {
-                "name": "Consumption"
+                "name": "Consumption {index}"
             },
             "add_ele_this_month": {
-                "name": "Monthly consumption"
+                "name": "Monthly consumption {index}"
             },
             "add_ele_this_year": {
-                "name": "Yearly consumption"
+                "name": "Yearly consumption {index}"
             },
             "add_ele_today": {
-                "name": "Daily consumption"
+                "name": "Daily consumption {index}"
             },
-            "add_ele2": {
-                "name": "Consumption (method B)"
+            "xt_add_ele": {
+                "name": "Consumption {index} (method B)"
             },
-            "add_ele2_this_month": {
-                "name": "Monthly consumption (method B)"
+            "xt_add_ele_this_month": {
+                "name": "Monthly consumption {index} (method B)"
             },
-            "add_ele2_this_year": {
-                "name": "Yearly consumption (method B)"
+            "xt_add_ele_this_year": {
+                "name": "Yearly consumption {index} (method B)"
             },
-            "add_ele2_today": {
-                "name": "Daily consumption (method B)"
+            "xt_add_ele_today": {
+                "name": "Daily consumption {index} (method B)"
             },
             "auto_deordrizer": {
                 "name": "Auto deordrizer"

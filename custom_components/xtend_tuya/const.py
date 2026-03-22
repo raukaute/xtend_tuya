@@ -664,7 +664,7 @@ class XTDPCode(StrEnum):
     ADD_ELE_THIS_MONTH = "add_ele_this_month"
     ADD_ELE_THIS_YEAR = "add_ele_this_year"
     ADD_ELE_TODAY = "add_ele_today"
-    ADD_ELE2 = "add_ele2"  # Added watt since last heartbeat
+    ADD_ELE2 = "add_ele2"
     ADD_ELE2_THIS_MONTH = "add_ele2_this_month"
     ADD_ELE2_THIS_YEAR = "add_ele2_this_year"
     ADD_ELE2_TODAY = "add_ele2_today"
@@ -1012,6 +1012,14 @@ class XTDPCode(StrEnum):
     WORK_STAT = "work_stat"
     WORK_STATE = "work_state"
     WORK_STATUS = "WorkStatus"
+    XT_ADD_ELE = "xt_add_ele"
+    XT_ADD_ELE_THIS_MONTH = "xt_add_ele_this_month"
+    XT_ADD_ELE_THIS_YEAR = "xt_add_ele_this_year"
+    XT_ADD_ELE_TODAY = "xt_add_ele_today"
+    XT_ADD_ELE2 = "xt_add_ele2"
+    XT_ADD_ELE2_THIS_MONTH = "xt_add_ele2_this_month"
+    XT_ADD_ELE2_THIS_YEAR = "xt_add_ele2_this_year"
+    XT_ADD_ELE2_TODAY = "xt_add_ele2_today"
     XT_COVER_INVERT_CONTROL = "xt_cover_invert_control"
     XT_COVER_INVERT_STATUS = "xt_cover_invert_status"
     XT_IMPORT_ELECTRICAL_HISTORY = "xt_import_electrical_history"
@@ -1030,6 +1038,7 @@ class XTDPCode(StrEnum):
 UOM_MAPPING_DICT: dict[str, str | None] = {
     "kwh": "kWh",
     "kW·h": "kWh",
+    "kW.h": "kWh",
     "kVar": "kvar",
     "％": "%",
     "℃": "°C",
