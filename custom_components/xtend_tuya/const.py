@@ -1066,10 +1066,11 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
 DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "active_energy_total": "energy",
     "add_ele1": "energy",
+    "charge_energy": "energy",
+    "cur_neutral": "energy",
     "today_acc_energy1": "energy",
     "today_energy_add1": "energy",
     "total_energy1": "energy",
-    "charge_energy": "energy",
     "ALARM_HIGH_HUMID": "humidity",
     "ALARM_LOW_HUMID": "humidity",
     "AUTO_HIGH_HUMID": "humidity",
