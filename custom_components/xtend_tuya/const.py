@@ -1110,6 +1110,10 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "valve_open_degree": None,
 }
 
+class XTEntityAccessMode(StrEnum):
+    READ_ONLY = "ro"
+    READ_WRITE = "rw"
+    WRITE_ONLY = "wr"
 
 @dataclass
 class Country:

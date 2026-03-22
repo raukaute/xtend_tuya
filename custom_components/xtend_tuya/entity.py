@@ -431,11 +431,6 @@ class XTEntityDescriptorManager:
 
 
 class XTEntity(TuyaEntity):
-    class XTEntityAccessMode(StrEnum):
-        READ_ONLY = "ro"
-        READ_WRITE = "rw"
-        WRITE_ONLY = "wr"
-
     class XTEntitySharedAttributes(StrEnum):
         IGNORE_OTHER_DP_CODE_HANDLER = "ignore_other_dp_code_handler"
 

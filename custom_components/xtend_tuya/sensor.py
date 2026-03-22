@@ -94,7 +94,7 @@ if TYPE_CHECKING:
 COMPOUND_KEY: list[str | tuple[str, ...]] = ["key", "dpcode"]
 
 
-def xt_get__generic_dpcode_wrapper(
+def xt_get_generic_dpcode_wrapper(
     device: XTDevice,
     description: TuyaSensorEntityDescription,
 ) -> TuyaDPCodeWrapper | None:
@@ -2026,7 +2026,7 @@ async def async_setup_entry(
                         entity_registry_enabled_default=False,
                         entity_registry_visible_default=False,
                     )
-                    if dpcode_wrapper := xt_get__generic_dpcode_wrapper(
+                    if dpcode_wrapper := xt_get_generic_dpcode_wrapper(
                         device, descriptor
                     ):
                         entities.append(

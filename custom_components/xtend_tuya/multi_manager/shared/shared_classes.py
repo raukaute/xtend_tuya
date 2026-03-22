@@ -21,6 +21,7 @@ from ...ha_tuya_integration.tuya_integration_imports import (
 from ...const import (
     LOGGER,
     XTDeviceSourcePriority,
+    XTEntityAccessMode,
 )
 
 
@@ -430,15 +431,15 @@ class XTDevice(TuyaDevice):
                 if access_mode := local_strategy.get("access_mode"):
                     dp_info.access_mode = access_mode
                     match access_mode:
-                        case "ro":
+                        case XTEntityAccessMode.READ_ONLY:
                             dp_info.read_only = True
                             dp_info.write_only = False
                             dp_info.read_write = False
-                        case "rw":
+                        case XTEntityAccessMode.READ_WRITE:
                             dp_info.read_only = False
                             dp_info.write_only = False
                             dp_info.read_write = True
-                        case "wr":
+                        case XTEntityAccessMode.WRITE_ONLY:
                             dp_info.read_only = False
                             dp_info.write_only = True
                             dp_info.read_write = False
