@@ -2011,15 +2011,22 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         return dpcodes
 
     async def _import_consumption_history(self, history: XTSensorEntity.XTSensorConsumptionData) -> None:
+        # First put the current value as base state, this prevents a bad short term stat from being created
+        self.set_sensor_value(history.current_value)
+        
+        # Now mark the entity as unserviceable for now
         self._currently_importing_statistics = True
         self.device_manager.multi_device_listener.update_device(
             self.device, [self._get_description_dpcode(self.entity_description)]
         )
-        self.set_sensor_value(history.current_value)
+
+        # Clear and import the history
         if await self._clear_statistics() is True:
             await self._import_consumption_history_to_recorder(history)
         else:
             LOGGER.warning(f"Failed to clear existing statistics for {self.entity_id}")
+        
+        # Mark the entity as serviceable again
         self._currently_importing_statistics = False
         self.device_manager.multi_device_listener.update_device(
             self.device, [self._get_description_dpcode(self.entity_description)]
