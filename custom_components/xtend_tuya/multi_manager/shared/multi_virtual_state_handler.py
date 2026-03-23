@@ -126,6 +126,13 @@ class XTVirtualStateHandler:
                                             new_local_strategy
                                         )
                                         device.status_range[new_code].dp_id = new_dp_id
+                                        self.multi_manager.device_watcher.report_message(
+                                            device.id,
+                                            f"Adding new local strategy: {virtual_state.key}({dp_id}): {device.local_strategy[new_dp_id]}",
+                                            XTDeviceWatcherCategory.VIRTUAL_STATE
+                                            | XTDeviceWatcherCategory.DEBUG,
+                                            device,
+                                        )
                         for vs_new_code in virtual_state.vs_copy_delta_to_state:
                             new_code = str(vs_new_code)
                             if device.status.get(new_code, None) is None:
