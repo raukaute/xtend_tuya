@@ -278,13 +278,17 @@ class XTVirtualStateHandler:
                     for item in status:
                         code, dpId, new_key_value, result_ok = (
                             self.multi_manager._read_code_dpid_value_from_state(
-                                device.id, item, False, True
+                                device.id,
+                                item,
+                                False,
+                                True,
                             )
                         )
                         self.multi_manager.device_watcher.report_message(
                             device.id,
                             f"[{source}]VS State applying: code: {code}, vs_key: {virtual_state.key}, result_ok: {result_ok}: before_update: {item}",
-                            XTDeviceWatcherCategory.VIRTUAL_STATE | XTDeviceWatcherCategory.DEBUG,
+                            XTDeviceWatcherCategory.VIRTUAL_STATE
+                            | XTDeviceWatcherCategory.DEBUG,
                             device,
                         )
                         if result_ok and code == virtual_state.key:
