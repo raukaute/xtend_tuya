@@ -533,13 +533,13 @@ class XTTrackedDictionnary(UserDict[str, Any]):
 
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
-        self.original_dict = dict if dict else self
+        self.original_dict = dict if dict is not None else None
 
     def __getitem__(self, key):
         #LOGGER.warning(f"__getitem__: {key}")
-        return self.original_dict.__getitem__(key)
+        return self.original_dict.__getitem__(key) if self.original_dict else super().__getitem__(key)
 
     def __setitem__(self, key, item):
         if key in ["add_ele", "add_ele2"]:
             LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
-        return self.original_dict.__setitem__(key, item)
+        return self.original_dict.__setitem__(key, item) if self.original_dict else super().__setitem__(key, item)
