@@ -287,7 +287,7 @@ class XTVirtualStateHandler:
                         if code is not None and code.startswith("add_ele"):
                             self.multi_manager.device_watcher.report_message(
                                 device.id,
-                                f"[{source}]VS State applying: code: {code}, vs_key: {virtual_state.key}, result_ok: {result_ok}: before_update: {item}",
+                                f"[{source}]VS State applying: code: {code}, vs_key: {virtual_state.key}, result_ok: {result_ok}: before_update: {item}, statuses: {device.status}",
                                 XTDeviceWatcherCategory.VIRTUAL_STATE
                                 | XTDeviceWatcherCategory.DEBUG,
                                 device,
