@@ -531,23 +531,20 @@ class XTDeviceMap(UserDict[str, XTDevice]):
 
 class XTTrackedDictionnary(UserDict):
     def __init__(self, dict: dict | None = None, /, **kwargs):
-        super().__init__()
-        self.original_dict = None
-        if dict is not None:
-            self.original_dict = dict
+        self.original_dict: dict | None = None
+        super().__init__(dict, **kwargs)
+        self.original_dict = dict
 
     def __getitem__(self, key):
         # LOGGER.warning(f"__getitem__: {key}")
-        return (
-            self.original_dict.__getitem__(key)
-            if self.original_dict is not None
-            else super().__getitem__(key)
-        )
+        if self.original_dict is not None:
+            return self.original_dict.__getitem__(key)
+        else:
+            return super().__getitem__(key)
 
     def __setitem__(self, key, item):
         LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
-        return (
-            self.original_dict.__setitem__(key, item)
-            if self.original_dict is not None
-            else super().__setitem__(key, item)
-        )
+        if self.original_dict is not None:
+            return self.original_dict.__setitem__(key, item)
+        else:
+            return super().__setitem__(key, item)
