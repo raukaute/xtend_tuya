@@ -214,6 +214,7 @@ class XTDeviceWatcherCategory(Flag):
         VIRTUAL_STATE           = auto()
         VIRTUAL_FUNCTION        = auto()
         XT_PERFORMANCE          = auto()
+        DEBUG                   = auto()
 
 @dataclass
 class XTIRRemoteKeysInformation:

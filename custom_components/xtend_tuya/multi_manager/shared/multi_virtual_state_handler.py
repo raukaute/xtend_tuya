@@ -211,7 +211,7 @@ class XTVirtualStateHandler:
         self.multi_manager.device_watcher.report_message(
             device.id,
             f"[{source}]Status In: {status_in}",
-            XTDeviceWatcherCategory.VIRTUAL_STATE,
+            XTDeviceWatcherCategory.VIRTUAL_STATE | XTDeviceWatcherCategory.DEBUG,
             device,
         )
         virtual_states = self.get_category_virtual_states(device.category)
@@ -287,7 +287,7 @@ class XTVirtualStateHandler:
         self.multi_manager.device_watcher.report_message(
             device.id,
             f"[{source}]Status Out: {status}",
-            XTDeviceWatcherCategory.VIRTUAL_STATE,
+            XTDeviceWatcherCategory.VIRTUAL_STATE | XTDeviceWatcherCategory.DEBUG,
             device,
         )
         return status
