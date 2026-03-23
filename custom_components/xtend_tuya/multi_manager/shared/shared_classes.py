@@ -30,12 +30,15 @@ from ...const import (
 class DeviceWatcher:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
         self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
-            "eb0c772dabbb19d653ssi5": XTDeviceWatcherCategory.DEBUG | XTDeviceWatcherCategory.STATUS_CHANGES,
-            #XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
+            "eb0c772dabbb19d653ssi5": XTDeviceWatcherCategory.DEBUG
+            | XTDeviceWatcherCategory.STATUS_CHANGES,
+            # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
         }
         self.multi_manager = multi_manager
 
-    def is_watched(self, dev_id: str, category_list: list[XTDeviceWatcherCategory]) -> bool:
+    def is_watched(
+        self, dev_id: str, category_list: list[XTDeviceWatcherCategory]
+    ) -> bool:
         if dev_id not in self.watched_dev_id:
             return False
         for category in category_list:
@@ -64,9 +67,7 @@ class DeviceWatcher:
                     stack_info=print_stack,
                 )
             else:
-                LOGGER.warning(
-                    f"{message}", stack_info=print_stack
-                )
+                LOGGER.warning(f"{message}", stack_info=print_stack)
 
 
 class HomeAssistantXTData(NamedTuple):
@@ -527,16 +528,26 @@ class XTDeviceMap(UserDict[str, XTDevice]):
             if hasattr(device, key) and getattr(device, key) != value:
                 setattr(device, key, value)
 
+
 class XTTrackedDictionnary(UserDict):
-    def __init__(self, dict=None, /, **kwargs):
+    def __init__(self, dict: dict | None = None, /, **kwargs):
         super().__init__()
+        self.original_dict = None
         if dict is not None:
             self.original_dict = dict
 
     def __getitem__(self, key):
-        #LOGGER.warning(f"__getitem__: {key}")
-        return self.original_dict.__getitem__(key) if self.original_dict is not None else super().__getitem__(key)
+        # LOGGER.warning(f"__getitem__: {key}")
+        return (
+            self.original_dict.__getitem__(key)
+            if self.original_dict is not None
+            else super().__getitem__(key)
+        )
 
     def __setitem__(self, key, item):
         LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
-        return self.original_dict.__setitem__(key, item) if self.original_dict is not None else super().__setitem__(key, item)
+        return (
+            self.original_dict.__setitem__(key, item)
+            if self.original_dict is not None
+            else super().__setitem__(key, item)
+        )
