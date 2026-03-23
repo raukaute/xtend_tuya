@@ -173,7 +173,7 @@ class XTVirtualStateHandler:
                                         device.status_range[new_code].dp_id = new_dp_id
                                         self.multi_manager.device_watcher.report_message(
                                             device.id,
-                                            f"Adding new local strategy: {dp_id}: {device.local_strategy[new_dp_id]}",
+                                            f"Adding new local strategy: {virtual_state.key}({dp_id}): {device.local_strategy[new_dp_id]}",
                                             XTDeviceWatcherCategory.VIRTUAL_STATE
                                             | XTDeviceWatcherCategory.DEBUG,
                                             device,
