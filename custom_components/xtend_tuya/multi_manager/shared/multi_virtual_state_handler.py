@@ -5,6 +5,7 @@ from ...const import (
     VirtualStates,
     DescriptionVirtualState,
     XTDeviceWatcherCategory,
+    LOGGER,
 )
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.shared_classes as shared
@@ -209,11 +210,89 @@ class XTVirtualStateHandler:
                                         new_local_strategy = copy.deepcopy(
                                             device.local_strategy[dp_id]
                                         )
+                                        if "config_item" in new_local_strategy:
+                                            new_local_strategy_config_item = (
+                                                new_local_strategy["config_item"]
+                                            )
+                                            if (
+                                                "statusFormat"
+                                                in new_local_strategy_config_item
+                                                and virtual_state.key
+                                                in new_local_strategy_config_item[
+                                                    "statusFormat"
+                                                ]
+                                            ):
+                                                new_local_strategy_config_item[
+                                                    "statusFormat"
+                                                ] = new_local_strategy_config_item[
+                                                    "statusFormat"
+                                                ].replace(
+                                                    virtual_state.key, new_code
+                                                )
                                         new_local_strategy["status_code"] = new_code
                                         device.local_strategy[new_dp_id] = (
                                             new_local_strategy
                                         )
                                         device.function[new_code].dp_id = new_dp_id
+                                        self.multi_manager.device_watcher.report_message(
+                                            device.id,
+                                            f"Adding new local strategy: {virtual_state.key}({dp_id}): {device.local_strategy[new_dp_id]}",
+                                            XTDeviceWatcherCategory.VIRTUAL_STATE
+                                            | XTDeviceWatcherCategory.DEBUG,
+                                            device,
+                                        )
+                        for vs_new_code in virtual_state.vs_copy_delta_to_state:
+                            new_code = str(vs_new_code)
+                            if device.status.get(new_code, None) is None:
+                                device.status[new_code] = 0
+                            device.function[new_code] = copy.deepcopy(
+                                device.function[virtual_state.key]
+                            )
+                            device.function[new_code].code = new_code
+                            device.function[new_code].dp_id = 0
+                            if not self.multi_manager._read_dpId_from_code(
+                                new_code, device
+                            ):
+                                if dp_id := self.multi_manager._read_dpId_from_code(
+                                    virtual_state.key, device
+                                ):
+                                    if new_dp_id := self._get_empty_local_strategy_dp_id(
+                                        device
+                                    ):
+                                        new_local_strategy = copy.deepcopy(
+                                            device.local_strategy[dp_id]
+                                        )
+                                        if "config_item" in new_local_strategy:
+                                            new_local_strategy_config_item = (
+                                                new_local_strategy["config_item"]
+                                            )
+                                            if (
+                                                "statusFormat"
+                                                in new_local_strategy_config_item
+                                                and virtual_state.key
+                                                in new_local_strategy_config_item[
+                                                    "statusFormat"
+                                                ]
+                                            ):
+                                                new_local_strategy_config_item[
+                                                    "statusFormat"
+                                                ] = new_local_strategy_config_item[
+                                                    "statusFormat"
+                                                ].replace(
+                                                    virtual_state.key, new_code
+                                                )
+                                        new_local_strategy["status_code"] = new_code
+                                        device.local_strategy[new_dp_id] = (
+                                            new_local_strategy
+                                        )
+                                        device.function[new_code].dp_id = new_dp_id
+                                        self.multi_manager.device_watcher.report_message(
+                                            device.id,
+                                            f"Adding new local strategy: {virtual_state.key}({dp_id}): {device.local_strategy[new_dp_id]}",
+                                            XTDeviceWatcherCategory.VIRTUAL_STATE
+                                            | XTDeviceWatcherCategory.DEBUG,
+                                            device,
+                                        )
 
     def apply_virtual_states_to_status_list(
         self,
