@@ -187,7 +187,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
         self.multi_manager.device_watcher.report_message(
             device_id,
             f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device report: {status}",
-            XTDeviceWatcherCategory.MQTT,
+            XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.DEBUG,
         )
         device = self.device_map.get(device_id, None)
         if not device:
@@ -197,11 +197,26 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
             status,
             MESSAGE_SOURCE_TUYA_SHARING,
         )
+        self.multi_manager.device_watcher.report_message(
+            device_id,
+            f"[{MESSAGE_SOURCE_TUYA_SHARING}]After status list conversion: {status_new}",
+            XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.DEBUG,
+        )
         status_new = self.multi_manager.multi_source_handler.filter_status_list(
             device_id, MESSAGE_SOURCE_TUYA_SHARING, status_new
         )
+        self.multi_manager.device_watcher.report_message(
+            device_id,
+            f"[{MESSAGE_SOURCE_TUYA_SHARING}]After status filter: {status_new}",
+            XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.DEBUG,
+        )
         status_new = self.multi_manager.virtual_state_handler.apply_virtual_states_to_status_list(
             device, status_new, MESSAGE_SOURCE_TUYA_SHARING
+        )
+        self.multi_manager.device_watcher.report_message(
+            device_id,
+            f"[{MESSAGE_SOURCE_TUYA_SHARING}]After virtual state: {status_new}",
+            XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.DEBUG,
         )
 
         super()._on_device_report(device_id, status_new)
