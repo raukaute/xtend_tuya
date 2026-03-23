@@ -165,31 +165,31 @@ class TuyaOpenAPI:
         return sign, t
 
     def __refresh_access_token_if_need(self, path: str, first_pass: bool):
-        logger.debug(f"Check if need to refresh access token. {self.token_info}")
+        # logger.debug(f"Check if need to refresh access token. {self.token_info}")
         if first_pass is False:
-            logger.debug("Not the first pass, do not refresh access token again.")
+            # logger.debug("Not the first pass, do not refresh access token again.")
             return
         if self.token_info.is_valid() is True:
-            logger.debug("Access token is valid, no need to refresh.")
+            # logger.debug("Access token is valid, no need to refresh.")
             return
 
         if path.startswith(self.__refresh_path) or path.startswith(self.__login_path):
-            logger.debug("Already requesting refresh token, no need to refresh again.")
+            # logger.debug("Already requesting refresh token, no need to refresh again.")
             return
 
         self.token_info.access_token = ""
 
         if self.auth_type == AuthType.CUSTOM:
-            logger.debug(f"Refreshing access token with refresh token: {path}")
+            # logger.debug(f"Refreshing access token with refresh token: {path}")
             response = self.post(
                 TO_C_CUSTOM_REFRESH_TOKEN_API + self.token_info.refresh_token
             )
         else:
-            logger.debug(f"Refreshing access token with refresh token: {path}")
+            # logger.debug(f"Refreshing access token with refresh token: {path}")
             response = self.get(
                 TO_C_SMART_HOME_REFRESH_TOKEN_API + self.token_info.refresh_token
             )
-        logger.debug(f"Refresh token response: {response}")
+        # logger.debug(f"Refresh token response: {response}")
         self.token_info = TuyaTokenInfo(response)
 
     def set_dev_channel(self, dev_channel: str):
@@ -316,11 +316,11 @@ class TuyaOpenAPI:
         elif self.__is_connecting is True:
             wait_time = 0.5
             loop_pass = 0
-            logger.debug("Already connecting to tuya cloud, wait for it to finish.")
+            # logger.debug("Already connecting to tuya cloud, wait for it to finish.")
             while self.__is_connecting is True:
                 time.sleep(wait_time)
                 loop_pass += 1
-            logger.debug(f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds.")
+            # logger.debug(f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds.")
         return self.is_token_valid()
 
     def __request(
