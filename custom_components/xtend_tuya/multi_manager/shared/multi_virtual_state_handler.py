@@ -284,13 +284,14 @@ class XTVirtualStateHandler:
                                 True,
                             )
                         )
-                        self.multi_manager.device_watcher.report_message(
-                            device.id,
-                            f"[{source}]VS State applying: code: {code}, vs_key: {virtual_state.key}, result_ok: {result_ok}: before_update: {item}",
-                            XTDeviceWatcherCategory.VIRTUAL_STATE
-                            | XTDeviceWatcherCategory.DEBUG,
-                            device,
-                        )
+                        if code is not None and code.startswith("add_ele"):
+                            self.multi_manager.device_watcher.report_message(
+                                device.id,
+                                f"[{source}]VS State applying: code: {code}, vs_key: {virtual_state.key}, result_ok: {result_ok}: before_update: {item}",
+                                XTDeviceWatcherCategory.VIRTUAL_STATE
+                                | XTDeviceWatcherCategory.DEBUG,
+                                device,
+                            )
                         if result_ok and code == virtual_state.key:
                             item["value"] += device.status[virtual_state.key]
                             continue
