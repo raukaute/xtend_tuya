@@ -267,9 +267,7 @@ class XTDevice(TuyaDevice):
         self.support_local: bool | None = False
 
         self.local_strategy = {}
-        self.status = XTTrackedDictionnary()
-        if "status" in kwargs:
-            kwargs["status"] = XTTrackedDictionnary(kwargs["status"])
+        self.status = {}
         self.function = {}  # type: ignore
         self.status_range = {}  # type: ignore
         self.device_preference = {}
@@ -328,7 +326,7 @@ class XTDevice(TuyaDevice):
         if hasattr(device, "local_strategy"):
             new_device.local_strategy = device.local_strategy
         if hasattr(device, "status"):
-            new_device.status = XTTrackedDictionnary(device.status)
+            new_device.status = device.status
         if hasattr(device, "function"):
             new_device.function = device.function
         if hasattr(device, "status_range"):
