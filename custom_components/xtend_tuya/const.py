@@ -194,6 +194,9 @@ class XTDiscoverySource(StrEnum):
     SOURCE_ADD_IR_DEVICE_KEY = "ir_add_key"
     SOURCE_ADD_IR_DEVICE = "ir_add_device"
 
+class XTDeviceWatcherSpecialDevice(StrEnum):
+    NOT_LINKED_TO_A_DEVICE = "not_linked_to_a_device"
+
 class XTDeviceWatcherCategory(Flag):
         MQTT                    = auto()
         SHARING_API             = auto()
@@ -209,6 +212,7 @@ class XTDeviceWatcherCategory(Flag):
         SHARING_API_INTERNAL    = auto()
         VIRTUAL_STATE           = auto()
         VIRTUAL_FUNCTION        = auto()
+        XT_PERFORMANCE          = auto()
 
 @dataclass
 class XTIRRemoteKeysInformation:
