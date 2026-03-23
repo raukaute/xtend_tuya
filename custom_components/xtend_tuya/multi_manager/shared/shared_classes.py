@@ -267,7 +267,7 @@ class XTDevice(TuyaDevice):
         self.support_local: bool | None = False
 
         self.local_strategy = {}
-        self.status = {}
+        self.status = XTTrackedDictionnary()
         self.function = {}  # type: ignore
         self.status_range = {}  # type: ignore
         self.device_preference = {}
@@ -526,3 +526,13 @@ class XTDeviceMap(UserDict[str, XTDevice]):
         if device := self.get(device_id):
             if hasattr(device, key) and getattr(device, key) != value:
                 setattr(device, key, value)
+
+class XTTrackedDictionnary(UserDict[str, Any]):
+
+    def __getitem__(self, key):
+        LOGGER.warning(f"__getitem__: {key}")
+        super().__getitem__(key)
+
+    def __setitem__(self, key, item):
+        LOGGER.warning(f"__setitem__: {key} => {item}")
+        super().__setitem__(key, item)
