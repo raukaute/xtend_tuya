@@ -2354,6 +2354,9 @@
             "current": {
                 "name": "Current"
             },
+            "current2": {
+                "name": "Current 2"
+            },
             "current_temperature": {
                 "name": "Current temperature"
             },
@@ -2485,6 +2488,9 @@
             "power": {
                 "name": "Power"
             },
+            "power2": {
+                "name": "Power 2"
+            },
             "precipitation_intensity": {
                 "name": "Precipitation intensity"
             },
@@ -2603,6 +2609,9 @@
             },
             "voltage": {
                 "name": "Voltage"
+            },
+            "voltage2": {
+                "name": "Voltage 2"
             },
             "water_level": {
                 "name": "Water level"
