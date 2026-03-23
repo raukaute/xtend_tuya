@@ -28,7 +28,9 @@ from ...const import (
 
 class DeviceWatcher:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
-        self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {}
+        self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
+            "eb0c772dabbb19d653ssi5": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.IOT_API | XTDeviceWatcherCategory.SHARING_API | XTDeviceWatcherCategory.VIRTUAL_STATE
+        }
         self.multi_manager = multi_manager
 
     def is_watched(self, dev_id: str, category: XTDeviceWatcherCategory) -> bool:
