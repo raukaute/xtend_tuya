@@ -61,6 +61,7 @@ MESSAGE_SOURCE_TUYA_SHARING = "tuya_sharing"
 
 CROSS_CATEGORY_DEVICE_DESCRIPTOR: str = "cross_category_device_descriptor"
 
+XT_RETRY_FAILED_CALLS_NUMBER: int = 5
 
 class TuyaCloudOpenAPIEndpoint(StrEnum):
     """Tuya Cloud Open API Endpoint."""
