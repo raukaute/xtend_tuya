@@ -13,6 +13,8 @@ from ...ha_tuya_integration.tuya_integration_imports import (
 from ...const import (
     UOM_MAPPING_DICT,
     LOGGER,
+    XTDPCode,
+    XTEntityAccessMode,
 )
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 
@@ -42,6 +44,7 @@ class CloudFixes:
         CloudFixes._strip_valuedescr_of_non_label_fields_for_bitmaps(device)
         CloudFixes._fix_isolated_status_range_and_function(device)
         CloudFixes._align_uom(device)
+        CloudFixes._fix_incorrect_access_mode(device)
         if multi_manager is not None:
             # multi_manager.device_watcher.report_message(
             #     device.id,
@@ -203,13 +206,13 @@ class CloudFixes:
                                         ls_value[fix_code] = fix_dict[fix_code]
                                     config_item["valueDesc"] = json.dumps(ls_value)
                                     if strat_code in device.status_range:
-                                        device.status_range[
-                                            strat_code
-                                        ].values = config_item["valueDesc"]
+                                        device.status_range[strat_code].values = (
+                                            config_item["valueDesc"]
+                                        )
                                     if strat_code in device.function:
-                                        device.function[
-                                            strat_code
-                                        ].values = config_item["valueDesc"]
+                                        device.function[strat_code].values = (
+                                            config_item["valueDesc"]
+                                        )
                         status_pop.append(status)
         for status in status_pop:
             device.status_range.pop(status)
@@ -251,13 +254,13 @@ class CloudFixes:
                                         ls_value[fix_code] = fix_dict[fix_code]
                                     config_item["valueDesc"] = json.dumps(ls_value)
                                     if strat_code in device.status_range:
-                                        device.status_range[
-                                            strat_code
-                                        ].values = config_item["valueDesc"]
+                                        device.status_range[strat_code].values = (
+                                            config_item["valueDesc"]
+                                        )
                                     if strat_code in device.function:
-                                        device.function[
-                                            strat_code
-                                        ].values = config_item["valueDesc"]
+                                        device.function[strat_code].values = (
+                                            config_item["valueDesc"]
+                                        )
                         function_pop.append(function)
         for function in function_pop:
             device.function.pop(function)
@@ -585,15 +588,15 @@ class CloudFixes:
                 if ls_uom is not None and ls_uom not in all_uom:
                     all_uom.append(ls_uom)
             if len(all_uom) > 1:
-                LOGGER.warning(f"Multiple different uom found for code {code} on device {device.name}: {all_uom}")
+                LOGGER.warning(
+                    f"Multiple different uom found for code {code} on device {device.name}: {all_uom}"
+                )
             if sr_value is not None:
                 device.status_range[code].values = json.dumps(sr_value)
             if fn_value is not None:
                 device.function[code].values = json.dumps(fn_value)
             if ls_value is not None and config_item is not None:
                 config_item["valueDesc"] = json.dumps(ls_value)
-            
-            
 
     @staticmethod
     def _align_valuedescr(device: XTDevice):
@@ -898,15 +901,15 @@ class CloudFixes:
     def _fix_missing_range_values_using_data_model(device: XTDevice):
         for service in device.data_model.get("services", {}):
             for property in service.get("properties", {}):
-                if (
-                    "abilityId" in property
-                ):
+                if "abilityId" in property:
                     dp_id = int(property["abilityId"])
                     typeSpec = property.get("typeSpec", {})
                     if dp_id not in device.local_strategy:
                         continue
                     local_strategy = device.local_strategy[dp_id]
-                    config_item: dict[str, Any] | None = local_strategy.get("config_item", None)
+                    config_item: dict[str, Any] | None = local_strategy.get(
+                        "config_item", None
+                    )
                     if config_item is None:
                         continue
                     if config_item.get("valueType", None) != "Enum":
@@ -921,9 +924,7 @@ class CloudFixes:
                             valueDescr_range.append(range_value)
                     value_dict["range"] = valueDescr_range
                     config_item["valueDesc"] = json.dumps(value_dict)
-                    
 
-    
     @staticmethod
     def _fix_missing_range_values_using_local_strategy(device: XTDevice):
         for local_strategy in device.local_strategy.values():
@@ -1009,3 +1010,21 @@ class CloudFixes:
                             device.function.pop(alias)
                         if poped_value is not None and code not in device.status:
                             device.status[code] = poped_value
+
+    @staticmethod
+    def _fix_incorrect_access_mode(device: XTDevice):
+        DPCODES_OVERRIDES: dict[XTDPCode, XTEntityAccessMode] = {
+            XTDPCode.ADD_ELE: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.ADD_ELE2: XTEntityAccessMode.READ_ONLY,
+        }
+        for override in DPCODES_OVERRIDES:
+            if override in device.status:
+                dpid: int | None = None
+                if override in device.status_range:
+                    dpid = device.status_range[override].dp_id
+                if dpid is None or dpid == 0:
+                    if override in device.function:
+                        dpid = device.function[override].dp_id
+                if dpid is not None and dpid != 0:
+                    if dpid in device.local_strategy:
+                        device.local_strategy[dpid]["access_mode"] = DPCODES_OVERRIDES[override]

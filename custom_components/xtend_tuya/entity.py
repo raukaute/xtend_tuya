@@ -431,11 +431,6 @@ class XTEntityDescriptorManager:
 
 
 class XTEntity(TuyaEntity):
-    class XTEntityAccessMode(StrEnum):
-        READ_ONLY = "ro"
-        READ_WRITE = "rw"
-        WRITE_ONLY = "wr"
-
     class XTEntitySharedAttributes(StrEnum):
         IGNORE_OTHER_DP_CODE_HANDLER = "ignore_other_dp_code_handler"
 
@@ -800,5 +795,5 @@ class XTEntity(TuyaEntity):
         if dpcode_information.dpcode in DPCODE_PREFERED_DEVICE_CLASS:
             if DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] is None or DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] in proposed_device_class:
                 return DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode]
-        LOGGER.warning(f"Multiple possible device class {proposed_device_class} for unit {dpcode_information.unit} on device {device.name} ({dpcode_information.dpcode}), unable to determine the most probable one, returning None. Plese report to developer.")
+        LOGGER.warning(f"Multiple possible device class {proposed_device_class} for unit {dpcode_information.unit} on device {device.name} ({dpcode_information.dpcode}), unable to determine the most probable one, returning None. Plese report to developer.", stack_info=True)
         return None

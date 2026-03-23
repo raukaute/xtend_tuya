@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from enum import StrEnum, IntFlag, IntEnum
+from enum import StrEnum, IntFlag, IntEnum, Flag, auto
 from typing import Any
 import logging
 from homeassistant.const import (
@@ -61,6 +61,7 @@ MESSAGE_SOURCE_TUYA_SHARING = "tuya_sharing"
 
 CROSS_CATEGORY_DEVICE_DESCRIPTOR: str = "cross_category_device_descriptor"
 
+XT_RETRY_FAILED_CALLS_NUMBER: int = 5
 
 class TuyaCloudOpenAPIEndpoint(StrEnum):
     """Tuya Cloud Open API Endpoint."""
@@ -193,6 +194,44 @@ class XTDeviceSourcePriority(IntEnum):
 class XTDiscoverySource(StrEnum):
     SOURCE_ADD_IR_DEVICE_KEY = "ir_add_key"
     SOURCE_ADD_IR_DEVICE = "ir_add_device"
+
+class XTDeviceWatcherSpecialDevice(StrEnum):
+    NOT_LINKED_TO_A_DEVICE = "not_linked_to_a_device"
+
+class XTDeviceWatcherCategory(Flag):
+    MQTT                    = auto()
+    SHARING_API             = auto()
+    IOT_API                 = auto()
+    PLATFORM_BUTTON         = auto()
+    PLATFORM_CAMERA         = auto()
+    PLATFORM_CLIMATE        = auto()
+    PLATFORM_COVER          = auto()
+    PLATFORM_LOCK           = auto()
+    PLATFORM_NUMBER         = auto()
+    PLATFORM_SENSOR         = auto()
+    CLOUD_FIX               = auto()
+    SHARING_API_INTERNAL    = auto()
+    VIRTUAL_STATE           = auto()
+    VIRTUAL_FUNCTION        = auto()
+    XT_PERFORMANCE          = auto()
+    DEBUG                   = auto()
+    STATUS_CHANGES          = auto()
+
+    @classmethod
+    def all_enum_values(cls) -> list[XTDeviceWatcherCategory]:
+        retval = []
+        for member in cls.__members__.values():
+            retval.append(member)
+        return retval
+
+    @classmethod
+    def get_unique_flags(cls, multi_flags: XTDeviceWatcherCategory) -> list[XTDeviceWatcherCategory]:
+        retval = []
+        all_flags = cls.all_enum_values()
+        for flag in all_flags:
+            if flag in multi_flags:
+                retval.append(flag)
+        return retval
 
 
 @dataclass
@@ -664,7 +703,7 @@ class XTDPCode(StrEnum):
     ADD_ELE_THIS_MONTH = "add_ele_this_month"
     ADD_ELE_THIS_YEAR = "add_ele_this_year"
     ADD_ELE_TODAY = "add_ele_today"
-    ADD_ELE2 = "add_ele2"  # Added watt since last heartbeat
+    ADD_ELE2 = "add_ele2"
     ADD_ELE2_THIS_MONTH = "add_ele2_this_month"
     ADD_ELE2_THIS_YEAR = "add_ele2_this_year"
     ADD_ELE2_TODAY = "add_ele2_today"
@@ -729,6 +768,9 @@ class XTDPCode(StrEnum):
     CONTROL_SKIP = "control_skip"
     CTIME = "Ctime"
     CTIME2 = "CTime2"
+    CUR_CURRENT2 = "cur_current2"
+    CUR_POWER2 = "cur_power2"
+    CUR_VOLTAGE2 = "cur_voltage2"
     CURRENT = "Current"
     CURRENTA = "CurrentA"
     CURRENTB = "CurrentB"
@@ -775,10 +817,6 @@ class XTDPCode(StrEnum):
     FACTORY_RESET = "factory_reset"
     FAULT2 = "Fault"
     FLOW_VELOCITY = "flow_velocity"
-    FORWARD_ENERGY_TOTAL2 = "forward_energy_total2"
-    FORWARD_ENERGY_TOTAL2_TODAY = "forward_energy_total2_today"
-    FORWARD_ENERGY_TOTAL2_THIS_MONTH = "forward_energy_total2_this_month"
-    FORWARD_ENERGY_TOTAL2_THIS_YEAR = "forward_energy_total2_this_year"
     FORWARD_ENERGY_TOTAL_TODAY = "forward_energy_total_today"
     FORWARD_ENERGY_TOTAL_THIS_MONTH = "forward_energy_total_this_month"
     FORWARD_ENERGY_TOTAL_THIS_YEAR = "forward_energy_total_this_year"
@@ -958,6 +996,9 @@ class XTDPCode(StrEnum):
     TIME_GET_IN_BED = "time_get_in_bed"
     TIMER_ON = "timer_on"
     TOTALENERGYCONSUMED = "TotalEnergyConsumed"
+    TOTAL_FORWARD_ENERGY_THIS_MONTH = "total_forward_energy_this_month"
+    TOTAL_FORWARD_ENERGY_THIS_YEAR = "total_forward_energy_this_year"
+    TOTAL_FORWARD_ENERGY_TODAY = "total_forward_energy_today"
     TRASH_STATUS = "trash_status"
     TRIGGER_SENSITIVITY = "trigger_sensitivity"
     UNIT = "unit"
@@ -1012,11 +1053,27 @@ class XTDPCode(StrEnum):
     WORK_STAT = "work_stat"
     WORK_STATE = "work_state"
     WORK_STATUS = "WorkStatus"
+    XT_ADD_ELE = "xt_add_ele"
+    XT_ADD_ELE_THIS_MONTH = "xt_add_ele_this_month"
+    XT_ADD_ELE_THIS_YEAR = "xt_add_ele_this_year"
+    XT_ADD_ELE_TODAY = "xt_add_ele_today"
+    XT_ADD_ELE2 = "xt_add_ele2"
+    XT_ADD_ELE2_THIS_MONTH = "xt_add_ele2_this_month"
+    XT_ADD_ELE2_THIS_YEAR = "xt_add_ele2_this_year"
+    XT_ADD_ELE2_TODAY = "xt_add_ele2_today"
     XT_COVER_INVERT_CONTROL = "xt_cover_invert_control"
     XT_COVER_INVERT_STATUS = "xt_cover_invert_status"
+    XT_FORWARD_ENERGY_TOTAL = "xt_forward_energy_total"
+    XT_FORWARD_ENERGY_TOTAL_THIS_MONTH = "xt_forward_energy_total_this_month"
+    XT_FORWARD_ENERGY_TOTAL_THIS_YEAR = "xt_forward_energy_total_this_year"
+    XT_FORWARD_ENERGY_TOTAL_TODAY = "xt_forward_energy_total_today"
     XT_IMPORT_ELECTRICAL_HISTORY = "xt_import_electrical_history"
     XT_LOCK_UNLOCK_MECHANISM = "xt_lock_unlock_mechanism"
     XT_RESET_ADD_ELE = "xt_reset_add_ele"
+    XT_TOTAL_FORWARD_ENERGY = "xt_total_forward_energy"
+    XT_TOTAL_FORWARD_ENERGY_THIS_MONTH = "xt_total_forward_energy_this_month"
+    XT_TOTAL_FORWARD_ENERGY_THIS_YEAR = "xt_total_forward_energy_this_year"
+    XT_TOTAL_FORWARD_ENERGY_TODAY = "xt_total_forward_energy_today"
     # END OF DPCODES FROM XT
 
     @staticmethod
@@ -1030,6 +1087,7 @@ class XTDPCode(StrEnum):
 UOM_MAPPING_DICT: dict[str, str | None] = {
     "kwh": "kWh",
     "kW·h": "kWh",
+    "kW.h": "kWh",
     "kVar": "kvar",
     "％": "%",
     "℃": "°C",
@@ -1050,10 +1108,11 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
 DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "active_energy_total": "energy",
     "add_ele1": "energy",
+    "charge_energy": "energy",
+    "cur_neutral": "energy",
     "today_acc_energy1": "energy",
     "today_energy_add1": "energy",
     "total_energy1": "energy",
-    "charge_energy": "energy",
     "ALARM_HIGH_HUMID": "humidity",
     "ALARM_LOW_HUMID": "humidity",
     "AUTO_HIGH_HUMID": "humidity",
@@ -1094,6 +1153,10 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "valve_open_degree": None,
 }
 
+class XTEntityAccessMode(StrEnum):
+    READ_ONLY = "ro"
+    READ_WRITE = "rw"
+    WRITE_ONLY = "wr"
 
 @dataclass
 class Country:

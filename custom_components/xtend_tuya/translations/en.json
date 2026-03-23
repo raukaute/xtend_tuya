@@ -1539,28 +1539,28 @@
                 "name": "Grid voltage"
             },
             "add_ele": {
-                "name": "Consumption"
+                "name": "Consumption {index}"
             },
             "add_ele_this_month": {
-                "name": "Monthly consumption"
+                "name": "Monthly consumption {index}"
             },
             "add_ele_this_year": {
-                "name": "Yearly consumption"
+                "name": "Yearly consumption {index}"
             },
             "add_ele_today": {
-                "name": "Daily consumption"
+                "name": "Daily consumption {index}"
             },
-            "add_ele2": {
-                "name": "Consumption (method B)"
+            "xt_add_ele": {
+                "name": "Consumption {index} (method B)"
             },
-            "add_ele2_this_month": {
-                "name": "Monthly consumption (method B)"
+            "xt_add_ele_this_month": {
+                "name": "Monthly consumption {index} (method B)"
             },
-            "add_ele2_this_year": {
-                "name": "Yearly consumption (method B)"
+            "xt_add_ele_this_year": {
+                "name": "Yearly consumption {index} (method B)"
             },
-            "add_ele2_today": {
-                "name": "Daily consumption (method B)"
+            "xt_add_ele_today": {
+                "name": "Daily consumption {index} (method B)"
             },
             "auto_deordrizer": {
                 "name": "Auto deordrizer"
@@ -2354,6 +2354,9 @@
             "current": {
                 "name": "Current"
             },
+            "current2": {
+                "name": "Current 2"
+            },
             "current_temperature": {
                 "name": "Current temperature"
             },
@@ -2485,6 +2488,9 @@
             "power": {
                 "name": "Power"
             },
+            "power2": {
+                "name": "Power 2"
+            },
             "precipitation_intensity": {
                 "name": "Precipitation intensity"
             },
@@ -2553,6 +2559,27 @@
             "total_energy": {
                 "name": "Total energy"
             },
+            "total_energy_today": {
+                "name": "Daily total energy"
+            },
+            "total_energy_this_month": {
+                "name": "Monthly total energy"
+            },
+            "total_energy_this_year": {
+                "name": "Yearly total energy"
+            },
+            "xt_total_energy": {
+                "name": "Total energy (method B)"
+            },
+            "xt_total_energy_today": {
+                "name": "Daily total energy (method B)"
+            },
+            "xt_total_energy_this_month": {
+                "name": "Monthly total energy (method B)"
+            },
+            "xt_total_energy_this_year": {
+                "name": "Yearly total energy (method B)"
+            },
             "total_operating_time": {
                 "name": "Total operating time"
             },
@@ -2582,6 +2609,9 @@
             },
             "voltage": {
                 "name": "Voltage"
+            },
+            "voltage2": {
+                "name": "Voltage 2"
             },
             "water_level": {
                 "name": "Water level"
