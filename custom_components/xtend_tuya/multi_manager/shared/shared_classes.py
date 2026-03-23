@@ -34,7 +34,7 @@ class DeviceWatcher:
             | XTDeviceWatcherCategory.IOT_API
             | XTDeviceWatcherCategory.SHARING_API
             | XTDeviceWatcherCategory.VIRTUAL_STATE,
-            XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
+            #XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
         }
         self.multi_manager = multi_manager
 

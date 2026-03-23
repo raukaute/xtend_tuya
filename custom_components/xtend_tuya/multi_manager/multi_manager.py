@@ -134,7 +134,7 @@ class MultiManager:  # noqa: F811
                             package=__package__,
                         )
                     )
-                    LOGGER.debug(f"Plugin {load_path} loaded")
+                    #LOGGER.debug(f"Plugin {load_path} loaded")
                     instance: XTDeviceManagerInterface = plugin.get_plugin_instance()
                     concurrency_manager.add_coroutine(
                         instance.setup_from_entry(self.hass, self.config_entry, self)
