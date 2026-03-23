@@ -529,13 +529,12 @@ class XTDeviceMap(UserDict[str, XTDevice]):
             if hasattr(device, key) and getattr(device, key) != value:
                 setattr(device, key, value)
 
-class XTTrackedDictionnary(UserDict[str, Any]):
-
-    original_dict: dict | None = None
-
+class XTTrackedDictionnary(UserDict):
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
-        self.original_dict = dict if dict is not None else None
+        self.original_dict = None
+        if dict is not None:
+            self.original_dict = dict
 
     def __getitem__(self, key):
         #LOGGER.warning(f"__getitem__: {key}")
