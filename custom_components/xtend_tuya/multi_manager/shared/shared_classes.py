@@ -22,25 +22,29 @@ from ...const import (
     LOGGER,
     XTDeviceSourcePriority,
     XTEntityAccessMode,
+    XTDeviceWatcherCategory,
 )
 
 
 class DeviceWatcher:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
-        self.watched_dev_id: list[str] = [""]
+        self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {}
         self.multi_manager = multi_manager
 
-    def is_watched(self, dev_id: str) -> bool:
-        return dev_id in self.watched_dev_id
+    def is_watched(self, dev_id: str, category: XTDeviceWatcherCategory) -> bool:
+        if dev_id not in self.watched_dev_id:
+            return False
+        return category in self.watched_dev_id[dev_id]
 
     def report_message(
         self,
         dev_id: str,
         message: str,
+        category: XTDeviceWatcherCategory,
         device: XTDevice | None = None,
         print_stack: bool = True,
     ):
-        if self.is_watched(dev_id):
+        if self.is_watched(dev_id, category):
             if dev_id in self.multi_manager.device_map:
                 managed_device = self.multi_manager.device_map[dev_id]
                 LOGGER.warning(

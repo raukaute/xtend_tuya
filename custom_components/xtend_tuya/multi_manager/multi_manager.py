@@ -21,6 +21,7 @@ from ..const import (
     XTIRRemoteKeysInformation,
     XTLockingMechanism,
     MESSAGE_SOURCE_TUYA_SHARING,
+    XTDeviceWatcherCategory,
 )
 from .shared.shared_classes import (
     DeviceWatcher,
@@ -385,11 +386,15 @@ class MultiManager:  # noqa: F811
 
         new_message = self._convert_message_for_all_accounts(msg)
         self.device_watcher.report_message(
-            dev_id, f"on_message ({source}) => {msg} <=> {new_message}"
+            dev_id,
+            f"on_message ({source}) => {msg} <=> {new_message}",
+            XTDeviceWatcherCategory.MQTT,
         )
         if status_list := self._get_status_list_from_message(msg):
             self.device_watcher.report_message(
-                dev_id, f"On Message reporting ({source}): {msg}"
+                dev_id,
+                f"On Message reporting ({source}): {msg}",
+                XTDeviceWatcherCategory.MQTT,
             )
             self.multi_source_handler.register_status_list_from_source(
                 dev_id, source, status_list
@@ -496,7 +501,7 @@ class MultiManager:  # noqa: F811
                             device_id, regular_command, reverse_filters=True
                         ):
                             break
-                
+
                 # If it still didn't work, try sending the command aliases if they exist
                 if last_command_result is False:
                     alias_command: list[dict[str, Any]] = []
@@ -533,7 +538,12 @@ class MultiManager:  # noqa: F811
             ):
                 return stream_allocate
 
-    def send_lock_unlock_command(self, device: XTDevice, lock: bool, force_unlock_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO) -> bool:
+    def send_lock_unlock_command(
+        self,
+        device: XTDevice,
+        lock: bool,
+        force_unlock_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO,
+    ) -> bool:
         for account in self.accounts.values():
             if account.send_lock_unlock_command(device, lock, force_unlock_mechanism):
                 return True
@@ -547,16 +557,24 @@ class MultiManager:  # noqa: F811
         for account in self.accounts.values():
             if account.trigger_scene(home_id, scene_id):
                 return
-    
-    def get_device_consumption_statistics_by_day(self, device_id: str, start_day: str, end_day: str) -> dict[str, dict[float, float]] | None:
+
+    def get_device_consumption_statistics_by_day(
+        self, device_id: str, start_day: str, end_day: str
+    ) -> dict[str, dict[float, float]] | None:
         for account in self.accounts.values():
-            if stats := account.get_device_consumption_statistics_by_day(device_id, start_day, end_day):
+            if stats := account.get_device_consumption_statistics_by_day(
+                device_id, start_day, end_day
+            ):
                 return stats
         return None
-    
-    def get_device_consumption_statistics_by_hour(self, device_id: str, start_day_and_hour: str, end_day_and_hour: str) -> dict[str, dict[float, float]] | None:
+
+    def get_device_consumption_statistics_by_hour(
+        self, device_id: str, start_day_and_hour: str, end_day_and_hour: str
+    ) -> dict[str, dict[float, float]] | None:
         for account in self.accounts.values():
-            if stats := account.get_device_consumption_statistics_by_hour(device_id, start_day_and_hour, end_day_and_hour):
+            if stats := account.get_device_consumption_statistics_by_hour(
+                device_id, start_day_and_hour, end_day_and_hour
+            ):
                 return stats
         return None
 
@@ -587,9 +605,7 @@ class MultiManager:  # noqa: F811
     ):
         match function:
             case XTDeviceEntityFunctions.RECALCULATE_PERCENT_SCALE:
-                CloudFixes.fix_incorrect_percent_scale_forced(
-                    device, **kwargs
-                )
+                CloudFixes.fix_incorrect_percent_scale_forced(device, **kwargs)
 
     async def on_loading_finalized(
         self, hass: HomeAssistant, config_entry: XTConfigEntry

@@ -74,6 +74,7 @@ from ....const import (
     XTDeviceSourcePriority,
     LOGGER,
     XTLockingMechanism,
+    XTDeviceWatcherCategory,
 )
 
 
@@ -390,6 +391,7 @@ class XTTuyaSharingDeviceManagerInterface(XTDeviceManagerInterface):
             self.multi_manager.device_watcher.report_message(
                 device_id,
                 f"[Sharing]Send command failed, device id: {device_id}, commands: {regular_commands}, exception: {e}",
+                XTDeviceWatcherCategory.SHARING_API,
                 device=device,
             )
         return False

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from enum import StrEnum, IntFlag, IntEnum
+from enum import StrEnum, IntFlag, IntEnum, Flag, auto
 from typing import Any
 import logging
 from homeassistant.const import (
@@ -194,6 +194,21 @@ class XTDiscoverySource(StrEnum):
     SOURCE_ADD_IR_DEVICE_KEY = "ir_add_key"
     SOURCE_ADD_IR_DEVICE = "ir_add_device"
 
+class XTDeviceWatcherCategory(Flag):
+        MQTT                    = auto()
+        SHARING_API             = auto()
+        IOT_API                 = auto()
+        PLATFORM_BUTTON         = auto()
+        PLATFORM_CAMERA         = auto()
+        PLATFORM_CLIMATE        = auto()
+        PLATFORM_COVER          = auto()
+        PLATFORM_LOCK           = auto()
+        PLATFORM_NUMBER         = auto()
+        PLATFORM_SENSOR         = auto()
+        CLOUD_FIX               = auto()
+        SHARING_API_INTERNAL    = auto()
+        VIRTUAL_STATE           = auto()
+        VIRTUAL_FUNCTION        = auto()
 
 @dataclass
 class XTIRRemoteKeysInformation:

@@ -27,6 +27,7 @@ from ....const import (
     XTIRRemoteKeysInformation,
     XTLockingMechanism,
     TUYA_TEST_API_BAD_RETURN_CODES,
+    XTDeviceWatcherCategory,
 )
 from ...shared.shared_classes import (
     XTDevice,
@@ -270,6 +271,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         self.multi_manager.device_watcher.report_message(
             device_id,
             f"[{MESSAGE_SOURCE_TUYA_IOT}]On device other: {biz_code} <=> {data}",
+            XTDeviceWatcherCategory.MQTT,
         )
         if biz_code == BIZCODE_BIND_USER:
             self.multi_manager.add_device_by_id(data["devId"])
@@ -294,7 +296,9 @@ class XTIOTDeviceManager(TuyaDeviceManager):
 
     def _on_device_report(self, device_id: str, status: list):
         self.multi_manager.device_watcher.report_message(
-            device_id, f"[{MESSAGE_SOURCE_TUYA_IOT}]On device report: {status}"
+            device_id,
+            f"[{MESSAGE_SOURCE_TUYA_IOT}]On device report: {status}",
+            XTDeviceWatcherCategory.MQTT,
         )
         device = self.device_map.get(device_id, None)
         if not device:
@@ -469,6 +473,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 self.multi_manager.device_watcher.report_message(
                     device_id,
                     f"Sending property update, payload: {json.dumps({'properties': property_str})}",
+                    XTDeviceWatcherCategory.IOT_API,
                 )
                 result = self.api.post(
                     f"/v2.0/cloud/thing/{device_id}/shadow/properties/issue",
@@ -486,7 +491,9 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         force_unlock_mechanism: XTLockingMechanism = XTLockingMechanism.AUTO,
     ) -> bool:
         self.multi_manager.device_watcher.report_message(
-            device.id, f"Sending lock/unlock command open: {lock}"
+            device.id,
+            f"Sending lock/unlock command open: {lock}",
+            XTDeviceWatcherCategory.IOT_API,
         )
         return self.send_lock_unlock_command_multi_api(
             device, lock, force_unlock_mechanism
@@ -628,18 +635,18 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             if code in TUYA_TEST_API_BAD_RETURN_CODES:
                 return False
         return True
-    
+
     def test_sensor_energy_statistic_api_subscription(
         self, device: XTDevice, api: XTIOTOpenAPI | None = None
     ) -> bool:
         if api is None:
             if self.test_sensor_energy_statistic_api_subscription(device, self.api):
-                if self.test_sensor_energy_statistic_api_subscription(device, self.non_user_api):
+                if self.test_sensor_energy_statistic_api_subscription(
+                    device, self.non_user_api
+                ):
                     return True
             return False
-        stat_type = api.get(
-            f"/v1.0/devices/{device.id}/all-statistic-type"
-        )
+        stat_type = api.get(f"/v1.0/devices/{device.id}/all-statistic-type")
         if code := stat_type.get("code", None):
             if code in TUYA_TEST_API_BAD_RETURN_CODES:
                 return False
@@ -920,7 +927,9 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             f"/v1.0/devices/{device.id}/door-lock/remote-unlocks"
         )
         self.multi_manager.device_watcher.report_message(
-            device.id, f"API remote unlock types: {remote_unlock_types}"
+            device.id,
+            f"API remote unlock types: {remote_unlock_types}",
+            XTDeviceWatcherCategory.IOT_API,
         )
         if remote_unlock_types.get("success", False):
             device.set_preference(
@@ -946,7 +955,9 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         )
         ticket = api_to_use.post(f"/v1.0/devices/{device.id}/door-lock/password-ticket")
         self.multi_manager.device_watcher.report_message(
-            device.id, f"API remote unlock ticket: {ticket}"
+            device.id,
+            f"API remote unlock ticket: {ticket}",
+            XTDeviceWatcherCategory.IOT_API,
         )
         if ticket.get("success", False):
             device.set_preference(
@@ -972,7 +983,9 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 {"ticket_id": ticket_id, "open": open},
             )
             self.multi_manager.device_watcher.report_message(
-                device.id, f"API call_door_operate result: {lock_operation}"
+                device.id,
+                f"API call_door_operate result: {lock_operation}",
+                XTDeviceWatcherCategory.IOT_API,
             )
             if lock_operation.get("success", False):
                 device.set_preference(
@@ -996,7 +1009,9 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 {"ticket_id": ticket_id},
             )
             self.multi_manager.device_watcher.report_message(
-                device.id, f"API call_door_open result: {lock_operation}"
+                device.id,
+                f"API call_door_open result: {lock_operation}",
+                XTDeviceWatcherCategory.IOT_API,
             )
             if lock_operation.get("success", False):
                 device.set_preference(

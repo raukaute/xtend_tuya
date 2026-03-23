@@ -34,6 +34,7 @@ from .const import (
     XTMultiManagerProperties,
     XTMultiManagerPostSetupCallbackPriority,
     LOGGER,  # noqa: F401
+    XTDeviceWatcherCategory,
 )
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaCameraEntity,
@@ -224,7 +225,7 @@ class XTCameraEntity(XTEntity, TuyaCameraEntity):
         if self.iot_manager is None:
             return None
         self.device_manager.device_watcher.report_message(
-            self.device.id, "Getting WebRTC Config 1", self.device
+            self.device.id, "Getting WebRTC Config 1", XTDeviceWatcherCategory.PLATFORM_CAMERA, self.device
         )
         return_tuple = await self.iot_manager.async_get_webrtc_ice_servers(
             self.device, "GO2RTC", self._hass
@@ -236,6 +237,7 @@ class XTCameraEntity(XTEntity, TuyaCameraEntity):
         self.device_manager.device_watcher.report_message(
             self.device.id,
             f"WebRTC Configuration: {ice_servers}, {webrtc_config}",
+            XTDeviceWatcherCategory.PLATFORM_CAMERA,
             self.device,
         )
         if ice_servers:

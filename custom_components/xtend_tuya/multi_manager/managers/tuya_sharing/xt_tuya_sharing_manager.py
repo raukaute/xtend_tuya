@@ -24,6 +24,7 @@ from ....const import (
     XTDeviceSourcePriority,
     XTLockingMechanism,
     LOGGER,  # noqa: F401
+    XTDeviceWatcherCategory,
 )
 from ...multi_manager import (
     MultiManager,
@@ -115,6 +116,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
                 self.multi_manager.device_watcher.report_message(
                     device.id,
                     f"Overriden device from regular Tuya: {device}",
+                    XTDeviceWatcherCategory.SHARING_API_INTERNAL,
                     device=device,  # type: ignore
                 )
                 new_device_map[device.id] = XTDevice.from_compatible_device(
@@ -160,6 +162,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
         self.multi_manager.device_watcher.report_message(
             device_id,
             f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device other: {biz_code} <=> {data}",
+            XTDeviceWatcherCategory.MQTT,
         )
         if biz_code == BIZCODE_BIND_USER:
             self.multi_manager.add_device_by_id(device_id)
@@ -182,7 +185,9 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
 
     def _on_device_report(self, device_id: str, status: list):
         self.multi_manager.device_watcher.report_message(
-            device_id, f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device report: {status}"
+            device_id,
+            f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device report: {status}",
+            XTDeviceWatcherCategory.MQTT,
         )
         device = self.device_map.get(device_id, None)
         if not device:
@@ -203,7 +208,9 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
 
     def send_commands(self, device_id: str, commands: list[dict[str, Any]]):
         self.multi_manager.device_watcher.report_message(
-            device_id, f"Sending Tuya commands: {commands}"
+            device_id,
+            f"Sending Tuya commands: {commands}",
+            XTDeviceWatcherCategory.SHARING_API,
         )
         if other_manager := self.get_overriden_device_manager():
             other_manager.send_commands(device_id, commands)

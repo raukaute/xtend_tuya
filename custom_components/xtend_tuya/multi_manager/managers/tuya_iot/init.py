@@ -64,6 +64,7 @@ from ....const import (
     XTIRHubInformation,
     XTIRRemoteInformation,
     XTIRRemoteKeysInformation,
+    XTDeviceWatcherCategory,
 )
 
 
@@ -563,6 +564,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                 self.multi_manager.device_watcher.report_message(
                     device_id,
                     f"[IOT]Send {api_type} command failed, device id: {device_id}, command: {command_list}, exception: {e}",
+                    XTDeviceWatcherCategory.IOT_API
                 )
         return False
 

@@ -4,6 +4,7 @@ from typing import Any
 from ...const import (
     VirtualStates,
     DescriptionVirtualState,
+    XTDeviceWatcherCategory,
 )
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.shared_classes as shared
@@ -208,7 +209,10 @@ class XTVirtualStateHandler:
     ) -> list:
         status = copy.deepcopy(status_in)
         self.multi_manager.device_watcher.report_message(
-            device.id, f"[{source}]Status In: {status_in}", device
+            device.id,
+            f"[{source}]Status In: {status_in}",
+            XTDeviceWatcherCategory.VIRTUAL_STATE,
+            device,
         )
         virtual_states = self.get_category_virtual_states(device.category)
         for virtual_state in virtual_states:
@@ -281,7 +285,10 @@ class XTVirtualStateHandler:
                             item["value"] += device.status[virtual_state.key]
                             continue
         self.multi_manager.device_watcher.report_message(
-            device.id, f"[{source}]Status Out: {status}", device
+            device.id,
+            f"[{source}]Status Out: {status}",
+            XTDeviceWatcherCategory.VIRTUAL_STATE,
+            device,
         )
         return status
 
