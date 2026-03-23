@@ -535,8 +535,8 @@ class XTTrackedDictionnary(UserDict):
 
     def __getitem__(self, key):
         #LOGGER.warning(f"__getitem__: {key}")
-        return self.original_dict.__getitem__(key) if self.original_dict else super().__getitem__(key)
+        return self.original_dict.__getitem__(key) if self.original_dict is not None else super().__getitem__(key)
 
     def __setitem__(self, key, item):
         LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
-        return self.original_dict.__setitem__(key, item) if self.original_dict else super().__setitem__(key, item)
+        return self.original_dict.__setitem__(key, item) if self.original_dict is not None else super().__setitem__(key, item)
