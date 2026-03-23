@@ -538,6 +538,5 @@ class XTTrackedDictionnary(UserDict):
         return self.original_dict.__getitem__(key) if self.original_dict else super().__getitem__(key)
 
     def __setitem__(self, key, item):
-        if key in ["add_ele", "add_ele2"]:
-            LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
+        LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
         return self.original_dict.__setitem__(key, item) if self.original_dict else super().__setitem__(key, item)
