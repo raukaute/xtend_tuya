@@ -531,6 +531,8 @@ class XTDeviceMap(UserDict[str, XTDevice]):
 
 class XTTrackedDictionnary(UserDict[str, Any]):
 
+    original_dict: dict | None = None
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         self.original_dict = dict if dict is not None else None
