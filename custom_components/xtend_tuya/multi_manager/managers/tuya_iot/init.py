@@ -65,6 +65,7 @@ from ....const import (
     XTIRRemoteInformation,
     XTIRRemoteKeysInformation,
     XTDeviceWatcherCategory,
+    XTDeviceWatcherSpecialDevice,
 )
 
 
@@ -96,8 +97,12 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
         self.iot_account = await self._init_from_entry(hass, config_entry)
         if self.iot_account:
             self.multi_manager.register_account(self)
-        LOGGER.debug(
-            f"Xtended Tuya {config_entry.title} {datetime.now() - last_time} for setup_from_entry {self.get_type_name()}"
+        self.multi_manager.device_watcher.report_message(
+            XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
+            f"Xtended Tuya {config_entry.title} {datetime.now() - last_time} for setup_from_entry {self.get_type_name()}",
+            XTDeviceWatcherCategory.XT_PERFORMANCE,
+            None,
+            False,
         )
 
     async def _init_from_entry(
