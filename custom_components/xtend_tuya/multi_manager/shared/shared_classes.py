@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import NamedTuple, Any, Optional, cast
+from typing import Iterable, NamedTuple, Any, Optional, cast
 from collections import UserDict
 from dataclasses import dataclass, field
 import copy
@@ -267,14 +267,13 @@ class XTDevice(TuyaDevice):
         self.support_local: bool | None = False
 
         self.local_strategy = {}
-        self.status = XTTrackedDictionnary()
-        if "status" in kwargs:
-            kwargs["status"] = XTTrackedDictionnary(kwargs["status"])
+        self.status = {}
         self.function = {}  # type: ignore
         self.status_range = {}  # type: ignore
         self.device_preference = {}
         self.device_map: XTDeviceMap | None = None
         super().__init__(**kwargs)
+        XTTrackedDictionnary.track_dictionnary(self.status, "__setitem__")
 
     def __repr__(self) -> str:
         function_str = "Functions:\r\n"
@@ -328,7 +327,8 @@ class XTDevice(TuyaDevice):
         if hasattr(device, "local_strategy"):
             new_device.local_strategy = device.local_strategy
         if hasattr(device, "status"):
-            new_device.status = XTTrackedDictionnary(device.status)
+            new_device.status = device.status
+            XTTrackedDictionnary.track_dictionnary(new_device.status, "__setitem__")
         if hasattr(device, "function"):
             new_device.function = device.function
         if hasattr(device, "status_range"):
@@ -529,13 +529,24 @@ class XTDeviceMap(UserDict[str, XTDevice]):
             if hasattr(device, key) and getattr(device, key) != value:
                 setattr(device, key, value)
 
-class XTTrackedDictionnary(UserDict[str, Any]):
+class XTTrackedDictionnary:
 
-    def __getitem__(self, key):
-        #LOGGER.warning(f"__getitem__: {key}")
-        return super().__getitem__(key)
+    tracked_list: list[dict] = []
 
-    def __setitem__(self, key, item):
-        if key in ["add_ele", "add_ele2"]:
-            LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
-        return super().__setitem__(key, item)
+    @classmethod
+    def report_from_tracked(cls, method, *args, **kwargs):
+        LOGGER.warning(f"report_from_tracked: {method} => {args} => {kwargs}")
+
+    @classmethod
+    def track_dictionnary(cls, dict: dict, method: str) -> bool:
+        if hasattr(dict, method) is False:
+            return False
+        if dict in XTTrackedDictionnary.tracked_list:
+            return True
+        original_method = getattr(dict, method)
+        def report_tracked(method: str, *args, **kwargs) -> Any:
+            XTTrackedDictionnary.report_from_tracked(method=method, *args, **kwargs)
+            return original_method(*args, **kwargs)
+        setattr(dict, method, report_tracked)
+        return True
+
