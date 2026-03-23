@@ -49,7 +49,7 @@ class DeviceWatcher:
         message: str,
         category: XTDeviceWatcherCategory,
         device: XTDevice | None = None,
-        print_stack: bool = True,
+        print_stack: bool = False,
     ):
         if self.is_watched(dev_id, XTDeviceWatcherCategory.get_unique_flags(category)):
             if dev_id in self.multi_manager.device_map:
