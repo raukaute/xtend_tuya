@@ -326,7 +326,7 @@ class XTDevice(TuyaDevice):
         if hasattr(device, "local_strategy"):
             new_device.local_strategy = device.local_strategy
         if hasattr(device, "status"):
-            new_device.status = device.status
+            new_device.status = XTTrackedDictionnary(device.status)
         if hasattr(device, "function"):
             new_device.function = device.function
         if hasattr(device, "status_range"):
