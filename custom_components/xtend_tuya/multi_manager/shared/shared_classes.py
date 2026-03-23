@@ -530,9 +530,10 @@ class XTDeviceMap(UserDict[str, XTDevice]):
 class XTTrackedDictionnary(UserDict[str, Any]):
 
     def __getitem__(self, key):
-        LOGGER.warning(f"__getitem__: {key}")
+        #LOGGER.warning(f"__getitem__: {key}")
         super().__getitem__(key)
 
     def __setitem__(self, key, item):
-        LOGGER.warning(f"__setitem__: {key} => {item}")
+        if key in ["add_ele", "add_ele2"]:
+            LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
         super().__setitem__(key, item)
