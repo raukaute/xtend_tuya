@@ -126,13 +126,6 @@ class XTVirtualStateHandler:
                                             new_local_strategy
                                         )
                                         device.status_range[new_code].dp_id = new_dp_id
-                                        self.multi_manager.device_watcher.report_message(
-                                            device.id,
-                                            f"Adding new local strategy: {virtual_state.key}({dp_id}): {device.local_strategy[new_dp_id]}",
-                                            XTDeviceWatcherCategory.VIRTUAL_STATE
-                                            | XTDeviceWatcherCategory.DEBUG,
-                                            device,
-                                        )
                         for vs_new_code in virtual_state.vs_copy_delta_to_state:
                             new_code = str(vs_new_code)
                             if device.status.get(new_code, None) is None:
@@ -178,13 +171,6 @@ class XTVirtualStateHandler:
                                             new_local_strategy
                                         )
                                         device.status_range[new_code].dp_id = new_dp_id
-                                        self.multi_manager.device_watcher.report_message(
-                                            device.id,
-                                            f"Adding new local strategy: {virtual_state.key}({dp_id}): {device.local_strategy[new_dp_id]}",
-                                            XTDeviceWatcherCategory.VIRTUAL_STATE
-                                            | XTDeviceWatcherCategory.DEBUG,
-                                            device,
-                                        )
                     if virtual_state.key in device.function:
                         for vs_new_code in virtual_state.vs_copy_to_state:
                             new_code = str(vs_new_code)
@@ -233,13 +219,6 @@ class XTVirtualStateHandler:
                                             new_local_strategy
                                         )
                                         device.function[new_code].dp_id = new_dp_id
-                                        self.multi_manager.device_watcher.report_message(
-                                            device.id,
-                                            f"Adding new local strategy: {virtual_state.key}({dp_id}): {device.local_strategy[new_dp_id]}",
-                                            XTDeviceWatcherCategory.VIRTUAL_STATE
-                                            | XTDeviceWatcherCategory.DEBUG,
-                                            device,
-                                        )
                         for vs_new_code in virtual_state.vs_copy_delta_to_state:
                             new_code = str(vs_new_code)
                             if device.status.get(new_code, None) is None:
@@ -285,13 +264,6 @@ class XTVirtualStateHandler:
                                             new_local_strategy
                                         )
                                         device.function[new_code].dp_id = new_dp_id
-                                        self.multi_manager.device_watcher.report_message(
-                                            device.id,
-                                            f"Adding new local strategy: {virtual_state.key}({dp_id}): {device.local_strategy[new_dp_id]}",
-                                            XTDeviceWatcherCategory.VIRTUAL_STATE
-                                            | XTDeviceWatcherCategory.DEBUG,
-                                            device,
-                                        )
 
     def apply_virtual_states_to_status_list(
         self,
@@ -305,7 +277,7 @@ class XTVirtualStateHandler:
         self.multi_manager.device_watcher.report_message(
             device.id,
             f"[{source}]Status In: {status_in}",
-            XTDeviceWatcherCategory.VIRTUAL_STATE | XTDeviceWatcherCategory.DEBUG,
+            XTDeviceWatcherCategory.VIRTUAL_STATE,
             device,
         )
         virtual_states = self.get_category_virtual_states(device.category)
@@ -385,15 +357,14 @@ class XTVirtualStateHandler:
                             self.multi_manager.device_watcher.report_message(
                                 device.id,
                                 f"[{source}]VS State applying: code: {code}, before_update: {before_value}, after_update: {after_value}, status_in: {status_in}",
-                                XTDeviceWatcherCategory.VIRTUAL_STATE
-                                | XTDeviceWatcherCategory.DEBUG,
+                                XTDeviceWatcherCategory.VIRTUAL_STATE,
                                 device,
                             )
                             continue
         self.multi_manager.device_watcher.report_message(
             device.id,
             f"[{source}]Status Out: {status}",
-            XTDeviceWatcherCategory.VIRTUAL_STATE | XTDeviceWatcherCategory.DEBUG,
+            XTDeviceWatcherCategory.VIRTUAL_STATE,
             device,
         )
         return status
