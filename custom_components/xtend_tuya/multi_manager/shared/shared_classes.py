@@ -545,6 +545,7 @@ class XTTrackedDictionnary(UserDict):
     def __setitem__(self, key, item):
         LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
         if self.original_dict is not None:
+            super().__setitem__(key, item)
             return self.original_dict.__setitem__(key, item)
         else:
             return super().__setitem__(key, item)
