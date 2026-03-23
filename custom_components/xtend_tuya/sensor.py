@@ -1084,7 +1084,7 @@ ELECTRICITY_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     XTSensorEntityDescription(
         key=XTDPCode.CUR_VOLTAGE2,
         translation_key="voltage2",
-        device_class=SensorDeviceClass.POWER,
+        device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     XTSensorEntityDescription(
