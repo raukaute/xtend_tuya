@@ -207,6 +207,8 @@ class XTVirtualStateHandler:
         status_in: list[dict[str, Any]],
         source: str | None = None,
     ) -> list:
+        if not status_in:
+            return status_in
         status = copy.deepcopy(status_in)
         self.multi_manager.device_watcher.report_message(
             device.id,
