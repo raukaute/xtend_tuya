@@ -377,12 +377,13 @@ class TuyaOpenAPI:
             )
             return {}
         else:
-            logger.debug(
-                f"[IOT API][{time_taken}]Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}"
-            )
-            logger.debug(
-                f"[IOT API][{time_taken}]Response: {json.dumps(result, ensure_ascii=False, indent=2)}"
-            )
+            # logger.debug(
+            #     f"[IOT API][{time_taken}]Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}"
+            # )
+            # logger.debug(
+            #     f"[IOT API][{time_taken}]Response: {json.dumps(result, ensure_ascii=False, indent=2)}"
+            # )
+            pass
 
         if result.get("code", -1) == TUYA_ERROR_CODE_TOKEN_INVALID:
             if first_pass is True and path.startswith(self.__login_path) is False and self.reconnect() is True:

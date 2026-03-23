@@ -459,7 +459,6 @@ class MultiManager:  # noqa: F811
             for command in commands:
                 command_code = command["code"]
                 command_value = command["value"]
-                LOGGER.debug(f"Base command : {command}")
                 vf_found = False
                 for virtual_function in virtual_function_list:
                     if (

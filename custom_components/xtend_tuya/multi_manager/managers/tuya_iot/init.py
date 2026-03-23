@@ -400,17 +400,16 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                         },
                         learn_more_url="https://github.com/azerty9971/xtend_tuya/blob/main/docs/configure_ir.md",
                     )
-        
+
         if energy_sensor_entities := multi_manager.get_general_property(
             XTMultiManagerProperties.ENERGY_SENSOR, None
         ):
             # Verify if we are subscribed to the energy statistic service
             for device_id in energy_sensor_entities:
                 if device := multi_manager.device_map.get(device_id, None):
-                    test_api = (
-                        await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-                            self.iot_account.device_manager.test_sensor_energy_statistic_api_subscription, device
-                        )
+                    test_api = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+                        self.iot_account.device_manager.test_sensor_energy_statistic_api_subscription,
+                        device,
                     )
                     if not test_api:
                         await self.raise_issue(
@@ -543,8 +542,12 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                         command_list = []
                         command_dict = {"code": command_code, "value": command_value}
                         command_list.append(command_dict)
-                        LOGGER.debug(
-                            f"Sending Open API regular command : {command_list}"
+                        self.multi_manager.device_watcher.report_message(
+                            device_id,
+                            f"Sending Open API regular command : {command_list}",
+                            XTDeviceWatcherCategory.IOT_API,
+                            device,
+                            False,
                         )
                         self.iot_account.device_manager.send_commands(
                             device_id, command_list
@@ -553,7 +556,13 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                         command_list = []
                         property_dict = {str(command_code): command_value}
                         command_list.append(property_dict)
-                        LOGGER.debug(f"Sending property command : {command_list}")
+                        self.multi_manager.device_watcher.report_message(
+                            device_id,
+                            f"Sending property command : {command_list}",
+                            XTDeviceWatcherCategory.IOT_API,
+                            device,
+                            False,
+                        )
                         self.iot_account.device_manager.send_property_update(
                             device_id, command_list
                         )
@@ -564,7 +573,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                 self.multi_manager.device_watcher.report_message(
                     device_id,
                     f"[IOT]Send {api_type} command failed, device id: {device_id}, command: {command_list}, exception: {e}",
-                    XTDeviceWatcherCategory.IOT_API
+                    XTDeviceWatcherCategory.IOT_API,
                 )
         return False
 
@@ -581,7 +590,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
         for supported_code in supported_codes.get("result", []):
             stat_type = supported_code.get("stat_type")
             code = supported_code.get("code")
-            #if stat_type != "sum":
+            # if stat_type != "sum":
             #    continue
             params = {
                 "code": code,
@@ -644,7 +653,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
         for supported_code in supported_codes.get("result", []):
             stat_type = supported_code.get("stat_type")
             code = supported_code.get("code")
-            #if stat_type != "sum":
+            # if stat_type != "sum":
             #    continue
             for start, end in query_ranges:
                 params = {

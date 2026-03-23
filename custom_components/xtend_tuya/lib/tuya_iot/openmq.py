@@ -115,7 +115,6 @@ class TuyaOpenMQ(threading.Thread):
         }
         response = self.api.post(path, body)
         if response.get("success", False):
-            #logger.debug(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}")
             pass
         else:
             logger.error(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}", stack_info=True)

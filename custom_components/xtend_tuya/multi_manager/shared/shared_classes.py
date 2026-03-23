@@ -29,7 +29,10 @@ from ...const import (
 class DeviceWatcher:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
         self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
-            "eb0c772dabbb19d653ssi5": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.IOT_API | XTDeviceWatcherCategory.SHARING_API | XTDeviceWatcherCategory.VIRTUAL_STATE
+            "eb0c772dabbb19d653ssi5": XTDeviceWatcherCategory.MQTT
+            | XTDeviceWatcherCategory.IOT_API
+            | XTDeviceWatcherCategory.SHARING_API
+            | XTDeviceWatcherCategory.VIRTUAL_STATE
         }
         self.multi_manager = multi_manager
 
@@ -78,12 +81,14 @@ class HomeAssistantXTData(NamedTuple):
 
 type XTConfigEntry = ConfigEntry[HomeAssistantXTData]
 
+
 @dataclass
 class XTDeviceStatusFunctionShared:
     code: str = ""
     type: TuyaDPType | None = None
     values: str = "{}"
     dp_id: int = 0
+
 
 @dataclass
 class XTDeviceStatusRange(XTDeviceStatusFunctionShared):
@@ -115,7 +120,9 @@ class XTDeviceStatusRange(XTDeviceStatusFunctionShared):
             report_type = status_range.report_type
         else:
             report_type = None
-        return XTDeviceStatusRange(code=code, type=type, values=values, dp_id=dp_id, report_type=report_type)
+        return XTDeviceStatusRange(
+            code=code, type=type, values=values, dp_id=dp_id, report_type=report_type
+        )
 
 
 @dataclass
@@ -184,7 +191,9 @@ class XTDevice(TuyaDevice):
     status_range: dict[str, XTDeviceStatusRange]
     force_open_api: Optional[bool] = False
     device_source_priority: int | None = None
-    force_compatibility: bool = False  # Force the device functions/status_range/state to remain untouched after merging
+    force_compatibility: bool = (
+        False  # Force the device functions/status_range/state to remain untouched after merging
+    )
     device_preference: dict[str, Any] = {}
     original_device: Any = None
     device_map: XTDeviceMap | None = None
@@ -353,7 +362,7 @@ class XTDevice(TuyaDevice):
                 for alias in local_strategy.get("status_code_alias", {}):
                     return_list[alias] = status_code
         return return_list
-    
+
     def get_status_code_aliases(self, status_code: str) -> list[str]:
         alias_list: list[str] = []
         for local_strategy in self.local_strategy.values():
@@ -362,10 +371,15 @@ class XTDevice(TuyaDevice):
         return alias_list
 
     def replace_status_code_with_another(
-        self, orig_status_code: str, new_status_code: str, skip_force_compatibility: bool = False
+        self,
+        orig_status_code: str,
+        new_status_code: str,
+        skip_force_compatibility: bool = False,
     ):
         if self.force_compatibility is True and skip_force_compatibility is False:
-            LOGGER.debug(f"Device {self.name} is set to force compatibility. Cannot replace status code {orig_status_code} with {new_status_code}.")
+            LOGGER.debug(
+                f"Device {self.name} is set to force compatibility. Cannot replace status code {orig_status_code} with {new_status_code}."
+            )
             return
         # LOGGER.debug(f"Replacing {orig_status} with {new_status} in {device.name}")
         if orig_status_code in self.status_range:
