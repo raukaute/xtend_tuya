@@ -21,25 +21,39 @@ from ...ha_tuya_integration.tuya_integration_imports import (
 from ...const import (
     LOGGER,
     XTDeviceSourcePriority,
+    XTEntityAccessMode,
+    XTDeviceWatcherCategory,
+    XTDeviceWatcherSpecialDevice,  # noqa: F401
 )
 
 
 class DeviceWatcher:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
-        self.watched_dev_id: list[str] = [""]
+        self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
+            # "eb0c772dabbb19d653ssi5": XTDeviceWatcherCategory.DEBUG | XTDeviceWatcherCategory.STATUS_CHANGES,
+            # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
+        }
         self.multi_manager = multi_manager
 
-    def is_watched(self, dev_id: str) -> bool:
-        return dev_id in self.watched_dev_id
+    def is_watched(
+        self, dev_id: str, category_list: list[XTDeviceWatcherCategory]
+    ) -> bool:
+        if dev_id not in self.watched_dev_id:
+            return False
+        for category in category_list:
+            if category in self.watched_dev_id[dev_id]:
+                return True
+        return False
 
     def report_message(
         self,
         dev_id: str,
         message: str,
+        category: XTDeviceWatcherCategory,
         device: XTDevice | None = None,
-        print_stack: bool = True,
+        print_stack: bool = False,
     ):
-        if self.is_watched(dev_id):
+        if self.is_watched(dev_id, XTDeviceWatcherCategory.get_unique_flags(category)):
             if dev_id in self.multi_manager.device_map:
                 managed_device = self.multi_manager.device_map[dev_id]
                 LOGGER.warning(
@@ -52,9 +66,7 @@ class DeviceWatcher:
                     stack_info=print_stack,
                 )
             else:
-                LOGGER.warning(
-                    f"DeviceWatcher for {dev_id}: {message}", stack_info=print_stack
-                )
+                LOGGER.warning(f"{message}", stack_info=print_stack)
 
 
 class HomeAssistantXTData(NamedTuple):
@@ -71,12 +83,14 @@ class HomeAssistantXTData(NamedTuple):
 
 type XTConfigEntry = ConfigEntry[HomeAssistantXTData]
 
+
 @dataclass
 class XTDeviceStatusFunctionShared:
     code: str = ""
     type: TuyaDPType | None = None
     values: str = "{}"
     dp_id: int = 0
+
 
 @dataclass
 class XTDeviceStatusRange(XTDeviceStatusFunctionShared):
@@ -108,7 +122,9 @@ class XTDeviceStatusRange(XTDeviceStatusFunctionShared):
             report_type = status_range.report_type
         else:
             report_type = None
-        return XTDeviceStatusRange(code=code, type=type, values=values, dp_id=dp_id, report_type=report_type)
+        return XTDeviceStatusRange(
+            code=code, type=type, values=values, dp_id=dp_id, report_type=report_type
+        )
 
 
 @dataclass
@@ -177,7 +193,9 @@ class XTDevice(TuyaDevice):
     status_range: dict[str, XTDeviceStatusRange]
     force_open_api: Optional[bool] = False
     device_source_priority: int | None = None
-    force_compatibility: bool = False  # Force the device functions/status_range/state to remain untouched after merging
+    force_compatibility: bool = (
+        False  # Force the device functions/status_range/state to remain untouched after merging
+    )
     device_preference: dict[str, Any] = {}
     original_device: Any = None
     device_map: XTDeviceMap | None = None
@@ -346,7 +364,7 @@ class XTDevice(TuyaDevice):
                 for alias in local_strategy.get("status_code_alias", {}):
                     return_list[alias] = status_code
         return return_list
-    
+
     def get_status_code_aliases(self, status_code: str) -> list[str]:
         alias_list: list[str] = []
         for local_strategy in self.local_strategy.values():
@@ -355,10 +373,15 @@ class XTDevice(TuyaDevice):
         return alias_list
 
     def replace_status_code_with_another(
-        self, orig_status_code: str, new_status_code: str, skip_force_compatibility: bool = False
+        self,
+        orig_status_code: str,
+        new_status_code: str,
+        skip_force_compatibility: bool = False,
     ):
         if self.force_compatibility is True and skip_force_compatibility is False:
-            LOGGER.debug(f"Device {self.name} is set to force compatibility. Cannot replace status code {orig_status_code} with {new_status_code}.")
+            LOGGER.debug(
+                f"Device {self.name} is set to force compatibility. Cannot replace status code {orig_status_code} with {new_status_code}."
+            )
             return
         # LOGGER.debug(f"Replacing {orig_status} with {new_status} in {device.name}")
         if orig_status_code in self.status_range:
@@ -430,15 +453,15 @@ class XTDevice(TuyaDevice):
                 if access_mode := local_strategy.get("access_mode"):
                     dp_info.access_mode = access_mode
                     match access_mode:
-                        case "ro":
+                        case XTEntityAccessMode.READ_ONLY:
                             dp_info.read_only = True
                             dp_info.write_only = False
                             dp_info.read_write = False
-                        case "rw":
+                        case XTEntityAccessMode.READ_WRITE:
                             dp_info.read_only = False
                             dp_info.write_only = False
                             dp_info.read_write = True
-                        case "wr":
+                        case XTEntityAccessMode.WRITE_ONLY:
                             dp_info.read_only = False
                             dp_info.write_only = True
                             dp_info.read_write = False
@@ -503,3 +526,25 @@ class XTDeviceMap(UserDict[str, XTDevice]):
         if device := self.get(device_id):
             if hasattr(device, key) and getattr(device, key) != value:
                 setattr(device, key, value)
+
+
+class XTTrackedDictionnary(UserDict):
+    def __init__(self, dict: dict | None = None, /, **kwargs):
+        self.original_dict: dict | None = None
+        super().__init__(dict, **kwargs)
+        self.original_dict = dict
+
+    def __getitem__(self, key):
+        # LOGGER.warning(f"__getitem__: {key}")
+        if self.original_dict is not None:
+            return self.original_dict.__getitem__(key)
+        else:
+            return super().__getitem__(key)
+
+    def __setitem__(self, key, item):
+        LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
+        if self.original_dict is not None:
+            super().__setitem__(key, item)
+            return self.original_dict.__setitem__(key, item)
+        else:
+            return super().__setitem__(key, item)

@@ -32,6 +32,7 @@ from .const import (
     XT_CELSIUS_ALIASES,
     XT_FAHRENHEIT_ALIASES,
     LOGGER,  # noqa: F401
+    XTDeviceWatcherCategory,
 )
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaClimateEntity,
@@ -565,6 +566,7 @@ class XTClimateEntity(XTEntity, TuyaClimateEntity):
         device_manager.device_watcher.report_message(
             device.id,
             f"Creating XTClimateEntity for device {device.name} ({device.id}), wrappers: cur_temp({current_temperature_wrapper.dpcode if current_temperature_wrapper else 'None'}), set_temp({set_temperature_wrapper.dpcode if set_temperature_wrapper else 'None'}), hvac_mode({hvac_mode_wrapper.dpcode if hvac_mode_wrapper else 'None'}), fan_mode({fan_mode_wrapper.dpcode if fan_mode_wrapper else 'None'})",
+            XTDeviceWatcherCategory.PLATFORM_CLIMATE
         )
         super(XTClimateEntity, self).__init__(device, device_manager, description)
         super(XTEntity, self).__init__(
