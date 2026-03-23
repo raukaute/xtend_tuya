@@ -268,6 +268,8 @@ class XTDevice(TuyaDevice):
 
         self.local_strategy = {}
         self.status = XTTrackedDictionnary()
+        if "status" in kwargs:
+            kwargs["status"] = XTTrackedDictionnary(kwargs["status"])
         self.function = {}  # type: ignore
         self.status_range = {}  # type: ignore
         self.device_preference = {}
