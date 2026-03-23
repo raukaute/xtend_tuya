@@ -413,7 +413,7 @@ class XTTuyaSharingDeviceManagerInterface(XTDeviceManagerInterface):
         self, device: Any, device_source_priority: XTDeviceSourcePriority | None = None
     ) -> XTDevice:
         device_new: XTDevice = XTDevice.from_compatible_device(
-            device, device_source_priority=device_source_priority
+            device, device_source_priority=device_source_priority, keep_synced_with_original=True
         )
         if device_source_priority == XTDeviceSourcePriority.REGULAR_TUYA:
             device_new.force_compatibility = True
