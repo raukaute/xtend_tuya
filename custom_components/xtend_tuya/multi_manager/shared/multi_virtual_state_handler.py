@@ -59,11 +59,11 @@ class XTVirtualStateHandler:
                         ):
                             # This virtual_state is applied to this key, let's return it
                             found_virtual_state = DescriptionVirtualState(
-                                description.key,
-                                virtual_state.name,
-                                VirtualStates(virtual_state.value),
-                                description.vs_copy_to_state,
-                                description.vs_copy_delta_to_state,
+                                key=description.key,
+                                virtual_state_name=virtual_state.name,
+                                virtual_state_value=VirtualStates(virtual_state.value),
+                                vs_copy_to_state=description.vs_copy_to_state,
+                                vs_copy_delta_to_state=description.vs_copy_delta_to_state,
                             )
                             to_return.append(found_virtual_state)
         return to_return

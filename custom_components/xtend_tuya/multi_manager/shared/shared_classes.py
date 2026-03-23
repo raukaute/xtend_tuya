@@ -30,15 +30,18 @@ from ...const import (
 class DeviceWatcher:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
         self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
-            "eb0c772dabbb19d653ssi5": XTDeviceWatcherCategory.DEBUG,
+            "eb0c772dabbb19d653ssi5": XTDeviceWatcherCategory.DEBUG | XTDeviceWatcherCategory.MQTT,
             #XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
         }
         self.multi_manager = multi_manager
 
-    def is_watched(self, dev_id: str, category: XTDeviceWatcherCategory) -> bool:
+    def is_watched(self, dev_id: str, category_list: list[XTDeviceWatcherCategory]) -> bool:
         if dev_id not in self.watched_dev_id:
             return False
-        return category in self.watched_dev_id[dev_id]
+        for category in category_list:
+            if category in self.watched_dev_id[dev_id]:
+                return True
+        return False
 
     def report_message(
         self,
@@ -48,7 +51,7 @@ class DeviceWatcher:
         device: XTDevice | None = None,
         print_stack: bool = True,
     ):
-        if self.is_watched(dev_id, category):
+        if self.is_watched(dev_id, XTDeviceWatcherCategory.get_unique_flags(category)):
             if dev_id in self.multi_manager.device_map:
                 managed_device = self.multi_manager.device_map[dev_id]
                 LOGGER.warning(

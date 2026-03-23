@@ -199,22 +199,39 @@ class XTDeviceWatcherSpecialDevice(StrEnum):
     NOT_LINKED_TO_A_DEVICE = "not_linked_to_a_device"
 
 class XTDeviceWatcherCategory(Flag):
-        MQTT                    = auto()
-        SHARING_API             = auto()
-        IOT_API                 = auto()
-        PLATFORM_BUTTON         = auto()
-        PLATFORM_CAMERA         = auto()
-        PLATFORM_CLIMATE        = auto()
-        PLATFORM_COVER          = auto()
-        PLATFORM_LOCK           = auto()
-        PLATFORM_NUMBER         = auto()
-        PLATFORM_SENSOR         = auto()
-        CLOUD_FIX               = auto()
-        SHARING_API_INTERNAL    = auto()
-        VIRTUAL_STATE           = auto()
-        VIRTUAL_FUNCTION        = auto()
-        XT_PERFORMANCE          = auto()
-        DEBUG                   = auto()
+    MQTT                    = auto()
+    SHARING_API             = auto()
+    IOT_API                 = auto()
+    PLATFORM_BUTTON         = auto()
+    PLATFORM_CAMERA         = auto()
+    PLATFORM_CLIMATE        = auto()
+    PLATFORM_COVER          = auto()
+    PLATFORM_LOCK           = auto()
+    PLATFORM_NUMBER         = auto()
+    PLATFORM_SENSOR         = auto()
+    CLOUD_FIX               = auto()
+    SHARING_API_INTERNAL    = auto()
+    VIRTUAL_STATE           = auto()
+    VIRTUAL_FUNCTION        = auto()
+    XT_PERFORMANCE          = auto()
+    DEBUG                   = auto()
+
+    @classmethod
+    def all_enum_values(cls) -> list[XTDeviceWatcherCategory]:
+        retval = []
+        for member in cls.__members__.values():
+            retval.append(member)
+        return retval
+
+    @classmethod
+    def get_unique_flags(cls, multi_flags: XTDeviceWatcherCategory) -> list[XTDeviceWatcherCategory]:
+        retval = []
+        all_flags = cls.all_enum_values()
+        for flag in all_flags:
+            if flag in multi_flags:
+                retval.append(flag)
+        return retval
+
 
 @dataclass
 class XTIRRemoteKeysInformation:
