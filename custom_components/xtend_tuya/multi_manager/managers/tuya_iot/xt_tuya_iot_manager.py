@@ -332,7 +332,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
 
     def get_open_api_device(self, device: XTDevice) -> XTDevice | None:
         device_properties = XTDevice.from_compatible_device(
-            device, "IOT get_open_api_device", None, True
+            device, "IOT get_open_api_device"
         )
         device_properties.function = {}
         device_properties.status_range = {}

@@ -154,7 +154,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
 
         for device in self.multi_manager.devices_shared.values():
             if device.id not in self.device_map:
-                new_device = XTDevice.from_compatible_device(device=device, source="update_device_cache",keep_synced_with_original=True)
+                new_device = device.get_copy()
                 self.device_repository.update_device_strategy_info(new_device)
                 self.device_map[device.id] = new_device
 
