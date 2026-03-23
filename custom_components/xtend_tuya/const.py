@@ -215,6 +215,7 @@ class XTDeviceWatcherCategory(Flag):
     VIRTUAL_FUNCTION        = auto()
     XT_PERFORMANCE          = auto()
     DEBUG                   = auto()
+    STATUS_CHANGES          = auto()
 
     @classmethod
     def all_enum_values(cls) -> list[XTDeviceWatcherCategory]:

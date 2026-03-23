@@ -209,8 +209,9 @@ class MultiManager:  # noqa: F811
         self._enable_multi_map_device_alignment()
         self._process_pending_messages()
         for device in self.device_map.values():
-             if isinstance(device.status, XTTrackedDictionnary) is False:
-                device.status = XTTrackedDictionnary(device.status) # type: ignore
+             if self.device_watcher.is_watched(device.id, [XTDeviceWatcherCategory.STATUS_CHANGES]):
+                if isinstance(device.status, XTTrackedDictionnary) is False:
+                    device.status = XTTrackedDictionnary(device.status) # type: ignore
 
     def _process_pending_messages(self):
         self.is_ready_for_messages = True
