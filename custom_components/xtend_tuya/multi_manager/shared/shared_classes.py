@@ -65,7 +65,7 @@ class DeviceWatcher:
                 )
             else:
                 LOGGER.warning(
-                    f"DeviceWatcher for {dev_id}: {message}", stack_info=print_stack
+                    f"{message}", stack_info=print_stack
                 )
 
 
