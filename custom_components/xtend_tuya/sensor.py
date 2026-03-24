@@ -2514,7 +2514,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         }
         if device_class is not None and device_class in DEVICE_CLASS_MAPPING:
             return DEVICE_CLASS_MAPPING[device_class]
-        return None
+        return SensorStateClass.MEASUREMENT
 
     # Use custom native_value function
     @property
