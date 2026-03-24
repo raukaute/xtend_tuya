@@ -1154,6 +1154,7 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "upper_temp_f": "temperature",
     "va_temperature": "temperature",
     "qidongwencha": "temperature_delta",
+    "temp_calibration": "temperature_delta",
     "water_total_h": "water",
     "heating_ratio": None,
     "percent_control": None,
