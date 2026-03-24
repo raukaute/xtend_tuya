@@ -2511,10 +2511,11 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
 
         DEVICE_CLASS_MAPPING: dict[SensorDeviceClass, SensorStateClass] = {
             SensorDeviceClass.ENERGY: SensorStateClass.TOTAL_INCREASING,
+            SensorDeviceClass.TEMPERATURE: SensorStateClass.MEASUREMENT,
         }
         if device_class is not None and device_class in DEVICE_CLASS_MAPPING:
             return DEVICE_CLASS_MAPPING[device_class]
-        return SensorStateClass.MEASUREMENT
+        return None
 
     # Use custom native_value function
     @property
