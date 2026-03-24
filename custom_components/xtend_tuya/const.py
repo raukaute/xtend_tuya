@@ -1106,6 +1106,7 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
 }
 
 DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
+    "battery_percentage": "battery",
     "active_energy_total": "energy",
     "add_ele1": "energy",
     "charge_energy": "energy",
@@ -1129,7 +1130,10 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "AUTO_HIGH_TEMP": "temperature",
     "AUTO_LOW_TEMP": "temperature",
     "current_temp": "temperature",
+    "frost_protect_temp": "temperature",
+    "holiday_temp_set": "temperature",
     "lower_temp": "temperature",
+    "party": "temperature",
     "maxtemp_set": "temperature",
     "minitemp_set": "temperature",
     "set_temp": "temperature",
@@ -1146,6 +1150,7 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "upper_temp_f": "temperature",
     "qidongwencha": "temperature_delta",
     "water_total_h": "water",
+    "heating_ratio": None,
     "percent_control": None,
     "percent_state": None,
     "position_best": None,
