@@ -517,7 +517,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         translation_key="charge_energy_once",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        restoredata=False,
+        restoredata=True,
     ),
     XTSensorEntityDescription(
         key=XTDPCode.DEVICEKWH,
@@ -777,6 +777,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        restoredata=True,
         ignore_other_dp_code_handler=True,
     ),
     XTSensorEntityDescription(
