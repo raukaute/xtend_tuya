@@ -405,15 +405,17 @@ async def async_setup_entry(
                         entity_registry_enabled_default=True,
                         entity_registry_visible_default=True,
                     )
-                    dpcode_wrapper = XTIRActionDPCodeWrapper(
+                    button_wrapper = XTIRActionDPCodeWrapper(
                         descriptor, hass_data.manager, hub_device
                     )
                     entities.append(
                         XTButtonEntity.get_entity_instance(
-                            descriptor,
-                            hub_device,
-                            hass_data.manager,
-                            dpcode_wrapper,  # type: ignore
+                            device=hub_device,
+                            device_manager=hass_data.manager,
+                            description=descriptor,
+                            definition=TuyaButtonDefinition(
+                                button_wrapper=button_wrapper,
+                            ),
                         )
                     )
 
@@ -432,15 +434,17 @@ async def async_setup_entry(
                                 entity_registry_enabled_default=True,
                                 entity_registry_visible_default=True,
                             )
-                            dpcode_wrapper = XTIRActionDPCodeWrapper(
+                            button_wrapper = XTIRActionDPCodeWrapper(
                                 descriptor, hass_data.manager, hub_device
                             )
                             entities.append(
                                 XTButtonEntity.get_entity_instance(
-                                    descriptor,
-                                    remote_device,
-                                    hass_data.manager,
-                                    dpcode_wrapper,  # type: ignore
+                                    device=remote_device,
+                                    device_manager=hass_data.manager,
+                                    description=descriptor,
+                                    definition=TuyaButtonDefinition(
+                                        button_wrapper=button_wrapper,
+                                    ),
                                 )
                             )
                             for remote_key in remote_information.keys:
@@ -457,15 +461,17 @@ async def async_setup_entry(
                                     entity_registry_enabled_default=True,
                                     entity_registry_visible_default=True,
                                 )
-                                dpcode_wrapper = XTIRActionDPCodeWrapper(
+                                button_wrapper = XTIRActionDPCodeWrapper(
                                     descriptor, hass_data.manager, hub_device
                                 )
                                 entities.append(
                                     XTButtonEntity.get_entity_instance(
-                                        descriptor,
-                                        remote_device,
-                                        hass_data.manager,
-                                        dpcode_wrapper,  # type: ignore
+                                        device=remote_device,
+                                        device_manager=hass_data.manager,
+                                        description=descriptor,
+                                        definition=TuyaButtonDefinition(
+                                            button_wrapper=button_wrapper,
+                                        ),
                                     )
                                 )
         async_add_entities(entities)
@@ -500,10 +506,10 @@ async def async_setup_entry(
                         )
                     entities.extend(
                         XTButtonEntity.get_entity_instance(
-                            description,
-                            device,
-                            hass_data.manager,
-                            definition,
+                            device=device,
+                            device_manager=hass_data.manager,
+                            description=description,
+                            definition=definition,
                         )
                         for description in category_descriptions
                         if (
@@ -524,7 +530,10 @@ async def async_setup_entry(
                     )
                     entities.extend(
                         XTButtonEntity.get_entity_instance(
-                            description, device, hass_data.manager, definition
+                            device=device,
+                            device_manager=hass_data.manager,
+                            description=description,
+                            definition=definition,
                         )
                         for description in category_descriptions
                         if (
@@ -556,10 +565,10 @@ async def async_setup_entry(
                                     ):
                                         entities.append(
                                             XTButtonEntity.get_entity_instance(
-                                                description,
-                                                device,
-                                                hass_data.manager,
-                                                definition,
+                                                device=device,
+                                                device_manager=hass_data.manager,
+                                                description=description,
+                                                definition=definition,
                                             )
                                         )
                                     break
@@ -578,10 +587,10 @@ async def async_setup_entry(
                                     ):
                                         entities.append(
                                             XTButtonEntity.get_entity_instance(
-                                                description,
-                                                device,
-                                                hass_data.manager,
-                                                definition,
+                                                device=device,
+                                                device_manager=hass_data.manager,
+                                                description=description,
+                                                definition=definition,
                                             )
                                         )
                                     break
@@ -634,9 +643,9 @@ class XTButtonEntity(XTEntity, TuyaButtonEntity):
 
     @staticmethod
     def get_entity_instance(
-        description: XTButtonEntityDescription,
         device: XTDevice,
         device_manager: MultiManager,
+        description: XTButtonEntityDescription,
         definition: TuyaButtonDefinition,
     ) -> XTButtonEntity:
         if hasattr(description, "get_entity_instance") and callable(
