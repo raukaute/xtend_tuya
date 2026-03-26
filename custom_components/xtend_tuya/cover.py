@@ -7,9 +7,7 @@ from typing import Any
 from tuya_device_handlers.definition.cover import (
     TuyaCoverDefinition,
 )
-from tuya_device_handlers.device_wrapper.common import (
-    DPCodeTypeInformationWrapper
-)
+from tuya_device_handlers.device_wrapper.common import DPCodeTypeInformationWrapper
 from tuya_device_handlers.device_wrapper.cover import (
     CoverInstructionBooleanWrapper,
 )
@@ -160,6 +158,7 @@ COVERS: dict[str, tuple[XTCoverEntityDescription, ...]] = {
 
 COVERS["clkg"] = COVERS["cl"]
 
+
 def get_default_definition(
     device: XTDevice,
     *,
@@ -197,6 +196,7 @@ def get_default_definition(
             device, ("angle_horizontal", "angle_vertical"), prefer_function=True
         ),
     )
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: XTConfigEntry, async_add_entities: AddEntitiesCallback
@@ -260,14 +260,19 @@ async def async_setup_entry(
                             description=description,
                             first_pass=True,
                             externally_managed_dpcodes=externally_managed_dpcodes,
-                        ) and (definition := get_default_definition(device,
-                            current_position_dpcode=description.current_position,
-                            current_state_dpcode=description.current_state,
-                            current_state_wrapper=description.current_state_wrapper,
-                            instruction_dpcode=description.key,
-                            instruction_wrapper=description.instruction_wrapper,
-                            position_wrapper=description.position_wrapper,
-                            set_position_dpcode=description.set_position,))
+                        )
+                        and (
+                            definition := get_default_definition(
+                                device=device,
+                                current_position_dpcode=description.current_position,
+                                current_state_dpcode=description.current_state,
+                                current_state_wrapper=description.current_state_wrapper,
+                                instruction_dpcode=description.key,
+                                instruction_wrapper=description.instruction_wrapper,
+                                position_wrapper=description.position_wrapper,
+                                set_position_dpcode=description.set_position,
+                            )
+                        )
                     )
                     entities.extend(
                         XTCoverEntity.get_entity_instance(
@@ -284,14 +289,19 @@ async def async_setup_entry(
                             description,
                             False,
                             externally_managed_dpcodes,
-                        ) and (definition := get_default_definition(device,
-                            current_position_dpcode=description.current_position,
-                            current_state_dpcode=description.current_state,
-                            current_state_wrapper=description.current_state_wrapper,
-                            instruction_dpcode=description.key,
-                            instruction_wrapper=description.instruction_wrapper,
-                            position_wrapper=description.position_wrapper,
-                            set_position_dpcode=description.set_position,))
+                        )
+                        and (
+                            definition := get_default_definition(
+                                device,
+                                current_position_dpcode=description.current_position,
+                                current_state_dpcode=description.current_state,
+                                current_state_wrapper=description.current_state_wrapper,
+                                instruction_dpcode=description.key,
+                                instruction_wrapper=description.instruction_wrapper,
+                                position_wrapper=description.position_wrapper,
+                                set_position_dpcode=description.set_position,
+                            )
+                        )
                     )
 
         async_add_entities(entities)
@@ -403,7 +413,9 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
         current_cover_position = super().current_cover_position
         if current_cover_position is not None:
             if self.is_cover_status_inverted and self._current_position is not None:
-                if isinstance(self._current_position, XTCoverDPCodePercentageMappingWrapper):
+                if isinstance(
+                    self._current_position, XTCoverDPCodePercentageMappingWrapper
+                ):
                     current_cover_position = round(
                         self._current_position.get_remap_helper().remap_value_to(
                             current_cover_position, reverse=True
@@ -424,7 +436,9 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
             and (options := self._instruction_wrapper.options)
             and TuyaCoverAction.OPEN in options
         ):
-            await self._async_send_wrapper_updates(self._instruction_wrapper, TuyaCoverAction.OPEN)
+            await self._async_send_wrapper_updates(
+                self._instruction_wrapper, TuyaCoverAction.OPEN
+            )
             return
 
     async def async_open_cover(self, **kwargs: Any) -> None:
@@ -447,7 +461,9 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
             and (options := self._instruction_wrapper.options)
             and TuyaCoverAction.CLOSE in options
         ):
-            await self._async_send_wrapper_updates(self._instruction_wrapper, TuyaCoverAction.CLOSE)
+            await self._async_send_wrapper_updates(
+                self._instruction_wrapper, TuyaCoverAction.CLOSE
+            )
             return
 
     async def async_close_cover(self, **kwargs: Any) -> None:
@@ -483,9 +499,9 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
                 definition=definition,
             )
         return XTCoverEntity(
-            device==device,
+            device=device,
             device_manager=device_manager,
             description=XTCoverEntityDescription(**description.__dict__),
             hass=hass,
-            definition=definition
+            definition=definition,
         )
