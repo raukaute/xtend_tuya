@@ -559,16 +559,19 @@ async def async_setup_entry(
                         ):
                             for reset_state in description.vf_reset_state:
                                 if reset_state in device.status:
-                                    if definition := xt_get_default_definition(
-                                        device=device,
-                                        description=description,
+                                    if dpcode_wrapper := XTVirtualButtonDPCodeWrapper.find_dpcode(
+                                        device,
+                                        description.key,
+                                        prefer_function=True,
                                     ):
                                         entities.append(
                                             XTButtonEntity.get_entity_instance(
                                                 device=device,
                                                 device_manager=hass_data.manager,
                                                 description=description,
-                                                definition=definition,
+                                                definition=TuyaButtonDefinition(
+                                                    button_wrapper=dpcode_wrapper
+                                                ),
                                             )
                                         )
                                     break
@@ -581,16 +584,19 @@ async def async_setup_entry(
                                 history_import_dpcode
                             ) in description.vf_history_import_dpcodes:
                                 if history_import_dpcode in device.status:
-                                    if definition := xt_get_default_definition(
-                                        device=device,
-                                        description=description,
+                                    if dpcode_wrapper := XTVirtualButtonDPCodeWrapper.find_dpcode(
+                                        device,
+                                        description.key,
+                                        prefer_function=True,
                                     ):
                                         entities.append(
                                             XTButtonEntity.get_entity_instance(
                                                 device=device,
                                                 device_manager=hass_data.manager,
                                                 description=description,
-                                                definition=definition,
+                                                definition=TuyaButtonDefinition(
+                                                    button_wrapper=dpcode_wrapper
+                                                ),
                                             )
                                         )
                                     break
