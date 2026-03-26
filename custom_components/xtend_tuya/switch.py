@@ -575,9 +575,10 @@ class XTSwitchEntity(XTEntity, TuyaSwitchEntity):
     ) -> None:
         """Init TuyaHaSwitch."""
         super(XTSwitchEntity, self).__init__(
-            device,
-            device_manager,
-            description,
+            device=device,
+            device_manager=device_manager,
+            description=description,
+            dpcode_wrapper=definition.switch_wrapper,
         )
         super(XTEntity, self).__init__(
             device=device,

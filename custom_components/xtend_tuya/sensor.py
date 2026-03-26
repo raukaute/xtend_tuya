@@ -121,7 +121,9 @@ def xt_get_generic_dpcode_wrapper(
 
     return None
 
-def xt_get_default_definition(device: XTDevice,
+
+def xt_get_default_definition(
+    device: XTDevice,
     description: TuyaSensorEntityDescription,
     device_manager: MultiManager,
 ) -> TuyaSensorDefinition | None:
@@ -134,7 +136,10 @@ def xt_get_default_definition(device: XTDevice,
                 function_code=dpcode,
                 scale_threshold=description.recalculate_scale_for_percentage_threshold,
             )
-    return get_default_definition(device=device, dpcode=dpcode, wrapper_class=description.wrapper_class)
+    return get_default_definition(
+        device=device, dpcode=dpcode, wrapper_class=description.wrapper_class
+    )
+
 
 @dataclass(frozen=True)
 class XTSensorEntityDescription(TuyaSensorEntityDescription, frozen=True):
@@ -2047,10 +2052,10 @@ async def async_setup_entry(
                         entity_registry_visible_default=False,
                     )
                     if definition := xt_get_default_definition(
-                            device,
-                            description=descriptor,
-                            device_manager=hass_data.manager,
-                        ):
+                        device,
+                        description=descriptor,
+                        device_manager=hass_data.manager,
+                    ):
                         entities.append(
                             XTSensorEntity.get_entity_instance(
                                 descriptor,
@@ -2190,7 +2195,11 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     ) -> None:
         """Init XT sensor."""
         super(XTSensorEntity, self).__init__(
-            device, device_manager, description, definition=definition
+            device=device,
+            device_manager=device_manager,
+            description=description,
+            definition=definition,
+            dpcode_wrapper=definition.sensor_wrapper,
         )
         self._attr_state_class = description.state_class
         super(XTEntity, self).__init__(
@@ -2222,7 +2231,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             self.device_manager.set_general_property(
                 XTMultiManagerProperties.ENERGY_SENSOR, all_energy_sensors
             )
-        
+
         if isinstance(description, XTSensorEntityDescription):
             if description.recalculate_scale_for_percentage:
                 device_manager.execute_device_entity_function(

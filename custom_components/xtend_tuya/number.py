@@ -797,6 +797,7 @@ class XTNumberEntity(XTEntity, TuyaNumberEntity):
             device,
             device_manager,
             description,
+            dpcode_wrapper=definition.number_wrapper,
         )
         super(XTEntity, self).__init__(
             device,
