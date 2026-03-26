@@ -7,6 +7,12 @@ from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from tuya_device_handlers.definition.button import (
+    TuyaButtonDefinition,
+    get_default_definition,
+)
+
 from .util import (
     restrict_descriptor_category,
     delete_all_device_entities,
@@ -223,13 +229,13 @@ class XTButtonEntityDescription(TuyaButtonEntityDescription):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTButtonEntityDescription,
-        dpcode_wrapper: TuyaDPCodeBooleanWrapper,
+        definition: TuyaButtonDefinition,
     ) -> XTButtonEntity:
         return XTButtonEntity(
             device=device,
             device_manager=device_manager,
             description=XTButtonEntityDescription(**description.__dict__),
-            dpcode_wrapper=dpcode_wrapper,
+            definition=definition,
         )
 
 
@@ -328,6 +334,16 @@ BUTTONS["aqcz"] = BUTTONS["kg"]
 # Lock duplicates
 BUTTONS["videolock"] = BUTTONS["jtmspro"]
 BUTTONS["jtmsbh"] = BUTTONS["jtmspro"]
+
+
+def xt_get_default_definition(
+    device: XTDevice,
+    description: XTButtonEntityDescription,
+) -> TuyaButtonDefinition | None:
+    return get_default_definition(
+        device=device,
+        dpcode=description.key,
+    )
 
 
 async def async_setup_entry(
@@ -484,7 +500,10 @@ async def async_setup_entry(
                         )
                     entities.extend(
                         XTButtonEntity.get_entity_instance(
-                            description, device, hass_data.manager, dpcode_wrapper
+                            description,
+                            device,
+                            hass_data.manager,
+                            definition,
                         )
                         for description in category_descriptions
                         if (
@@ -496,15 +515,16 @@ async def async_setup_entry(
                                 externally_managed_dpcodes,
                             )
                             and (
-                                dpcode_wrapper := TuyaDPCodeBooleanWrapper.find_dpcode(
-                                    device, description.key, prefer_function=True
+                                definition := xt_get_default_definition(
+                                    device=device,
+                                    description=description,
                                 )
                             )
                         )
                     )
                     entities.extend(
                         XTButtonEntity.get_entity_instance(
-                            description, device, hass_data.manager, dpcode_wrapper
+                            description, device, hass_data.manager, definition
                         )
                         for description in category_descriptions
                         if (
@@ -516,8 +536,9 @@ async def async_setup_entry(
                                 externally_managed_dpcodes,
                             )
                             and (
-                                dpcode_wrapper := TuyaDPCodeBooleanWrapper.find_dpcode(
-                                    device, description.key, prefer_function=True
+                                definition := xt_get_default_definition(
+                                    device=device,
+                                    description=description,
                                 )
                             )
                         )
@@ -529,17 +550,16 @@ async def async_setup_entry(
                         ):
                             for reset_state in description.vf_reset_state:
                                 if reset_state in device.status:
-                                    if dpcode_wrapper := XTVirtualButtonDPCodeWrapper.find_dpcode(
-                                        device,
-                                        description.key,
-                                        prefer_function=True,
+                                    if definition := xt_get_default_definition(
+                                        device=device,
+                                        description=description,
                                     ):
                                         entities.append(
                                             XTButtonEntity.get_entity_instance(
                                                 description,
                                                 device,
                                                 hass_data.manager,
-                                                dpcode_wrapper,
+                                                definition,
                                             )
                                         )
                                     break
@@ -548,19 +568,20 @@ async def async_setup_entry(
                             hasattr(description, "vf_history_import_dpcodes")
                             and description.vf_history_import_dpcodes
                         ):
-                            for history_import_dpcode in description.vf_history_import_dpcodes:
+                            for (
+                                history_import_dpcode
+                            ) in description.vf_history_import_dpcodes:
                                 if history_import_dpcode in device.status:
-                                    if dpcode_wrapper := XTVirtualButtonDPCodeWrapper.find_dpcode(
-                                        device,
-                                        description.key,
-                                        prefer_function=True,
+                                    if definition := xt_get_default_definition(
+                                        device=device,
+                                        description=description,
                                     ):
                                         entities.append(
                                             XTButtonEntity.get_entity_instance(
                                                 description,
                                                 device,
                                                 hass_data.manager,
-                                                dpcode_wrapper,
+                                                definition,
                                             )
                                         )
                                     break
@@ -591,17 +612,20 @@ class XTButtonEntity(XTEntity, TuyaButtonEntity):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTButtonEntityDescription,
-        dpcode_wrapper: TuyaDPCodeBooleanWrapper,
+        definition: TuyaButtonDefinition,
     ) -> None:
         """Init XT button."""
         super(XTButtonEntity, self).__init__(
-            device, device_manager, description, dpcode_wrapper=dpcode_wrapper
+            device=device,
+            device_manager=device_manager,
+            description=description,
+            definition=definition,
         )
         super(XTEntity, self).__init__(
-            device,
-            device_manager,  # type: ignore
-            description,
-            dpcode_wrapper,
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            description=description,
+            definition=definition,
         )
         self.device = device
         self.device_manager = device_manager
@@ -613,17 +637,20 @@ class XTButtonEntity(XTEntity, TuyaButtonEntity):
         description: XTButtonEntityDescription,
         device: XTDevice,
         device_manager: MultiManager,
-        dpcode_wrapper: TuyaDPCodeBooleanWrapper,
+        definition: TuyaButtonDefinition,
     ) -> XTButtonEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")
         ):
             return description.get_entity_instance(
-                device, device_manager, description, dpcode_wrapper
+                device=device,
+                device_manager=device_manager,
+                description=description,
+                definition=definition,
             )
         return XTButtonEntity(
-            device,
-            device_manager,
-            XTButtonEntityDescription(**description.__dict__),
-            dpcode_wrapper,
+            device == device,
+            device_manager=device_manager,
+            description=XTButtonEntityDescription(**description.__dict__),
+            definition=definition,
         )

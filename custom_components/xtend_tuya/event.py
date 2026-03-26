@@ -7,6 +7,10 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from tuya_device_handlers.definition.event import (
+    TuyaEventDefinition,
+    get_default_definition,
+)
 from .util import (
     restrict_descriptor_category,
 )
@@ -23,7 +27,6 @@ from .const import (
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaEventEntity,
     TuyaEventEntityDescription,
-    TuyaDeviceWrapper,
 )
 from .entity import (
     XTEntity,
@@ -46,13 +49,13 @@ class XTEventEntityDescription(TuyaEventEntityDescription):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTEventEntityDescription,
-        dpcode_wrapper: TuyaDeviceWrapper,
+        definition: TuyaEventDefinition,
     ) -> XTEventEntity:
         return XTEventEntity(
             device=device,
             device_manager=device_manager,
             description=XTEventEntityDescription(**description.__dict__),
-            dpcode_wrapper=dpcode_wrapper,
+            definition=definition,
         )
 
 
@@ -144,10 +147,10 @@ async def async_setup_entry(
                         )
                     entities.extend(
                         XTEventEntity.get_entity_instance(
-                            description,
-                            device,
-                            hass_data.manager,
-                            dpcode_wrapper,
+                            device=device,
+                            device_manager=hass_data.manager,
+                            description=description,
+                            definition=definition,
                         )
                         for description in category_descriptions
                         if (
@@ -159,18 +162,18 @@ async def async_setup_entry(
                                 externally_managed_dpcodes,
                             )
                             and (
-                                dpcode_wrapper := description.wrapper_class.find_dpcode(
-                                    device, description.key
+                                definition := get_default_definition(
+                                    device, description.key, description.wrapper_class
                                 )
                             )
                         )
                     )
                     entities.extend(
                         XTEventEntity.get_entity_instance(
-                            description,
-                            device,
-                            hass_data.manager,
-                            dpcode_wrapper,
+                            device=device,
+                            device_manager=hass_data.manager,
+                            description=description,
+                            definition=definition,
                         )
                         for description in category_descriptions
                         if (
@@ -182,8 +185,8 @@ async def async_setup_entry(
                                 externally_managed_dpcodes,
                             )
                             and (
-                                dpcode_wrapper := description.wrapper_class.find_dpcode(
-                                    device, description.key
+                                definition := get_default_definition(
+                                    device, description.key, description.wrapper_class
                                 )
                             )
                         )
@@ -209,16 +212,16 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTEventEntityDescription,
-        dpcode_wrapper: TuyaDeviceWrapper[tuple[str, dict[str, Any] | None]],
+        definition: TuyaEventDefinition,
     ) -> None:
         """Init Tuya event entity."""
         try:
             super(XTEventEntity, self).__init__(device, device_manager, description)
             super(XTEntity, self).__init__(
-                device,
-                device_manager,  # type: ignore
-                description,
-                dpcode_wrapper=dpcode_wrapper,
+                device=device,
+                device_manager=device_manager,  # type: ignore
+                description=description,
+                definition=definition,
             )
         except Exception as e:
             LOGGER.warning(f"Events failed to initialize, is your HA up to date? ({e})")
@@ -228,23 +231,23 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
 
     @staticmethod
     def get_entity_instance(
-        description: XTEventEntityDescription,
         device: XTDevice,
         device_manager: MultiManager,
-        dpcode_wrapper: TuyaDeviceWrapper,
+        description: XTEventEntityDescription,
+        definition: TuyaEventDefinition,
     ) -> XTEventEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")
         ):
             return description.get_entity_instance(
-                device,
-                device_manager,
-                description,
-                dpcode_wrapper,
+                device=device,
+                device_manager=device_manager,
+                description=description,
+                definition=definition,
             )
         return XTEventEntity(
-            device,
-            device_manager,
-            XTEventEntityDescription(**description.__dict__),
-            dpcode_wrapper,
+            device=device,
+            device_manager=device_manager,
+            description=XTEventEntityDescription(**description.__dict__),
+            definition=definition,
         )

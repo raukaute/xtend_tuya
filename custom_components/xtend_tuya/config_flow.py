@@ -436,7 +436,7 @@ class TuyaOptionFlow(OptionsFlow):
         if climate_entity is None:
             return self.async_abort(reason="climate_entity_not_found")
         
-        configurable_properties: climate.XTClimateConfigurableProperties | None = climate_entity.get_configurable_properties()
+        configurable_properties: climate.XTClimateDefinition | None = climate_entity.get_configurable_properties()
         if configurable_properties is None:
             return self.async_abort(reason="no_configurable_properties")
         
