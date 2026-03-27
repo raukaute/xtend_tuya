@@ -416,7 +416,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                         self.iot_account.device_manager.test_sensor_energy_statistic_api_subscription,
                         device,
                     )
-                    if not test_api or 1 == 1:
+                    if not test_api:
                         await self.raise_issue(
                             hass=hass,
                             config_entry=config_entry,
