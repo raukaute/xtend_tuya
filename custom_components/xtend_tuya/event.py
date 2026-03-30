@@ -27,6 +27,7 @@ from .const import (
     LOGGER,
     XTDPCode,
     XTDeviceWatcherCategory,
+    VirtualStates,
 )
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaEventEntity,
@@ -68,6 +69,7 @@ class XTEventEntityDescription(TuyaEventEntityDescription):
 
     # duplicate the entity if handled by another integration
     ignore_other_dp_code_handler: bool = False
+    virtual_state: VirtualStates | None = VirtualStates.STATE_DEDUPLICATE_IN_REPORTING
 
     def get_entity_instance(
         self,
