@@ -60,6 +60,7 @@ from .const import (
     XTMultiManagerPostSetupCallbackPriority,
     LOGGER,
     XTMultiManagerProperties,
+    XTDeviceWatcherCategory,
 )
 from .entity import (
     XTEntity,
@@ -2486,6 +2487,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         if dpcode is None:
             return
         scaled_value_back = self.scale_value_back(value)
+        self.device_manager.device_watcher.report_message(self.device.id, f"Restoring value of {self.device.name}, original: {value}, converted back: {scaled_value_back}", XTDeviceWatcherCategory.PLATFORM_SENSOR, self.device, False)
         self.device.status[dpcode] = scaled_value_back
         self.async_write_ha_state()
 
