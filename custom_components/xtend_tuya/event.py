@@ -7,6 +7,9 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.components.event.const import (
+    ATTR_EVENT_TYPE,
+)
 from tuya_device_handlers.definition.event import (
     TuyaEventDefinition,
     get_default_definition,
@@ -284,6 +287,17 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         self.device_manager.device_watcher.report_message(self.device.id, f"Got event type: {event_type} with attributes: {event_attributes}", XTDeviceWatcherCategory.PLATFORM_EVENT, self.device, False)
         self._trigger_event(event_type, event_attributes)
         return True
+    
+    @property
+    def state_attributes(self) -> dict[str, Any]: # type: ignore
+        """Return the state attributes."""
+        attributes = {ATTR_EVENT_TYPE: self.__last_event_type}
+        if last_event_attributes := self.__last_event_attributes:
+            try:
+                attributes |= last_event_attributes
+            except Exception:
+                pass
+        return attributes
 
     @staticmethod
     def get_entity_instance(
