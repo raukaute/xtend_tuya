@@ -291,13 +291,10 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
     @property
     def state_attributes(self) -> dict[str, Any]: # type: ignore
         """Return the state attributes."""
-        attributes = {ATTR_EVENT_TYPE: self.__last_event_type}
-        if last_event_attributes := self.__last_event_attributes:
-            try:
-                attributes |= last_event_attributes
-            except Exception:
-                pass
-        return attributes
+        try:
+            return super().state_attributes
+        except Exception:
+            return {}
 
     @staticmethod
     def get_entity_instance(
