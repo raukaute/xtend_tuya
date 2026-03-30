@@ -30,7 +30,7 @@ from ...const import (
 class DeviceWatcher:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
         self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
-            "bf74848d47bcd0d090ak3g": XTDeviceWatcherCategory.PLATFORM_SENSOR,
+            # "bf74848d47bcd0d090ak3g": XTDeviceWatcherCategory.PLATFORM_SENSOR,
             # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
         }
         self.multi_manager = multi_manager
