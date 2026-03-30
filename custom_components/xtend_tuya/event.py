@@ -38,7 +38,7 @@ from .entity import (
 )
 
 
-class IntegerEventWrapper(DPCodeIntegerWrapper[tuple[str, float]]):
+class IntegerEventWrapper(DPCodeIntegerWrapper[tuple[str, dict[str, Any]]]):
     """Wrapper for a string message received in a base64/UTF-8 RAW DPCode.
 
     Raises 'triggered' event, with the message in the event attributes.
@@ -51,11 +51,11 @@ class IntegerEventWrapper(DPCodeIntegerWrapper[tuple[str, float]]):
 
     def read_device_status(
         self, device: TuyaCustomerDevice
-    ) -> tuple[str, float] | None:
+    ) -> tuple[str, dict[str, Any]] | None:
         """Return the event with message attribute."""
         if (status := self._read_dpcode_value(device)) is None:
             return None
-        return (f"{self.dpcode}", status)
+        return (f"{self.dpcode}", {"message": f"{status}", "raw_value": status})
 
 
 @dataclass(frozen=True)
