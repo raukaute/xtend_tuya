@@ -482,6 +482,9 @@
                         }
                     }
                 }
+            },
+            "unlock_user": {
+                "name": "Unlock user ({user_type})"
             }
         },
         "light": {
