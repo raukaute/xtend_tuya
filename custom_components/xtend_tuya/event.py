@@ -129,6 +129,24 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             device_class=None,
             wrapper_class=IntegerEventWrapper,
         ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_KEY,
+            translation_key="unlock_key",
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_BLE,
+            translation_key="unlock_ble",
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_VOICE_REMOTE,
+            translation_key="unlock_voice_remote",
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
     ),
 }
 
