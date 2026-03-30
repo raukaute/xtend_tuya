@@ -7,9 +7,6 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components.event.const import (
-    ATTR_EVENT_TYPE,
-)
 from tuya_device_handlers.definition.event import (
     TuyaEventDefinition,
     get_default_definition,
@@ -59,7 +56,7 @@ class IntegerEventWrapper(DPCodeIntegerWrapper[tuple[str, dict[str, Any]]]):
         """Return the event with message attribute."""
         if (status := self._read_dpcode_value(device)) is None:
             return None
-        return (f"{self.dpcode}", {"message": f"{status}", "raw_value": status})
+        return (f"{self.dpcode}", {"value": status})
 
 
 @dataclass(frozen=True)
