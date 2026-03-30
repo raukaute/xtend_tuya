@@ -11,6 +11,9 @@ from tuya_device_handlers.definition.event import (
     TuyaEventDefinition,
     get_default_definition,
 )
+from tuya_device_handlers.device_wrapper.common import (
+    DPCodeIntegerWrapper,
+)
 from .util import (
     restrict_descriptor_category,
 )
@@ -27,11 +30,32 @@ from .const import (
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaEventEntity,
     TuyaEventEntityDescription,
+    TuyaCustomerDevice,
 )
 from .entity import (
     XTEntity,
     XTEntityDescriptorManager,
 )
+
+
+class IntegerEventWrapper(DPCodeIntegerWrapper[tuple[str, float]]):
+    """Wrapper for a string message received in a base64/UTF-8 RAW DPCode.
+
+    Raises 'triggered' event, with the message in the event attributes.
+    """
+
+    def __init__(self, dpcode: str, type_information: Any) -> None:
+        """Init Base64Utf8RawEventWrapper."""
+        super().__init__(dpcode, type_information)
+        self.options = [f"{self.dpcode}"]
+
+    def read_device_status(
+        self, device: TuyaCustomerDevice
+    ) -> tuple[str, float] | None:
+        """Return the event with message attribute."""
+        if (status := self._read_dpcode_value(device)) is None:
+            return None
+        return (f"{self.dpcode}", status)
 
 
 @dataclass(frozen=True)
@@ -70,31 +94,37 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             key=XTDPCode.CARD_UNLOCK_USER,
             translation_key="card_unlock_user",
             device_class=None,
+            wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
             key=XTDPCode.FACE_UNLOCK_USER,
             translation_key="face_unlock_user",
             device_class=None,
+            wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
             key=XTDPCode.HAND_UNLOCK_USER,
             translation_key="hand_unlock_user",
             device_class=None,
+            wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
             key=XTDPCode.FINGERPRINT_UNLOCK_USER,
             translation_key="fingerprint_unlock_user",
             device_class=None,
+            wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
             key=XTDPCode.PASSWORD_UNLOCK_USER,
             translation_key="password_unlock_user",
             device_class=None,
+            wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
             key=XTDPCode.UNLOCK_PHONE_REMOTE,
             translation_key="unlock_phone_remote",
             device_class=None,
+            wrapper_class=IntegerEventWrapper,
         ),
     ),
 }
