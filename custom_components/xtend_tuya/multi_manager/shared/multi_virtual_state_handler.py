@@ -58,12 +58,14 @@ class XTVirtualStateHandler:
                             and description.virtual_state & virtual_state.value
                         ):
                             # This virtual_state is applied to this key, let's return it
+                            vs_copy_to_state = getattr(description, "vs_copy_to_state", [])
+                            vs_copy_delta_to_state = getattr(description, "vs_copy_delta_to_state", [])
                             found_virtual_state = DescriptionVirtualState(
                                 key=description.key,
                                 virtual_state_name=virtual_state.name,
                                 virtual_state_value=VirtualStates(virtual_state.value),
-                                vs_copy_to_state=description.vs_copy_to_state,
-                                vs_copy_delta_to_state=description.vs_copy_delta_to_state,
+                                vs_copy_to_state=vs_copy_to_state,
+                                vs_copy_delta_to_state=vs_copy_delta_to_state,
                             )
                             to_return.append(found_virtual_state)
         return to_return
