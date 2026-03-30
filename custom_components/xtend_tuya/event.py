@@ -91,6 +91,11 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             translation_key="password_unlock_user",
             device_class=None,
         ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_PHONE_REMOTE,
+            translation_key="unlock_phone_remote",
+            device_class=None,
+        ),
     ),
 }
 
