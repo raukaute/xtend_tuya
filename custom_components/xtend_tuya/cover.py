@@ -56,6 +56,10 @@ from .entity import (
 class XTCoverDPCodePercentageMappingWrapper(DPCodePercentageWrapper):
     """XT Cover DPCode percentage mapping wrapper."""
 
+    @property
+    def remap_helper(self) -> TuyaRemapHelper:
+        return self.get_remap_helper()
+
     def get_remap_helper(self) -> TuyaRemapHelper:
         return self._remap_helper
 
@@ -269,7 +273,7 @@ async def async_setup_entry(
                                 current_state_wrapper=description.current_state_wrapper,
                                 instruction_dpcode=description.key,
                                 instruction_wrapper=description.instruction_wrapper,
-                                position_wrapper=description.position_wrapper,
+                                position_wrapper=XTCoverDPCodePercentageMappingWrapper,
                                 set_position_dpcode=description.set_position,
                             )
                         )
@@ -298,7 +302,7 @@ async def async_setup_entry(
                                 current_state_wrapper=description.current_state_wrapper,
                                 instruction_dpcode=description.key,
                                 instruction_wrapper=description.instruction_wrapper,
-                                position_wrapper=description.position_wrapper,
+                                position_wrapper=XTCoverDPCodePercentageMappingWrapper,
                                 set_position_dpcode=description.set_position,
                             )
                         )
@@ -339,10 +343,10 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
         self.local_hass = hass
         self._current_position = definition.current_position_wrapper
         self._remap_helper = cast(
-            TuyaRemapHelper,
+            TuyaRemapHelper | None,
             getattr(
                 self._current_position,
-                "_remap_helper",
+                "remap_helper",
                 None,
             ),
         )
@@ -421,7 +425,7 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
         current_cover_position = super().current_cover_position
         if current_cover_position is not None:
             if self.is_cover_status_inverted and self._current_position is not None:
-                if self._remap_helper:
+                if self._remap_helper is not None:
                     current_cover_position = round(
                         self._remap_helper.remap_value_to(
                             current_cover_position, reverse=True
@@ -481,7 +485,7 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position."""
         computed_position = kwargs[ATTR_POSITION]
-        if self.is_cover_control_inverted:
+        if self.is_cover_control_inverted and self._remap_helper is not None:
             computed_position = round(
                 self._remap_helper.remap_value_to(computed_position, reverse=True)
             )
