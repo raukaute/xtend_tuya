@@ -4,7 +4,7 @@ from typing import Any
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 from ...const import (
     LOGGER,  # noqa: F401
-    XTDeviceWatcherCategory,
+    XTDeviceWatcherCategory,  # noqa: F401
 )
 
 
