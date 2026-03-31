@@ -132,7 +132,7 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
         XTEventEntityDescription(
             key=XTDPCode.UNLOCK_PHONE_REMOTE,
             translation_key="unlock_user",
-            translation_placeholders={"user_type": "Phone remote"},
+            translation_placeholders={"user_type": "Phone"},
             device_class=None,
             wrapper_class=IntegerEventWrapper,
         ),
