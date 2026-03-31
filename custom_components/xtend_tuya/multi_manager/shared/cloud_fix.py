@@ -1016,6 +1016,24 @@ class CloudFixes:
         DPCODES_OVERRIDES: dict[XTDPCode, XTEntityAccessMode] = {
             XTDPCode.ADD_ELE: XTEntityAccessMode.READ_ONLY,
             XTDPCode.ADD_ELE2: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.FORWARD_ENERGY_TOTAL: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.BALANCE_ENERGY: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.CHARGE_ENERGY: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.CHARGE_ENERGY_ONCE: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.DEVICEKWH: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.ELECTRIC: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.ENERGYCONSUMED: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.ENERGYCONSUMEDA: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.ENERGYCONSUMEDB: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.ENERGYCONSUMEDC: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.POWER_CONSUMPTION: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.REVERSE_ENERGY_A: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.REVERSE_ENERGY_B: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.REVERSE_ENERGY_C: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.REVERSE_ENERGY_T: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.REVERSE_ENERGY_TOTAL: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.TOTALENERGYCONSUMED: XTEntityAccessMode.READ_ONLY,
+            XTDPCode.TOTAL_FORWARD_ENERGY: XTEntityAccessMode.READ_ONLY,
         }
         for override in DPCODES_OVERRIDES:
             if override in device.status:
