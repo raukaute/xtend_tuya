@@ -310,7 +310,6 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
             return False
 
         event_type, event_attributes = event_data
-        self.device_manager.device_watcher.report_message(self.device.id, f"Got event type: {event_type} with attributes: {event_attributes}", XTDeviceWatcherCategory.PLATFORM_EVENT, self.device, False)
         self._trigger_event(event_type, event_attributes)
         return True
     

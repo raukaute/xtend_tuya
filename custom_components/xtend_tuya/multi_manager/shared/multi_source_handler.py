@@ -112,8 +112,6 @@ class MultiSourceHandler:
             code, _, _, result_ok = self.multi_manager._read_code_dpid_value_from_state(
                 dev_id, item, False, True
             )
-            if code == "unlock_voice_remote":
-                self.multi_manager.device_watcher.report_message(device.id, f"unlock_voice_remote: result_ok: {result_ok}", XTDeviceWatcherCategory.VIRTUAL_STATE, device, False)
             if not result_ok or code is None:
                 i += 1
                 continue
@@ -155,8 +153,6 @@ class MultiSourceHandler:
 
     def _is_allowed_source_for_code(self, dev_id: str, code: str, source: str) -> bool:
         return_val = self.device_map[dev_id][code].get_allowed_source() == source
-        if code == "unlock_voice_remote":
-            self.multi_manager.device_watcher.report_message(dev_id, f"_is_allowed_source_for_code: {return_val}", XTDeviceWatcherCategory.VIRTUAL_STATE, None, False)
         return return_val
 
     def _is_code_update_time_valid(
