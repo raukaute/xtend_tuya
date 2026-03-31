@@ -4,6 +4,7 @@ from typing import Any
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 from ...const import (
     LOGGER,  # noqa: F401
+    XTDeviceWatcherCategory,
 )
 
 
@@ -104,6 +105,7 @@ class MultiSourceHandler:
                 device.category
             )
         )
+        self.multi_manager.device_watcher.report_message(device.id, f"Virtual states are: {virtual_states}", XTDeviceWatcherCategory.VIRTUAL_STATE, device, False)
         if not virtual_states:
             return status_list
 
