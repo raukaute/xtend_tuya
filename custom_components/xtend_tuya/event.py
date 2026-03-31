@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from typing import Any, cast
+from datetime import datetime
 from dataclasses import dataclass
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
@@ -26,7 +27,7 @@ from .const import (
     TUYA_DISCOVERY_NEW,
     LOGGER,
     XTDPCode,
-    XTDeviceWatcherCategory,
+    XTDeviceWatcherCategory,  # noqa: F401
     VirtualStates,
 )
 from .ha_tuya_integration.tuya_integration_imports import (
@@ -57,7 +58,7 @@ class IntegerEventWrapper(DPCodeIntegerWrapper[tuple[str, dict[str, Any]]]):
         """Return the event with message attribute."""
         if (status := self._read_dpcode_value(device)) is None:
             return None
-        return (f"{self.dpcode}", {"value": status})
+        return (f"{self.dpcode}", {"value": status, "changed_time": datetime.now()})
 
 
 @dataclass(frozen=True)
