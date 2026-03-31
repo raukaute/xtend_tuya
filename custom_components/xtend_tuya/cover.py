@@ -76,9 +76,9 @@ class XTCoverEntityDescription(TuyaCoverEntityDescription):
     # Additional attributes for XT specific functionality
     control_back_mode: str | None = None
 
-    position_wrapper: type[XTCoverDPCodePercentageMappingWrapper] = (
-        XTCoverDPCodePercentageMappingWrapper
-    )
+    # position_wrapper: type[XTCoverDPCodePercentageMappingWrapper] = (
+    #     XTCoverDPCodePercentageMappingWrapper
+    # )
 
     def get_entity_instance(
         self,
@@ -338,6 +338,14 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
         self.device = device
         self.local_hass = hass
         self._current_position = definition.current_position_wrapper
+        self._remap_helper = cast(
+            TuyaRemapHelper,
+            getattr(
+                self._current_position,
+                "_remap_helper",
+                None,
+            ),
+        )
         device_manager.add_post_setup_callback(
             XTMultiManagerPostSetupCallbackPriority.PRIORITY1,
             self.add_cover_open_close_option,
@@ -413,11 +421,9 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
         current_cover_position = super().current_cover_position
         if current_cover_position is not None:
             if self.is_cover_status_inverted and self._current_position is not None:
-                if isinstance(
-                    self._current_position, XTCoverDPCodePercentageMappingWrapper
-                ):
+                if self._remap_helper:
                     current_cover_position = round(
-                        self._current_position.get_remap_helper().remap_value_to(
+                        self._remap_helper.remap_value_to(
                             current_cover_position, reverse=True
                         )
                     )
@@ -476,7 +482,9 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
         """Move the cover to a specific position."""
         computed_position = kwargs[ATTR_POSITION]
         if self.is_cover_control_inverted:
-            computed_position = 100 - computed_position
+            computed_position = round(
+                self._remap_helper.remap_value_to(computed_position, reverse=True)
+            )
             kwargs[ATTR_POSITION] = computed_position
         await super().async_set_cover_position(**kwargs)
 
