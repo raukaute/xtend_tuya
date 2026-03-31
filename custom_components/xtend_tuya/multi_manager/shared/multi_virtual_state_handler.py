@@ -276,12 +276,6 @@ class XTVirtualStateHandler:
         if not status_in:
             return status_in
         status = copy.deepcopy(status_in)
-        self.multi_manager.device_watcher.report_message(
-            device.id,
-            f"[{source}]Status In: {status_in}",
-            XTDeviceWatcherCategory.VIRTUAL_STATE,
-            device,
-        )
         virtual_states = self.get_category_virtual_states(device.category)
         for virtual_state in virtual_states:
             if (
@@ -363,12 +357,6 @@ class XTVirtualStateHandler:
                                 device,
                             )
                             continue
-        self.multi_manager.device_watcher.report_message(
-            device.id,
-            f"[{source}]Status Out: {status}",
-            XTDeviceWatcherCategory.VIRTUAL_STATE,
-            device,
-        )
         return status
 
     def _get_empty_local_strategy_dp_id(self, device: shared.XTDevice) -> int | None:

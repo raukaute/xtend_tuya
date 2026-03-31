@@ -197,8 +197,16 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
             status,
             MESSAGE_SOURCE_TUYA_SHARING,
         )
+        status_bak = status_new
         status_new = self.multi_manager.multi_source_handler.filter_status_list(
             device_id, MESSAGE_SOURCE_TUYA_SHARING, status_new
+        )
+        self.multi_manager.device_watcher.report_message(
+            device.id,
+            f"Status filter: before: { [line["dpcode"] for line in status_bak] }, after: { [line["dpcode"] for line in status_new] }",
+            XTDeviceWatcherCategory.VIRTUAL_STATE,
+            device,
+            False,
         )
         status_new = self.multi_manager.virtual_state_handler.apply_virtual_states_to_status_list(
             device, status_new, MESSAGE_SOURCE_TUYA_SHARING
