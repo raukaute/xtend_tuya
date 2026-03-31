@@ -48,9 +48,8 @@ class MultiSourceCodeCounter:
 
         if (highest_source_count - last_allowed_source_count) > 1:
             self.last_allowed_source = highest_source
-            return highest_source
-        else:
-            return self.last_allowed_source
+        
+        return self.last_allowed_source
 
     def update_last_update_time(self, update_time: int) -> bool:
         if update_time <= self.last_update_time:
