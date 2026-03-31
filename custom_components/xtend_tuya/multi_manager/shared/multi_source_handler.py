@@ -105,7 +105,6 @@ class MultiSourceHandler:
                 device.category
             )
         )
-        self.multi_manager.device_watcher.report_message(device.id, f"Virtual states are: {virtual_states}", XTDeviceWatcherCategory.VIRTUAL_STATE, device, False)
         if not virtual_states:
             return status_list
 
