@@ -314,7 +314,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         )
         self.multi_manager.device_watcher.report_message(
             device.id,
-            f"[{MESSAGE_SOURCE_TUYA_IOT}]Status filter: before: { [line["dpcode"] for line in status_bak] }, after: { [line["dpcode"] for line in status_new] }",
+            f"[{MESSAGE_SOURCE_TUYA_IOT}]Status filter: before: { [line["code"] for line in status_bak] }, after: { [line["code"] for line in status_new] }",
             XTDeviceWatcherCategory.VIRTUAL_STATE,
             device,
             False,
