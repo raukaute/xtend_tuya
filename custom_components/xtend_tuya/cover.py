@@ -335,7 +335,7 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
                 None,
             ),
         )
-        LOGGER.warning(f"Remap helper: {self._remap_helper is not None}")
+        LOGGER.warning(f"Remap helper for {self.device.name}: {self._remap_helper is not None}")
         device_manager.add_post_setup_callback(
             XTMultiManagerPostSetupCallbackPriority.PRIORITY1,
             self.add_cover_open_close_option,
