@@ -60,6 +60,7 @@ from .const import (
     XTMultiManagerPostSetupCallbackPriority,
     LOGGER,
     XTMultiManagerProperties,
+    XTDeviceWatcherCategory,
 )
 from .entity import (
     XTEntity,
@@ -75,7 +76,10 @@ from .ha_tuya_integration.tuya_integration_imports import (
     TuyaDPCodeIntegerWrapper,
     TuyaDPCodeEnumWrapper,
     TuyaDPCodeStringWrapper,
-    tuya_sensor_get_dpcode_wrapper,
+)
+from tuya_device_handlers.definition.sensor import (
+    TuyaSensorDefinition,
+    get_default_definition,
 )
 from .multi_manager.shared.threading import (
     XTEventLoopProtector,
@@ -119,21 +123,23 @@ def xt_get_generic_dpcode_wrapper(
     return None
 
 
-def xt_get_dpcode_wrapper(
+def xt_get_default_definition(
     device: XTDevice,
     description: TuyaSensorEntityDescription,
     device_manager: MultiManager,
-) -> TuyaDPCodeWrapper | None:
-    """Get DPCode wrapper for an entity description."""
+) -> TuyaSensorDefinition | None:
+    dpcode = description.dpcode or description.key
     if isinstance(description, XTSensorEntityDescription):
         if description.recalculate_scale_for_percentage:
             device_manager.execute_device_entity_function(
                 XTDeviceEntityFunctions.RECALCULATE_PERCENT_SCALE,
                 device,
-                function_code=description.dpcode or description.key,
+                function_code=dpcode,
                 scale_threshold=description.recalculate_scale_for_percentage_threshold,
             )
-    return tuya_sensor_get_dpcode_wrapper(device, description)
+    return get_default_definition(
+        device=device, dpcode=dpcode, wrapper_class=description.wrapper_class
+    )
 
 
 @dataclass(frozen=True)
@@ -168,14 +174,14 @@ class XTSensorEntityDescription(TuyaSensorEntityDescription, frozen=True):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTSensorEntityDescription,
-        dpcode_wrapper: TuyaDPCodeWrapper,
+        definition: TuyaSensorDefinition,
         supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
     ) -> XTSensorEntity:
         return XTSensorEntity(
             device=device,
             device_manager=device_manager,
             description=XTSensorEntityDescription(**description.__dict__),
-            dpcode_wrapper=dpcode_wrapper,
+            definition=definition,
             supported_descriptors=supported_descriptors,
         )
 
@@ -517,7 +523,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         translation_key="charge_energy_once",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        restoredata=False,
+        restoredata=True,
     ),
     XTSensorEntityDescription(
         key=XTDPCode.DEVICEKWH,
@@ -777,6 +783,7 @@ CONSUMPTION_SENSORS: tuple[XTSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        restoredata=True,
         ignore_other_dp_code_handler=True,
     ),
     XTSensorEntityDescription(
@@ -2045,15 +2052,17 @@ async def async_setup_entry(
                         entity_registry_enabled_default=False,
                         entity_registry_visible_default=False,
                     )
-                    if dpcode_wrapper := xt_get_generic_dpcode_wrapper(
-                        device, descriptor
+                    if definition := xt_get_default_definition(
+                        device,
+                        description=descriptor,
+                        device_manager=hass_data.manager,
                     ):
                         entities.append(
                             XTSensorEntity.get_entity_instance(
                                 descriptor,
                                 device,
                                 hass_data.manager,
-                                dpcode_wrapper,
+                                definition,
                                 supported_descriptors,
                             )
                         )
@@ -2097,7 +2106,7 @@ async def async_setup_entry(
                             description,
                             device,
                             hass_data.manager,
-                            dpcode_wrapper,
+                            definition,
                             supported_descriptors,
                         )
                         for description in category_descriptions
@@ -2112,10 +2121,10 @@ async def async_setup_entry(
                                 hass_data.manager,
                             )
                             and (
-                                dpcode_wrapper := xt_get_dpcode_wrapper(
+                                definition := xt_get_default_definition(
                                     device,
-                                    description,
-                                    hass_data.manager,
+                                    description=description,
+                                    device_manager=hass_data.manager,
                                 )
                             )
                         )
@@ -2125,7 +2134,7 @@ async def async_setup_entry(
                             description,
                             device,
                             hass_data.manager,
-                            dpcode_wrapper,
+                            definition,
                             supported_descriptors,
                         )
                         for description in category_descriptions
@@ -2140,10 +2149,10 @@ async def async_setup_entry(
                                 hass_data.manager,
                             )
                             and (
-                                dpcode_wrapper := xt_get_dpcode_wrapper(
+                                definition := xt_get_default_definition(
                                     device,
-                                    description,
-                                    hass_data.manager,
+                                    description=description,
+                                    device_manager=hass_data.manager,
                                 )
                             )
                         )
@@ -2182,19 +2191,23 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         device: XTDevice,
         device_manager: MultiManager,
         description: XTSensorEntityDescription,
-        dpcode_wrapper: TuyaDPCodeWrapper,
+        definition: TuyaSensorDefinition,
         supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
     ) -> None:
         """Init XT sensor."""
         super(XTSensorEntity, self).__init__(
-            device, device_manager, description, dpcode_wrapper=dpcode_wrapper
+            device=device,
+            device_manager=device_manager,
+            description=description,
+            definition=definition,
+            dpcode_wrapper=definition.sensor_wrapper,
         )
         self._attr_state_class = description.state_class
         super(XTEntity, self).__init__(
-            device,
-            device_manager,  # type: ignore
-            description,
-            dpcode_wrapper,
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            description=description,
+            definition=definition,
         )
 
         self.device = device
@@ -2219,6 +2232,15 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             self.device_manager.set_general_property(
                 XTMultiManagerProperties.ENERGY_SENSOR, all_energy_sensors
             )
+
+        if isinstance(description, XTSensorEntityDescription):
+            if description.recalculate_scale_for_percentage:
+                device_manager.execute_device_entity_function(
+                    XTDeviceEntityFunctions.RECALCULATE_PERCENT_SCALE,
+                    device,
+                    function_code=description.dpcode or description.key,
+                    scale_threshold=description.recalculate_scale_for_percentage_threshold,
+                )
 
     def reset_value(self, _: datetime | None, manual_call: bool = False) -> None:
         if manual_call and self.cancel_reset_after_x_seconds is not None:
@@ -2465,6 +2487,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         if dpcode is None:
             return
         scaled_value_back = self.scale_value_back(value)
+        self.device_manager.device_watcher.report_message(self.device.id, f"Restoring value of {self.device.name}, original: {value}, converted back: {scaled_value_back}", XTDeviceWatcherCategory.PLATFORM_SENSOR, self.device, False)
         self.device.status[dpcode] = scaled_value_back
         self.async_write_ha_state()
 
@@ -2480,25 +2503,25 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         description: XTSensorEntityDescription,
         device: XTDevice,
         device_manager: MultiManager,
-        dpcode_wrapper: TuyaDPCodeWrapper,
+        definition: TuyaSensorDefinition,
         supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
     ) -> XTSensorEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")
         ):
             return description.get_entity_instance(
-                device,
-                device_manager,
-                description,
-                dpcode_wrapper,
-                supported_descriptors,
+                device=device,
+                device_manager=device_manager,
+                description=description,
+                definition=definition,
+                supported_descriptors=supported_descriptors,
             )
         return XTSensorEntity(
-            device,
-            device_manager,
-            XTSensorEntityDescription(**description.__dict__),
-            dpcode_wrapper,
-            supported_descriptors,
+            device=device,
+            device_manager=device_manager,
+            description=XTSensorEntityDescription(**description.__dict__),
+            definition=definition,
+            supported_descriptors=supported_descriptors,
         )
 
     @staticmethod
@@ -2511,6 +2534,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
 
         DEVICE_CLASS_MAPPING: dict[SensorDeviceClass, SensorStateClass] = {
             SensorDeviceClass.ENERGY: SensorStateClass.TOTAL_INCREASING,
+            SensorDeviceClass.TEMPERATURE: SensorStateClass.MEASUREMENT,
         }
         if device_class is not None and device_class in DEVICE_CLASS_MAPPING:
             return DEVICE_CLASS_MAPPING[device_class]

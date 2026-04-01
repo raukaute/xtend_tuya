@@ -141,10 +141,12 @@ class AllowedPlugins:
 class VirtualStates(IntFlag):
     """Virtual states"""
 
-    STATE_COPY_TO_MULTIPLE_STATE_NAME = (
-        0x0001  # Copy the state so that it can be used with other virtual states
-    )
-    STATE_SUMMED_IN_REPORTING_PAYLOAD = 0x0002  # Spoof the state value to make it a total instead of an incremental value
+    # Copy the state so that it can be used with other virtual states
+    STATE_COPY_TO_MULTIPLE_STATE_NAME   = 0x0001
+    # Spoof the state value to make it a total instead of an incremental value
+    STATE_SUMMED_IN_REPORTING_PAYLOAD   = 0x0002
+    # Force the status update to come from the most talkative source and deduplicate same message from multiple sources
+    STATE_DEDUPLICATE_IN_REPORTING      = 0x0004
 
 
 class VirtualFunctions(IntFlag):
@@ -206,6 +208,7 @@ class XTDeviceWatcherCategory(Flag):
     PLATFORM_CAMERA         = auto()
     PLATFORM_CLIMATE        = auto()
     PLATFORM_COVER          = auto()
+    PLATFORM_EVENT          = auto()
     PLATFORM_LOCK           = auto()
     PLATFORM_NUMBER         = auto()
     PLATFORM_SENSOR         = auto()
@@ -1089,6 +1092,7 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "kW·h": "kWh",
     "kW.h": "kWh",
     "kVar": "kvar",
+    "v": "V",
     "％": "%",
     "℃": "°C",
     "C": "°C",
@@ -1096,7 +1100,9 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
     "分钟": "min",
     "gal ": "gal",
     "小时": "h",
+    "Hour": "h",
     "秒": "s",
+    "day": "d",
     "": None,
     "ADC": None,
     "格": None,
@@ -1106,6 +1112,7 @@ UOM_MAPPING_DICT: dict[str, str | None] = {
 }
 
 DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
+    "battery_percentage": "battery",
     "active_energy_total": "energy",
     "add_ele1": "energy",
     "charge_energy": "energy",
@@ -1124,12 +1131,16 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "huid_revise": "humidity",
     "maxhum_set": "humidity",
     "minihum_set": "humidity",
+    "va_humidity": "humidity",
     "ALARM_HIGH_TEMP": "temperature",
     "ALARM_LOW_TEMP": "temperature",
     "AUTO_HIGH_TEMP": "temperature",
     "AUTO_LOW_TEMP": "temperature",
     "current_temp": "temperature",
+    "frost_protect_temp": "temperature",
+    "holiday_temp_set": "temperature",
     "lower_temp": "temperature",
+    "party": "temperature",
     "maxtemp_set": "temperature",
     "minitemp_set": "temperature",
     "set_temp": "temperature",
@@ -1144,8 +1155,11 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "temp_set_huas": "temperature",
     "upper_temp": "temperature",
     "upper_temp_f": "temperature",
+    "va_temperature": "temperature",
     "qidongwencha": "temperature_delta",
+    "temp_calibration": "temperature_delta",
     "water_total_h": "water",
+    "heating_ratio": None,
     "percent_control": None,
     "percent_state": None,
     "position_best": None,

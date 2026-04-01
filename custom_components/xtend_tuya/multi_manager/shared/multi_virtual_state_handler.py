@@ -58,12 +58,14 @@ class XTVirtualStateHandler:
                             and description.virtual_state & virtual_state.value
                         ):
                             # This virtual_state is applied to this key, let's return it
+                            vs_copy_to_state = getattr(description, "vs_copy_to_state", [])
+                            vs_copy_delta_to_state = getattr(description, "vs_copy_delta_to_state", [])
                             found_virtual_state = DescriptionVirtualState(
                                 key=description.key,
                                 virtual_state_name=virtual_state.name,
                                 virtual_state_value=VirtualStates(virtual_state.value),
-                                vs_copy_to_state=description.vs_copy_to_state,
-                                vs_copy_delta_to_state=description.vs_copy_delta_to_state,
+                                vs_copy_to_state=vs_copy_to_state,
+                                vs_copy_delta_to_state=vs_copy_delta_to_state,
                             )
                             to_return.append(found_virtual_state)
         return to_return
@@ -274,12 +276,6 @@ class XTVirtualStateHandler:
         if not status_in:
             return status_in
         status = copy.deepcopy(status_in)
-        self.multi_manager.device_watcher.report_message(
-            device.id,
-            f"[{source}]Status In: {status_in}",
-            XTDeviceWatcherCategory.VIRTUAL_STATE,
-            device,
-        )
         virtual_states = self.get_category_virtual_states(device.category)
         for virtual_state in virtual_states:
             if (
@@ -361,12 +357,6 @@ class XTVirtualStateHandler:
                                 device,
                             )
                             continue
-        self.multi_manager.device_watcher.report_message(
-            device.id,
-            f"[{source}]Status Out: {status}",
-            XTDeviceWatcherCategory.VIRTUAL_STATE,
-            device,
-        )
         return status
 
     def _get_empty_local_strategy_dp_id(self, device: shared.XTDevice) -> int | None:
