@@ -96,8 +96,6 @@ class XTSharingMQ(SharingMQ):
                 self.shutting_down = True
                 LOGGER.warning("Unexpected disconnection. Reconnecting...")
                 self.manager.refresh_mq()
-        else:
-            LOGGER.debug("disconnect")
     
     def _on_message(self, mqttc: mqtt.Client, user_data: Any, msg: mqtt.MQTTMessage):
         msg_dict = json.loads(msg.payload.decode("utf8"))
