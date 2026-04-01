@@ -9,7 +9,6 @@ from homeassistant.components.tuya.binary_sensor import (
     BINARY_SENSORS as BINARY_SENSORS_TUYA,  # noqa: F401
     TuyaBinarySensorEntity as TuyaBinarySensorEntity,
     TuyaBinarySensorEntityDescription as TuyaBinarySensorEntityDescription,
-    _CustomDPCodeWrapper as TuyaBinarySensorCustomDPCodeWrapper,  # noqa: F401
 )
 import homeassistant.components.tuya.binary_sensor as binary_sensor  # noqa: F401
 from homeassistant.components.button import (
@@ -27,21 +26,13 @@ from homeassistant.components.tuya.climate import (
     CLIMATE_DESCRIPTIONS as CLIMATE_DESCRIPTIONS_TUYA,  # noqa: F401
     TuyaClimateEntity as TuyaClimateEntity,
     TuyaClimateEntityDescription as TuyaClimateEntityDescription,
-    TUYA_HVAC_TO_HA as TuyaClimateHVACToHA,  # noqa: F401
-    _RoundedIntegerWrapper as TuyaClimateRoundedIntegerWrapper,  # noqa: F401
-    _get_temperature_wrapper as tuya_climate_get_temperature_wrapper,  # noqa: F401
-    _SwingModeWrapper as TuyaClimateSwingModeWrapper,  # noqa: F401
-    _PresetWrapper as TuyaClimatePresetWrapper,  # noqa: F401
-    _HvacModeWrapper as TuyaClimateHvacModeWrapper,  # noqa: F401
+    _TUYA_TO_HA_HVACMODE_MAPPINGS as TUYA_TUYA_TO_HA_HVACMODE_MAPPINGS,  # noqa: F401
+    _HA_TO_TUYA_TEMPERATURE as TUYA_HA_TO_TUYA_TEMPERATURE,  # noqa: F401
 )
 from homeassistant.components.tuya.cover import (
     COVERS as COVERS_TUYA,  # noqa: F401
     TuyaCoverEntity as TuyaCoverEntity,
     TuyaCoverEntityDescription as TuyaCoverEntityDescription,
-    _DPCodePercentageMappingWrapper as TuyaCoverDPCodePercentageMappingWrapper,  # noqa: F401
-    _IsClosedEnumWrapper as TuyaCoverIsClosedEnumWrapper,  # noqa: F401
-    _IsClosedInvertedWrapper as TuyaCoverIsClosedInvertedWrapper,  # noqa: F401
-    _get_instruction_wrapper as tuya_cover_get_instruction_wrapper,  # noqa: F401
 )
 
 from homeassistant.components.tuya.event import (
@@ -52,30 +43,16 @@ from homeassistant.components.tuya.event import (
 from homeassistant.components.tuya.fan import (
     TUYA_SUPPORT_TYPE as FANS_TUYA,  # noqa: F401
     TuyaFanEntity as TuyaFanEntity,
-    _DirectionEnumWrapper as TuyaFanDirectionEnumWrapper,  # noqa: F401
-    _FanSpeedEnumWrapper as TuyaFanFanSpeedEnumWrapper,  # noqa: F401
-    _FanSpeedIntegerWrapper as TuyaFanFanSpeedIntegerWrapper,  # noqa: F401
-    _DIRECTION_DPCODES as TUYA_FAN_DIRECTION_DPCODES,  # noqa: F401
-    _MODE_DPCODES as TUYA_FAN_MODE_DPCODES,  # noqa: F401
-    _OSCILLATE_DPCODES as TUYA_FAN_OSCILLATE_DPCODES,  # noqa: F401
-    _SWITCH_DPCODES as TUYA_FAN_SWITCH_DPCODES,  # noqa: F401
-    _get_speed_wrapper as tuya_fan_get_speed_wrapper,  # noqa: F401
 )
 from homeassistant.components.tuya.humidifier import (
     HUMIDIFIERS as HUMIDIFIERS_TUYA,  # noqa: F401
     TuyaHumidifierEntity as TuyaHumidifierEntity,
     TuyaHumidifierEntityDescription as TuyaHumidifierEntityDescription,
-    _RoundedIntegerWrapper as TuyaHumidifierRoundedIntegerWrapper,  # noqa: F401
 )
 from homeassistant.components.tuya.light import (
     LIGHTS as LIGHTS_TUYA,  # noqa: F401
     TuyaLightEntity as TuyaLightEntity,
     TuyaLightEntityDescription as TuyaLightEntityDescription,
-    _BrightnessWrapper as TuyaLightBrightnessWrapper,  # noqa: F401
-    _ColorDataWrapper as TuyaLightColorDataWrapper,  # noqa: F401
-    _ColorTempWrapper as TuyaLightColorTempWrapper,  # noqa: F401
-    _get_brightness_wrapper as tuya_light_get_brightness_wrapper,  # noqa: F401
-    _get_color_data_wrapper as tuya_light_get_color_data_wrapper,  # noqa: F401
 )
 from homeassistant.components.number import (
     NumberEntityDescription as TuyaNumberEntityDescription,  # noqa: F401
@@ -95,7 +72,6 @@ from homeassistant.components.tuya.sensor import (
     SENSORS as SENSORS_TUYA,  # noqa: F401
     TuyaSensorEntity as TuyaSensorEntity,
     TuyaSensorEntityDescription as TuyaSensorEntityDescription,
-    _get_dpcode_wrapper as tuya_sensor_get_dpcode_wrapper,  # noqa: F401
 )
 from homeassistant.components.siren import (
     SirenEntityDescription as TuyaSirenEntityDescription,  # noqa: F401
@@ -113,8 +89,6 @@ from homeassistant.components.tuya.switch import (
 )
 from homeassistant.components.tuya.vacuum import (
     TuyaVacuumEntity as TuyaVacuumEntity,
-    _VacuumActionWrapper as TuyaVacuumActionWrapper,  # noqa: F401
-    _VacuumActivityWrapper as TuyaVacuumActivityWrapper,  # noqa: F401
 )
 import homeassistant.components.tuya as tuya_integration  # noqa: F401
 
