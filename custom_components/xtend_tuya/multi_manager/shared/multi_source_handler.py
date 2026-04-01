@@ -4,6 +4,7 @@ from typing import Any
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 from ...const import (
     LOGGER,  # noqa: F401
+    XTDeviceWatcherCategory,  # noqa: F401
 )
 
 
@@ -47,9 +48,8 @@ class MultiSourceCodeCounter:
 
         if (highest_source_count - last_allowed_source_count) > 1:
             self.last_allowed_source = highest_source
-            return highest_source
-        else:
-            return self.last_allowed_source
+        
+        return self.last_allowed_source
 
     def update_last_update_time(self, update_time: int) -> bool:
         if update_time <= self.last_update_time:
@@ -108,7 +108,7 @@ class MultiSourceHandler:
             return status_list
 
         i = 0
-        for item in status_list:
+        for item in status_in:
             code, _, _, result_ok = self.multi_manager._read_code_dpid_value_from_state(
                 dev_id, item, False, True
             )
@@ -152,7 +152,8 @@ class MultiSourceHandler:
             self.device_map[dev_id][code] = MultiSourceCodeCounter()
 
     def _is_allowed_source_for_code(self, dev_id: str, code: str, source: str) -> bool:
-        return self.device_map[dev_id][code].get_allowed_source() == source
+        return_val = self.device_map[dev_id][code].get_allowed_source() == source
+        return return_val
 
     def _is_code_update_time_valid(
         self, dev_id: str, code: str, update_time: int, source: str
