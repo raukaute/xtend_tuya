@@ -273,7 +273,7 @@ async def async_setup_entry(
                                 current_state_wrapper=description.current_state_wrapper,
                                 instruction_dpcode=description.key,
                                 instruction_wrapper=description.instruction_wrapper,
-                                position_wrapper=XTCoverDPCodePercentageMappingWrapper,
+                                position_wrapper=description.position_wrapper,
                                 set_position_dpcode=description.set_position,
                             )
                         )
@@ -302,7 +302,7 @@ async def async_setup_entry(
                                 current_state_wrapper=description.current_state_wrapper,
                                 instruction_dpcode=description.key,
                                 instruction_wrapper=description.instruction_wrapper,
-                                position_wrapper=XTCoverDPCodePercentageMappingWrapper,
+                                position_wrapper=description.position_wrapper,
                                 set_position_dpcode=description.set_position,
                             )
                         )
@@ -346,7 +346,7 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
             TuyaRemapHelper | None,
             getattr(
                 self._current_position,
-                "remap_helper",
+                "_remap_helper",
                 None,
             ),
         )
