@@ -11,9 +11,6 @@ from tuya_device_handlers.device_wrapper.common import DPCodeTypeInformationWrap
 from tuya_device_handlers.device_wrapper.cover import (
     CoverInstructionBooleanWrapper,
 )
-from tuya_device_handlers.device_wrapper.extended import (
-    DPCodePercentageWrapper,
-)
 from tuya_device_handlers.helpers.homeassistant import TuyaCoverAction
 from homeassistant.components.cover import (
     CoverDeviceClass,
@@ -51,18 +48,6 @@ from .entity import (
     XTEntity,
     XTEntityDescriptorManager,
 )
-
-
-class XTCoverDPCodePercentageMappingWrapper(DPCodePercentageWrapper):
-    """XT Cover DPCode percentage mapping wrapper."""
-
-    @property
-    def remap_helper(self) -> TuyaRemapHelper:
-        return self.get_remap_helper()
-
-    def get_remap_helper(self) -> TuyaRemapHelper:
-        return self._remap_helper
-
 
 @dataclass(frozen=True)
 class XTCoverEntityDescription(TuyaCoverEntityDescription):
