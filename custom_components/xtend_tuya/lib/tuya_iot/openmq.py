@@ -24,7 +24,6 @@ from paho.mqtt.properties import (
 from paho.mqtt.client import (
     DisconnectFlags as mqtt_DisconnectFlags,
 )
-from requests.exceptions import RequestException
 
 from .openapi import TuyaOpenAPI
 from .openlogging import logger
@@ -114,15 +113,13 @@ class TuyaOpenMQ(threading.Thread):
             ),
         }
         response = self.api.post(path, body)
-        if response.get("success", False):
-            pass
-        else:
+        if response.get("success", True) is False:
             logger.error(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}", stack_info=True)
 
         if response.get("success", False) is False:
             if first_pass:
                 return self._get_mqtt_config(first_pass=False)
-            return TuyaMQConfig()
+            return TuyaMQConfig(mqConfigResponse= {}, class_id=self.class_id)
 
         return TuyaMQConfig(response, self.class_id)
 
@@ -193,7 +190,7 @@ class TuyaOpenMQ(threading.Thread):
 
                 # run_mqtt will not do anything if already connected
                 time.sleep(30)
-            except RequestException as e:
+            except Exception as e:
                 logger.exception(e)
                 logger.error(
                     f"[{self.class_id} MQTT] failed to refresh mqtt server, retrying in {backoff_seconds} seconds."
