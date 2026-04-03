@@ -367,7 +367,7 @@ class TuyaOpenAPI:
 
         time_taken = time.time() - start_time
 
-        if response.ok is False:
+        if response.ok is False or result.get("success", True) is False:
             logger.warning(
                 f"[IOT API][{time_taken}]Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}"
             )
@@ -375,7 +375,6 @@ class TuyaOpenAPI:
                 f"[IOT API][{time_taken}]Response: {json.dumps(result, ensure_ascii=False, indent=2)}",
                 stack_info=True,
             )
-            return {}
         else:
             # logger.debug(
             #     f"[IOT API][{time_taken}]Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}"
