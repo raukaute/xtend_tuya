@@ -180,6 +180,7 @@ class TuyaOpenMQ(threading.Thread):
     def run(self):
         """Method representing the thread's activity which should not be used directly."""
         backoff_seconds = 1
+        retry_amount = 0
         while not self._stop_event.is_set():
             try:
                 self._run_mqtt()
@@ -191,7 +192,10 @@ class TuyaOpenMQ(threading.Thread):
                 # run_mqtt will not do anything if already connected
                 time.sleep(30)
             except Exception as e:
-                logger.exception(e)
+                retry_amount += 1
+                if retry_amount > 10:
+                    self.stop()
+                logger.exception(e, stack_info=True)
                 logger.error(
                     f"[{self.class_id} MQTT] failed to refresh mqtt server, retrying in {backoff_seconds} seconds."
                 )
@@ -213,9 +217,7 @@ class TuyaOpenMQ(threading.Thread):
 
             # exit if the new mq_config is not valid
             if self.mq_config.is_valid() is False:
-                logger.error(f"[{self.class_id} MQTT] Got an invalid mqtt config, please check your system logs", stack_info=True)
-                self.stop()
-                return
+                raise Exception(f"[{self.class_id} MQTT] Got an invalid mqtt config, please check your system logs")
 
         # If we have a client, disconnect it first
         if self.client:
