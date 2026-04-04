@@ -54,8 +54,8 @@ class TuyaTokenInfo:
         if self.success is False:
             return False
         
-        now = int(time.time() * 1000)
-        if self.expire_time <= now + 60 * 1000:
+        expiry_check = int(time.time() * 1000) + 5 * 60 * 1000
+        if self.expire_time <= expiry_check:
             return False
 
         return True
@@ -177,7 +177,7 @@ class TuyaOpenAPI:
             # logger.debug("Already requesting refresh token, no need to refresh again.")
             return
 
-        self.token_info.access_token = ""
+        #self.token_info.access_token = ""
 
         if self.auth_type == AuthType.CUSTOM:
             # logger.debug(f"Refreshing access token with refresh token: {path}")
