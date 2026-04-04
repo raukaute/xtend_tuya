@@ -67,7 +67,7 @@ class TuyaMQConfig:
         if self.valid_until <= check_time:
             logger.debug(f"[{self.class_id} MQTT] MQTT config is expired or will expire within 300 seconds. ({self.valid_until} <= {check_time})")
             return False
-        logger.debug(f"[{self.class_id} MQTT] MQTT config is not expired. ({self.valid_until} <= {check_time})")
+        logger.debug(f"[{self.class_id} MQTT] MQTT config is not expired. ({self.valid_until} > {check_time})")
         #logger.warning(f"[{self.class_id} MQTT] MQTT config is valid.")
         return True
 
