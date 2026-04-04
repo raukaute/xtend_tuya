@@ -32,7 +32,7 @@ class DeviceWatcher:
         self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
             # "bf74848d47bcd0d090ak3g": XTDeviceWatcherCategory.PLATFORM_SENSOR,
             # "vdevo172985271302839": XTDeviceWatcherCategory.PLATFORM_EVENT | XTDeviceWatcherCategory.VIRTUAL_STATE,
-            # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
+            XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
         }
         self.multi_manager = multi_manager
 
