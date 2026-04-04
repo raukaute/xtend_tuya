@@ -37,10 +37,10 @@ class TuyaTokenInfo:
     def __init__(
         self,
         token_response: dict[str, Any] = {},
-        shared_token: TuyaTokenInfo | None = None,
+        shared_token_info: TuyaTokenInfo | None = None,
     ):
         """Init TuyaTokenInfo."""
-        self.shared_token = shared_token
+        self.shared_token_info = shared_token_info
         self.update_token(token_response=token_response)
 
     def update_token(self, token_response: dict[str, Any] = {}):
@@ -56,8 +56,8 @@ class TuyaTokenInfo:
         self.success = token_response.get("success", False)
         self.marked_invalid = False
         logger.debug(f"Refreshing TuyaTokenInfo: {token_response} => {self}")
-        if self.shared_token is not None:
-            self.shared_token.update_token(token_response=token_response)
+        if self.shared_token_info is not None:
+            self.shared_token_info.update_token(token_response=token_response)
 
     def __repr__(self) -> str:
         return f"TuyaTokenInfo(valid: {self.is_valid()}, expire_time: {self.expire_time}, access_token: {self.access_token}, refresh_token: {self.refresh_token}, uid: {self.uid})"
@@ -124,7 +124,7 @@ class TuyaOpenAPI:
             self.__refresh_path = TO_C_SMART_HOME_REFRESH_TOKEN_API
 
         self.non_user_specific_api = non_user_specific_api
-        self.token_info = TuyaTokenInfo()
+        self.token_info = TuyaTokenInfo(shared_token_info=shared_token_info)
         self.shared_token = shared_token_info
 
         self.dev_channel: str = ""
@@ -202,18 +202,18 @@ class TuyaOpenAPI:
             return
 
         # self.token_info.access_token = ""
-        if self.token_info.shared_token is None:
+        if self.token_info.shared_token_info is None:
             return
         
         if self.auth_type == AuthType.CUSTOM:
             logger.debug(f"Refreshing access token with refresh token: {path}")
             response = self.post(
-                TO_C_CUSTOM_REFRESH_TOKEN_API + self.token_info.shared_token.refresh_token
+                TO_C_CUSTOM_REFRESH_TOKEN_API + self.token_info.shared_token_info.refresh_token
             )
         else:
             logger.debug(f"Refreshing access token with refresh token: {path}")
             response = self.get(
-                TO_C_SMART_HOME_REFRESH_TOKEN_API + self.token_info.shared_token.refresh_token
+                TO_C_SMART_HOME_REFRESH_TOKEN_API + self.token_info.shared_token_info.refresh_token
             )
         logger.debug(f"Refresh token response: {response}")
         self.token_info.update_token(response)
