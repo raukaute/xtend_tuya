@@ -111,6 +111,15 @@ class XTEntityDescriptorManager:
         elif ref_type is XTEntityDescriptorManager.XTEntityDescriptorType.DICT:
             for category_key in category_content:
                 return_list.append(category_key)
+        elif ref_type is XTEntityDescriptorManager.XTEntityDescriptorType.ENTITY:
+            entity = cast(EntityDescription, category_content)
+            compound_key: str | None = (
+                XTEntityDescriptorManager.get_compound_key(
+                    entity, key_fields
+                )
+            )
+            if compound_key is not None:
+                return_list.append(compound_key)
         return return_list
 
     @staticmethod
