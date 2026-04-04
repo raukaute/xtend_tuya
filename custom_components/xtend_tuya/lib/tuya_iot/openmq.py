@@ -199,7 +199,7 @@ class TuyaOpenMQ(threading.Thread):
                     self.stop()
                 logger.exception(e, stack_info=True)
                 logger.error(
-                    f"[{self.class_id} MQTT] failed to refresh mqtt server, retrying in {backoff_seconds} seconds."
+                    f"[{self.class_id} MQTT] failed to refresh MQTT client, retrying in {backoff_seconds} seconds."
                 )
 
                 time.sleep(backoff_seconds)
@@ -232,7 +232,8 @@ class TuyaOpenMQ(threading.Thread):
             self.mq_config.mark_invalid()
             if first_pass:
                 self._run_mqtt(first_pass=False)
-            return
+            else:
+                raise Exception(f"[{self.class_id} MQTT] Could not generate an MQTT client in 2 passes, exiting")
 
     # This block will be useful when we'll use Paho MQTT 3.x or above
     def _on_disconnect(
