@@ -216,9 +216,10 @@ class TuyaOpenAPI:
             logger.debug("Already requesting refresh token, no need to refresh again.")
             return
 
-        # self.token_info.access_token = ""
         if self.token_info.shared_token_info is None:
             return
+
+        self.token_info.access_token = ""
 
         if self.auth_type == AuthType.CUSTOM:
             logger.debug(f"Refreshing access token with refresh token: {path}")
