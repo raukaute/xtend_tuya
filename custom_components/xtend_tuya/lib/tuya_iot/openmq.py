@@ -63,9 +63,11 @@ class TuyaMQConfig:
         if self.marked_invalid:
             #logger.warning(f"[{self.class_id} MQTT] MQTT config is marked invalid.")
             return False
-        if self.valid_until <= int(time.time() * 1000) + 5 * 60 * 1000:
-            #logger.warning(f"[{self.class_id} MQTT] MQTT config is expired or will expire within 300 seconds.")
+        check_time = int(time.time() * 1000) + 5 * 60 * 1000
+        if self.valid_until <= check_time:
+            logger.debug(f"[{self.class_id} MQTT] MQTT config is expired or will expire within 300 seconds. ({self.valid_until} <= {check_time})")
             return False
+        logger.debug(f"[{self.class_id} MQTT] MQTT config is not expired. ({self.valid_until} <= {check_time})")
         #logger.warning(f"[{self.class_id} MQTT] MQTT config is valid.")
         return True
 
