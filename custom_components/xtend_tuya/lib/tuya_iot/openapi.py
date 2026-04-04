@@ -149,7 +149,6 @@ class TuyaOpenAPI:
         self.__password = ""
         self.__country_code = ""
         self.__schema = ""
-        self.__is_connecting = False
 
     # https://developer.tuya.com/docs/iot/open-api/api-reference/singnature?id=Ka43a5mtx1gsc
     def _calculate_sign(
