@@ -54,6 +54,9 @@ from .multi_manager.shared.threading import (
     XTConcurrencyManager,
 )
 from .multi_manager.managers.tuya_iot.xt_tuya_iot_openapi import XTIOTOpenAPI
+from .lib.tuya_iot.openapi import (
+    TuyaTokenInfo,
+)
 import custom_components.xtend_tuya.util as util
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.data_entry.shared_data_entry as data_entry
@@ -166,6 +169,7 @@ class XTConfigFlows:
                 endpoint=data[CONF_ENDPOINT_OT],
                 access_id=data[CONF_ACCESS_ID_OT],
                 access_secret=data[CONF_ACCESS_SECRET_OT],
+                token_info=TuyaTokenInfo(),
                 auth_type=data[CONF_AUTH_TYPE],
             )
             api.set_dev_channel("hass")

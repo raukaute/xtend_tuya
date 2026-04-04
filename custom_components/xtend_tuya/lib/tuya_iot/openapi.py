@@ -36,6 +36,9 @@ class TuyaTokenInfo:
 
     def __init__(self, token_response: dict[str, Any] = {}):
         """Init TuyaTokenInfo."""
+        self.update_token(token_response=token_response)
+    
+    def update_token(self, token_response: dict[str, Any] = {}):
         result = cast(dict[str, Any], token_response.get("result", {}))
 
         self.expire_time = (
@@ -60,7 +63,7 @@ class TuyaTokenInfo:
         if self.marked_invalid:
             return False
         
-        expiry_check = int(time.time() * 1000) + 5 * 60 * 1000
+        expiry_check = int(time.time() * 1000)
         logger.debug(f"OpenAPI is_valid: expiry check: {self.expire_time} <= {expiry_check}: {self.expire_time <= expiry_check}")
         if self.expire_time <= expiry_check:
             return False
@@ -84,6 +87,7 @@ class TuyaOpenAPI:
         endpoint: str,
         access_id: str,
         access_secret: str,
+        token_info: TuyaTokenInfo,
         auth_type: AuthType = AuthType.SMART_HOME,
         lang: str = "en",
         non_user_specific_api: bool = False,
@@ -111,7 +115,7 @@ class TuyaOpenAPI:
             self.__refresh_path = TO_C_SMART_HOME_REFRESH_TOKEN_API
 
         self.non_user_specific_api = non_user_specific_api
-        self.token_info: TuyaTokenInfo = TuyaTokenInfo()
+        self.token_info = token_info
 
         self.dev_channel: str = ""
 
@@ -200,7 +204,7 @@ class TuyaOpenAPI:
                 TO_C_SMART_HOME_REFRESH_TOKEN_API + self.token_info.refresh_token
             )
         logger.debug(f"Refresh token response: {response}")
-        self.token_info = TuyaTokenInfo(response)
+        self.token_info.update_token(response)
 
     def set_dev_channel(self, dev_channel: str):
         """Set dev channel."""
@@ -253,7 +257,7 @@ class TuyaOpenAPI:
             return response
 
         # Cache token info.
-        self.token_info = TuyaTokenInfo(response)
+        self.token_info.update_token(response)
 
         return response
 
@@ -305,7 +309,7 @@ class TuyaOpenAPI:
             return response
 
         # Cache token info.
-        self.token_info = TuyaTokenInfo(response)
+        self.token_info.update_token(response)
 
         return response
 

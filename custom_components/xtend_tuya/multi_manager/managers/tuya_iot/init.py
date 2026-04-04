@@ -12,6 +12,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from ....lib.tuya_iot import (
     AuthType,
+    TuyaTokenInfo,
 )
 from .xt_tuya_iot_openapi import (
     XTIOTOpenAPI,
@@ -138,10 +139,12 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             )
             return None
         auth_type = AuthType(config_entry.options[CONF_AUTH_TYPE])
+        token_info = TuyaTokenInfo()
         api = XTIOTOpenAPI(
             endpoint=config_entry.options[CONF_ENDPOINT_OT],
             access_id=config_entry.options[CONF_ACCESS_ID],
             access_secret=config_entry.options[CONF_ACCESS_SECRET],
+            token_info=token_info,
             auth_type=auth_type,
             non_user_specific_api=False,
         )
@@ -149,6 +152,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             endpoint=config_entry.options[CONF_ENDPOINT_OT],
             access_id=config_entry.options[CONF_ACCESS_ID],
             access_secret=config_entry.options[CONF_ACCESS_SECRET],
+            token_info=token_info,
             auth_type=auth_type,
             non_user_specific_api=True,
         )
