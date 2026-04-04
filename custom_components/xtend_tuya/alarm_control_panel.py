@@ -9,9 +9,6 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from .util import (
-    restrict_descriptor_category,
-)
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaAlarmEntity,
     TuyaAlarmControlPanelEntityDescription,
