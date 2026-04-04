@@ -67,7 +67,7 @@ class TuyaMQConfig:
         if self.valid_until <= check_time:
             logger.debug(f"[{self.class_id} MQTT] MQTT config is expired or will expire within 300 seconds. ({self.valid_until} <= {check_time})")
             return False
-        logger.debug(f"[{self.class_id} MQTT] MQTT config is not expired. ({self.valid_until} > {check_time})")
+        #logger.debug(f"[{self.class_id} MQTT] MQTT config is not expired. ({self.valid_until} > {check_time})")
         #logger.warning(f"[{self.class_id} MQTT] MQTT config is valid.")
         return True
 
@@ -116,7 +116,7 @@ class TuyaOpenMQ(threading.Thread):
         }
         response = self.api.post(path, body)
         if response.get("success", True) is False:
-            logger.error(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}", stack_info=True)
+            logger.error(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}, request was: POST {path}, body: {body}", stack_info=True)
 
         if response.get("success", False) is False:
             if first_pass:
