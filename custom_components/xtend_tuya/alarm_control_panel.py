@@ -48,7 +48,7 @@ class XTAlarmEntityDescription(TuyaAlarmControlPanelEntityDescription):
 
 # All descriptions can be found here:
 # https://developer.tuya.com/en/docs/iot/standarddescription?id=K9i5ql6waswzq
-ALARM: dict[str, tuple[XTAlarmEntityDescription, ...]] = {}
+ALARM: dict[str, XTAlarmEntityDescription] = {}
 
 
 async def async_setup_entry(
@@ -63,8 +63,8 @@ async def async_setup_entry(
 
     supported_descriptors, externally_managed_descriptors = cast(
         tuple[
-            dict[str, tuple[XTAlarmEntityDescription, ...]],
-            dict[str, tuple[XTAlarmEntityDescription, ...]],
+            dict[str, XTAlarmEntityDescription],
+            dict[str, XTAlarmEntityDescription],
         ],
         XTEntityDescriptorManager.get_platform_descriptors(
             ALARM,
@@ -83,50 +83,45 @@ async def async_setup_entry(
             return
         for device_id in device_ids:
             if device := hass_data.manager.device_map.get(device_id, None):
-                if (
-                    category_descriptions
-                    := XTEntityDescriptorManager.get_category_descriptors(
+                if category_descriptions := cast(
+                    XTAlarmEntityDescription,
+                    XTEntityDescriptorManager.get_category_descriptors(
                         supported_descriptors, device.category
-                    )
+                    ),
                 ):
                     externally_managed_dpcodes = (
                         XTEntityDescriptorManager.get_category_keys(
                             externally_managed_descriptors.get(device.category)
                         )
                     )
-                    if restrict_dpcode is not None:
-                        category_descriptions = cast(
-                            tuple[XTAlarmEntityDescription, ...],
-                            restrict_descriptor_category(
-                                category_descriptions, [restrict_dpcode]
-                            ),
+                    if XTEntity.supports_description(
+                        device,
+                        this_platform,
+                        category_descriptions,
+                        True,
+                        externally_managed_dpcodes,
+                    ):
+                        entities.append(
+                            XTAlarmEntity.get_entity_instance(
+                                category_descriptions,
+                                device,
+                                hass_data.manager,
+                            )
                         )
-                    entities.extend(
-                        XTAlarmEntity.get_entity_instance(
-                            description, device, hass_data.manager
+                    if XTEntity.supports_description(
+                        device,
+                        this_platform,
+                        category_descriptions,
+                        False,
+                        externally_managed_dpcodes,
+                    ):
+                        entities.append(
+                            XTAlarmEntity.get_entity_instance(
+                                category_descriptions,
+                                device,
+                                hass_data.manager,
+                            )
                         )
-                        for description in category_descriptions
-                        if XTEntity.supports_description(
-                            device,
-                            this_platform,
-                            description,
-                            True,
-                            externally_managed_dpcodes,
-                        )
-                    )
-                    entities.extend(
-                        XTAlarmEntity.get_entity_instance(
-                            description, device, hass_data.manager
-                        )
-                        for description in category_descriptions
-                        if XTEntity.supports_description(
-                            device,
-                            this_platform,
-                            description,
-                            False,
-                            externally_managed_dpcodes,
-                        )
-                    )
         async_add_entities(entities)
 
     hass_data.manager.register_device_descriptors(this_platform, supported_descriptors)
