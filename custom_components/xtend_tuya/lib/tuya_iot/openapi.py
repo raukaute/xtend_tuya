@@ -46,6 +46,7 @@ class TuyaTokenInfo:
         self.refresh_token = result.get("refresh_token", "")
         self.uid = result.get("uid", "")
         self.success = token_response.get("success", False)
+        self.marked_invalid = False
         logger.debug(f"Refreshing TuyaTokenInfo: {token_response} => {self}")
 
     def __repr__(self) -> str:
@@ -56,12 +57,18 @@ class TuyaTokenInfo:
             logger.debug("OpenAPI is_valid: sucess = False")
             return False
         
+        if self.marked_invalid:
+            return False
+        
         expiry_check = int(time.time() * 1000) + 5 * 60 * 1000
         logger.debug(f"OpenAPI is_valid: expiry check: {self.expire_time} <= {expiry_check}: {self.expire_time <= expiry_check}")
         if self.expire_time <= expiry_check:
             return False
 
         return True
+    
+    def mark_invalid(self) -> None:
+        self.marked_invalid = True
 
 
 class TuyaOpenAPI:
@@ -336,9 +343,7 @@ class TuyaOpenAPI:
     ) -> dict[str, Any]:
         start_time = time.time()
         self.__refresh_access_token_if_need(path, first_pass)
-        access_token = (
-            self.token_info.access_token if self.token_info.is_valid() else ""
-        )
+        access_token = self.token_info.access_token
         sign, t = self._calculate_sign(method, path, params, body)
         headers = {
             "client_id": self.access_id,
@@ -396,6 +401,7 @@ class TuyaOpenAPI:
             pass
 
         if result.get("code", -1) == TUYA_ERROR_CODE_TOKEN_INVALID:
+            self.token_info.mark_invalid()
             if first_pass is True and path.startswith(self.__login_path) is False and self.reconnect() is True:
                 return self.__request(method, path, params, body, False)
 
