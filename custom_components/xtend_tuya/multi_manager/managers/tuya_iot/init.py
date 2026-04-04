@@ -144,7 +144,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             endpoint=config_entry.options[CONF_ENDPOINT_OT],
             access_id=config_entry.options[CONF_ACCESS_ID],
             access_secret=config_entry.options[CONF_ACCESS_SECRET],
-            token_info=token_info,
+            shared_token_info=token_info,
             auth_type=auth_type,
             non_user_specific_api=True,
         )
@@ -152,7 +152,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             endpoint=config_entry.options[CONF_ENDPOINT_OT],
             access_id=config_entry.options[CONF_ACCESS_ID],
             access_secret=config_entry.options[CONF_ACCESS_SECRET],
-            token_info=token_info,
+            shared_token_info=token_info,
             auth_type=auth_type,
             non_user_specific_api=False,
         )

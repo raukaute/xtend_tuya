@@ -169,7 +169,7 @@ class XTConfigFlows:
                 endpoint=data[CONF_ENDPOINT_OT],
                 access_id=data[CONF_ACCESS_ID_OT],
                 access_secret=data[CONF_ACCESS_SECRET_OT],
-                token_info=TuyaTokenInfo(),
+                shared_token_info=TuyaTokenInfo(),
                 auth_type=data[CONF_AUTH_TYPE],
             )
             api.set_dev_channel("hass")

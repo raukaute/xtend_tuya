@@ -68,7 +68,10 @@ class XTIOTDeviceManager(TuyaDeviceManager):
     device_map: XTDeviceMap = XTDeviceMap({}, XTDeviceSourcePriority.TUYA_IOT)
 
     def __init__(
-        self, multi_manager: MultiManager, api: XTIOTOpenAPI, non_user_api: XTIOTOpenAPI
+        self,
+        multi_manager: MultiManager,
+        api: XTIOTOpenAPI,
+        non_user_api: XTIOTOpenAPI,
     ) -> None:
         mq = XTIOTOpenMQ(api, self)
         super().__init__(api, mq)
