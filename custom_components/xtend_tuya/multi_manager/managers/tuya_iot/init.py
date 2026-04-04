@@ -140,14 +140,6 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             return None
         auth_type = AuthType(config_entry.options[CONF_AUTH_TYPE])
         token_info = TuyaTokenInfo()
-        api = XTIOTOpenAPI(
-            endpoint=config_entry.options[CONF_ENDPOINT_OT],
-            access_id=config_entry.options[CONF_ACCESS_ID],
-            access_secret=config_entry.options[CONF_ACCESS_SECRET],
-            token_info=token_info,
-            auth_type=auth_type,
-            non_user_specific_api=False,
-        )
         non_user_api = XTIOTOpenAPI(
             endpoint=config_entry.options[CONF_ENDPOINT_OT],
             access_id=config_entry.options[CONF_ACCESS_ID],
@@ -156,8 +148,21 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             auth_type=auth_type,
             non_user_specific_api=True,
         )
+        api = XTIOTOpenAPI(
+            endpoint=config_entry.options[CONF_ENDPOINT_OT],
+            access_id=config_entry.options[CONF_ACCESS_ID],
+            access_secret=config_entry.options[CONF_ACCESS_SECRET],
+            token_info=token_info,
+            auth_type=auth_type,
+            non_user_specific_api=False,
+        )
         api.set_dev_channel("hass")
         try:
+            connect_non_user_api = (
+                await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+                    non_user_api.connect
+                )
+            )
             if auth_type == AuthType.CUSTOM:
                 connect_user_api = (
                     await XTEventLoopProtector.execute_out_of_event_loop_and_return(
@@ -176,11 +181,6 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                         config_entry.options[CONF_APP_TYPE],
                     )
                 )
-            connect_non_user_api = (
-                await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-                    non_user_api.connect
-                )
-            )
             user_api_valid = (
                 await XTEventLoopProtector.execute_out_of_event_loop_and_return(
                     api.test_validity
