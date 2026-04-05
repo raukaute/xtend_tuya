@@ -85,6 +85,7 @@ class TuyaTokenInfo:
             return False
 
         if self.marked_invalid:
+            logger.debug("OpenAPI is_valid: marked_invalid = False")
             return False
 
         expiry_check = int(time.time() * 1000) + 5 * 60 * 1000
@@ -364,7 +365,7 @@ class TuyaOpenAPI:
     ) -> dict[str, Any]:
         start_time = time.time()
         self.__refresh_access_token_if_need(path, first_pass)
-        access_token = self.token_info.access_token
+        access_token = self.token_info.access_token if self.token_info.is_valid() else ""
         sign, t = self._calculate_sign(method, path, params, body)
         headers = {
             "client_id": self.access_id,
