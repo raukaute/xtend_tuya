@@ -86,7 +86,7 @@ class TuyaTokenInfo:
         if self.marked_invalid:
             return False
 
-        expiry_check = int(time.time() * 1000)
+        expiry_check = int(time.time() * 1000) + 5 * 60 * 1000
         logger.debug(
             f"OpenAPI is_valid: expiry check: {self.expire_time} <= {expiry_check}: {self.expire_time <= expiry_check}"
         )
@@ -225,13 +225,13 @@ class TuyaOpenAPI:
             logger.debug(f"Refreshing access token with refresh token: {path}")
             response = self.post(
                 TO_C_CUSTOM_REFRESH_TOKEN_API
-                + self.token_info.shared_token_info.refresh_token
+                + self.token_info.refresh_token
             )
         else:
             logger.debug(f"Refreshing access token with refresh token: {path}")
             response = self.get(
                 TO_C_SMART_HOME_REFRESH_TOKEN_API
-                + self.token_info.shared_token_info.refresh_token
+                + self.token_info.refresh_token
             )
         logger.debug(f"Refresh token response: {response}")
         self.token_info.update_token(response)
