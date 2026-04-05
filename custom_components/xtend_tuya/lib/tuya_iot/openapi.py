@@ -14,7 +14,8 @@ from .openlogging import logger
 from .tuya_enums import AuthType
 from .version import VERSION
 
-TUYA_ERROR_CODE_TOKEN_INVALID = 1010
+TUYA_ERROR_CODE_TOKEN_INVALID   = 1010
+TUYA_ERROR_SIGN_INVALID         = 1004
 
 TO_C_CUSTOM_REFRESH_TOKEN_API = "/v1.0/iot-03/users/token/"
 TO_C_SMART_HOME_REFRESH_TOKEN_API = "/v1.0/token/"
@@ -216,25 +217,8 @@ class TuyaOpenAPI:
             logger.debug("Already requesting refresh token, no need to refresh again.")
             return
 
-        if self.token_info.shared_token_info is None:
-            return
-
-        self.token_info.access_token = ""
-
-        if self.auth_type == AuthType.CUSTOM:
-            logger.debug(f"Refreshing access token with refresh token: {path}")
-            response = self.post(
-                TO_C_CUSTOM_REFRESH_TOKEN_API
-                + self.token_info.refresh_token
-            )
-        else:
-            logger.debug(f"Refreshing access token with refresh token: {path}")
-            response = self.get(
-                TO_C_SMART_HOME_REFRESH_TOKEN_API
-                + self.token_info.refresh_token
-            )
-        logger.debug(f"Refresh token response: {response}")
-        self.token_info.update_token(response)
+        if self.reconnect(no_loop=True):
+            logger.warning(f"Successfully reconnected: {self.token_info}")
 
     def set_dev_channel(self, dev_channel: str):
         """Set dev channel."""
@@ -437,12 +421,12 @@ class TuyaOpenAPI:
             # )
             pass
 
-        if result.get("code", -1) == TUYA_ERROR_CODE_TOKEN_INVALID:
+        if result.get("code", -1) in [TUYA_ERROR_CODE_TOKEN_INVALID, TUYA_ERROR_SIGN_INVALID]:
             self.token_info.mark_invalid()
             if (
                 first_pass is True
                 and path.startswith(self.__login_path) is False
-                and self.reconnect() is True
+                and path.startswith(self.__refresh_path) is False
             ):
                 return self.__request(method, path, params, body, False)
 
