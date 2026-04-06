@@ -32,7 +32,8 @@ class DeviceWatcher:
         self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
             # "bf74848d47bcd0d090ak3g": XTDeviceWatcherCategory.PLATFORM_SENSOR,
             # "vdevo172985271302839": XTDeviceWatcherCategory.PLATFORM_EVENT | XTDeviceWatcherCategory.VIRTUAL_STATE,
-            XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
+            # "bf022344b6e0cfd5dafh8e": XTDeviceWatcherCategory.MQTT,
+            # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
         }
         self.multi_manager = multi_manager
 
@@ -486,6 +487,17 @@ class XTDevice(TuyaDevice):
                         except Exception:
                             pass
         return dp_info
+    
+    @staticmethod
+    def get_empty_local_strategy_dp_id(device: XTDevice) -> int | None:
+        if not hasattr(device, "local_strategy"):
+            return None
+        base_id = 10000
+        while True:
+            if base_id in device.local_strategy:
+                base_id += 1
+                continue
+            return base_id
 
 
 class XTDeviceMap(UserDict[str, XTDevice]):

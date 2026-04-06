@@ -485,6 +485,9 @@
             },
             "unlock_user": {
                 "name": "Unlock user ({user_type})"
+            },
+            "xt_device_event_notify": {
+                "name": "Device notifications"
             }
         },
         "light": {
