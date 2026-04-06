@@ -399,7 +399,7 @@ class TuyaOpenAPI:
 
         if response.ok is False or result.get("success", True) is False:
             logger.warning(
-                f"[IOT API][{time_taken}]Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}, first_pass={first_pass}"
+                f"[IOT API][{time_taken}]Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}, first_pass={first_pass}, access_token={access_token}"
             )
             logger.warning(
                 f"[IOT API][{time_taken}]Response: {json.dumps(result, ensure_ascii=False, indent=2)}",
@@ -407,7 +407,7 @@ class TuyaOpenAPI:
             )
         if first_pass is False:
             logger.warning(
-                f"[IOT API][{time_taken}]SECOND PASS Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}, first_pass={first_pass}"
+                f"[IOT API][{time_taken}]SECOND PASS Request: {method} {path} PARAMS: {json.dumps(params, ensure_ascii=False, indent=2) if params is not None else ''} BODY: {json.dumps(body, ensure_ascii=False, indent=2) if body is not None else ''}, first_pass={first_pass}, access_token={access_token}"
             )
             logger.warning(
                 f"[IOT API][{time_taken}]SECOND PASS Response: {json.dumps(result, ensure_ascii=False, indent=2)}",
