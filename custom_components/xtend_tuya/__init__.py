@@ -17,6 +17,8 @@ from .const import (
     LOGGER,
     XTDeviceWatcherSpecialDevice,
     XTDeviceWatcherCategory,
+    MESSAGE_SOURCE_TUYA_IOT,
+    MESSAGE_SOURCE_TUYA_SHARING,
 )
 from .multi_manager.multi_manager import (
     MultiManager,
@@ -264,7 +266,7 @@ async def do_post_init_debug_test(multi_manager: MultiManager):
     await asyncio.sleep(5)
     now_ts = int(datetime.now().timestamp() * 1000)
     multi_manager.on_message(
-        source="tuya_sharing",
+        source=MESSAGE_SOURCE_TUYA_IOT,
         msg={
             "data": {
                 "bizCode": "event_notify",
