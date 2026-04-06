@@ -43,6 +43,7 @@ from .entity import (
     XTEntityDescriptorManager,
 )
 
+
 class JSONEventWrapper(DPCodeJsonWrapper[tuple[str, dict[str, Any]]]):
     """Wrapper for a string message received in a base64/UTF-8 RAW DPCode.
 
@@ -225,11 +226,8 @@ async def async_setup_entry(
         device_ids = [*device_map]
         for device_id in device_ids:
             if device := hass_data.manager.device_map.get(device_id):
-                if (
-                    category_descriptions
-                    := XTEntityDescriptorManager.get_category_descriptors(
-                        supported_descriptors, device.category
-                    )
+                if category_descriptions := XTEntityDescriptorManager.get_category_descriptors(
+                    supported_descriptors, device.category
                 ):
                     externally_managed_dpcodes = (
                         XTEntityDescriptorManager.get_category_keys(
@@ -314,7 +312,12 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
     ) -> None:
         """Init Tuya event entity."""
         try:
-            super(XTEventEntity, self).__init__(device, device_manager, description)
+            super(XTEventEntity, self).__init__(
+                device,
+                device_manager,
+                description,
+                dpcode_wrapper=definition.event_wrapper,
+            )
             super(XTEntity, self).__init__(
                 device=device,
                 device_manager=device_manager,  # type: ignore
@@ -326,7 +329,7 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         self.device = device
         self.device_manager = device_manager
         self.entity_description = description  # type: ignore
-    
+
     async def _process_device_update(
         self,
         updated_status_properties: list[str],
@@ -337,9 +340,11 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         Returns True if the Home Assistant state should be written,
         or False if the state write should be skipped.
         """
-        LOGGER.warning(f"Should skip update: {self._dpcode_wrapper.skip_update(
+        LOGGER.warning(
+            f"Should skip update: {self._dpcode_wrapper.skip_update(
             self.device, updated_status_properties, dp_timestamps
-        )}")
+        )}"
+        )
         if self._dpcode_wrapper.skip_update(
             self.device, updated_status_properties, dp_timestamps
         ) or not (event_data := self._dpcode_wrapper.read_device_status(self.device)):
@@ -348,9 +353,9 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         event_type, event_attributes = event_data
         self._trigger_event(event_type, event_attributes)
         return True
-    
+
     @property
-    def state_attributes(self) -> dict[str, Any]: # type: ignore
+    def state_attributes(self) -> dict[str, Any]:  # type: ignore
         """Return the state attributes."""
         try:
             return super().state_attributes
