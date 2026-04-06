@@ -91,7 +91,7 @@ class TuyaTokenInfo:
         expiry_check = int(time.time() * 1000) + 5 * 60 * 1000
         if self.expire_time <= expiry_check:
             logger.debug(
-                f"OpenAPI is_valid: expiry check: {self.expire_time} <= {expiry_check}: {self.expire_time <= expiry_check}"
+                f"OpenAPI is_valid: expiry check: {self.expire_time} <= {expiry_check}: True"
             )
             return False
 
@@ -142,7 +142,7 @@ class TuyaOpenAPI:
             self.__refresh_path = TO_C_SMART_HOME_REFRESH_TOKEN_API
 
         self.non_user_specific_api = non_user_specific_api
-        self.token_info = TuyaTokenInfo(shared_token_info=shared_token_info)
+        self.token_info = TuyaTokenInfo() #(shared_token_info=shared_token_info)
         self.shared_token = shared_token_info
 
         self.dev_channel: str = ""
@@ -218,7 +218,7 @@ class TuyaOpenAPI:
             logger.debug("Already requesting refresh token, no need to refresh again.")
             return
 
-        if self.reconnect(no_loop=True):
+        if self.reconnect(no_loop=False):
             logger.warning(f"Successfully reconnected: {self.token_info}")
 
     def set_dev_channel(self, dev_channel: str):
@@ -345,14 +345,15 @@ class TuyaOpenAPI:
                 self.__username, self.__password, self.__country_code, self.__schema
             )
         elif self.token_info.is_reconnecting() is True and no_loop is False:
-            wait_time = 0.5
+            wait_time = 0.2
             loop_pass = 0
-            # logger.debug("Already connecting to tuya cloud, wait for it to finish.")
+            logger.debug("Already connecting to tuya cloud, wait for it to finish.")
             while self.token_info.is_reconnecting() is True:
                 time.sleep(wait_time)
                 loop_pass += 1
-            # logger.debug(f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds.")
-            return self.reconnect(no_loop=True)
+            if self.token_info.is_valid() is False:
+                return self.reconnect(no_loop=True)
+            logger.debug(f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds.")
         return self.is_token_valid()
 
     def __request(
