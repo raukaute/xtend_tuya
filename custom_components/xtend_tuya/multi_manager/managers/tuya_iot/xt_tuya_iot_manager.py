@@ -317,7 +317,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                             "devId": device_id,
                             "status": [
                                 {
-                                    "code": XT_DEVICE_EVENT_NOTIFY_DPCODE,
+                                    "code": str(XT_DEVICE_EVENT_NOTIFY_DPCODE),
                                     "t": event_time,
                                     "value": json.dumps(data_value),
                                 }
