@@ -22,6 +22,7 @@ from ..const import (
     XTLockingMechanism,
     MESSAGE_SOURCE_TUYA_SHARING,
     XTDeviceWatcherCategory,
+    XT_DEVICE_EVENT_NOTIFY_DPCODE,
 )
 from .shared.shared_classes import (
     DeviceWatcher,
@@ -29,6 +30,10 @@ from .shared.shared_classes import (
     XTDeviceMap,
     XTDevice,
     XTTrackedDictionnary,
+    XTDeviceStatusRange,
+)
+from ..ha_tuya_integration.tuya_integration_imports import (
+    TuyaDPType,
 )
 from .shared.threading import (
     XTConcurrencyManager,
@@ -135,7 +140,7 @@ class MultiManager:  # noqa: F811
                             package=__package__,
                         )
                     )
-                    #LOGGER.debug(f"Plugin {load_path} loaded")
+                    # LOGGER.debug(f"Plugin {load_path} loaded")
                     instance: XTDeviceManagerInterface = plugin.get_plugin_instance()
                     concurrency_manager.add_coroutine(
                         instance.setup_from_entry(self.hass, self.config_entry, self)
@@ -204,14 +209,31 @@ class MultiManager:  # noqa: F811
             CloudFixes.apply_fixes(device, self)
             CloudFixes.apply_fixes(device, self)
 
+            self._add_dpcodes_supported_by_all_devices(device)
+
             # Don't allow changes to DPCodes after the global initialization
             device.force_compatibility = True
         self._enable_multi_map_device_alignment()
         self._process_pending_messages()
         for device in self.device_map.values():
-             if self.device_watcher.is_watched(device.id, [XTDeviceWatcherCategory.STATUS_CHANGES]):
+            if self.device_watcher.is_watched(
+                device.id, [XTDeviceWatcherCategory.STATUS_CHANGES]
+            ):
                 if isinstance(device.status, XTTrackedDictionnary) is False:
-                    device.status = XTTrackedDictionnary(device.status) # type: ignore
+                    device.status = XTTrackedDictionnary(device.status)  # type: ignore
+
+    def _add_dpcodes_supported_by_all_devices(self, device: XTDevice):
+        # Events can be triggered device wide by the BizCode "event_notify"
+        if XT_DEVICE_EVENT_NOTIFY_DPCODE not in device.status:
+            device.status[XT_DEVICE_EVENT_NOTIFY_DPCODE] = "{}"
+            device.status_range[XT_DEVICE_EVENT_NOTIFY_DPCODE] = XTDeviceStatusRange(
+                code=XT_DEVICE_EVENT_NOTIFY_DPCODE,
+                type=TuyaDPType.JSON,
+                values="{}",
+                dp_id=0,
+                report_type=None,
+            )
+        pass
 
     def _process_pending_messages(self):
         self.is_ready_for_messages = True

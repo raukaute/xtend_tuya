@@ -3,14 +3,20 @@ This file contains all the code that inherit from Tuya integration
 """
 
 from __future__ import annotations
-from typing import Any
+from typing import Any, cast
+import json
 from tuya_sharing.manager import (
     Manager,
     SceneRepository,
     UserRepository,
-    BIZCODE_OFFLINE,
+    PROTOCOL_DEVICE_REPORT,
+    PROTOCOL_OTHER,
     BIZCODE_ONLINE,
+    BIZCODE_OFFLINE,
+    BIZCODE_NAME_UPDATE,
+    BIZCODE_DPNAME_UPDATE,
     BIZCODE_BIND_USER,
+    BIZCODE_DELETE,
 )
 from tuya_sharing.home import (
     SmartLifeHome,
@@ -25,6 +31,8 @@ from ....const import (
     XTLockingMechanism,
     LOGGER,  # noqa: F401
     XTDeviceWatcherCategory,
+    BIZCODE_EVENT_NOTIFY,
+    XT_DEVICE_EVENT_NOTIFY_DPCODE,
 )
 from ...multi_manager import (
     MultiManager,
@@ -158,18 +166,20 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
                 self.device_repository.update_device_strategy_info(new_device)
                 self.device_map[device.id] = new_device
 
-    def _on_device_other(self, device_id: str, biz_code: str, data: dict[str, Any]):
-        self.multi_manager.device_watcher.report_message(
-            device_id,
-            f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device other: {biz_code} <=> {data}",
-            XTDeviceWatcherCategory.MQTT,
-        )
-        if biz_code == BIZCODE_BIND_USER:
-            self.multi_manager.add_device_by_id(device_id)
-        else:
-            super()._on_device_other(device_id, biz_code, data)
-        if biz_code in [BIZCODE_ONLINE, BIZCODE_OFFLINE]:
-            self.multi_manager.update_device_online_status(device_id)
+    def on_message(self, msg: dict[str, Any]):
+        try:
+            protocol = msg.get("protocol", 0)
+            data: dict[str, Any] = msg.get("data", {})
+
+            if protocol == PROTOCOL_DEVICE_REPORT:
+                self._on_device_report(data["devId"], data["status"])
+            if protocol == PROTOCOL_OTHER and data.get("bizCode") is not None:
+                bizcode: str = cast(str, data.get("bizCode"))
+                dev_id: str | None = data.get("bizData", {}).get("devId")
+                if dev_id is not None:
+                    self._on_device_other(dev_id, bizcode, data)
+        except Exception as e:
+            LOGGER.error(f"on message error = {e}")
 
     def add_device_by_id(self, device_id: str):
         device_ids = [device_id]
@@ -182,6 +192,58 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
                 self.mq.subscribe_device(device_id, device)
                 for listener in self.device_listeners:
                     listener.add_device(device)
+
+    def _on_device_other(self, device_id: str, biz_code: str, data: dict[str, Any]):
+        self.multi_manager.device_watcher.report_message(
+            device_id,
+            f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device other: {biz_code} <=> {data}",
+            XTDeviceWatcherCategory.MQTT,
+        )
+        if biz_code not in [
+            BIZCODE_ONLINE,
+            BIZCODE_OFFLINE,
+            BIZCODE_NAME_UPDATE,
+            BIZCODE_DPNAME_UPDATE,
+            BIZCODE_BIND_USER,
+            BIZCODE_DELETE,
+            BIZCODE_EVENT_NOTIFY,
+        ]:
+            LOGGER.warning(
+                f"Received unknown BizCode type: {biz_code} with data {data}, please report this to the developer"
+            )
+        if biz_code == BIZCODE_BIND_USER:
+            self.multi_manager.add_device_by_id(device_id)
+        elif biz_code == BIZCODE_EVENT_NOTIFY:
+            data_value: dict[str, Any] = {}
+            biz_data: dict[str, Any] = data.get("bizData", {})
+            if event_type := biz_data.get("etype"):
+                data_value["event_type"] = event_type
+            if event_data := biz_data.get("edata"):
+                data_value["event_data"] = event_data
+            if event_time := data.get("ts"):
+                data_value["event_time"] = event_time
+            if data_value and event_time is not None:
+                self.multi_manager.on_message(
+                    source=MESSAGE_SOURCE_TUYA_SHARING,
+                    msg={
+                        "protocol": PROTOCOL_DEVICE_REPORT,
+                        "data": {
+                            "devId": device_id,
+                            "status": [
+                                {
+                                    "code": XT_DEVICE_EVENT_NOTIFY_DPCODE,
+                                    "t": event_time,
+                                    "value": json.dumps(data_value),
+                                }
+                            ],
+                        },
+                        "t": event_time,
+                    },
+                )
+        else:
+            super()._on_device_other(device_id, biz_code, data)
+        if biz_code in [BIZCODE_ONLINE, BIZCODE_OFFLINE]:
+            self.multi_manager.update_device_online_status(device_id)
 
     def _on_device_report(self, device_id: str, status: list):
         self.multi_manager.device_watcher.report_message(

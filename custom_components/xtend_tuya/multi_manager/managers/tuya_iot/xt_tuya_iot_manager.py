@@ -11,7 +11,13 @@ from ....lib.tuya_iot import (
     TuyaDeviceManager,
 )
 from ....lib.tuya_iot.device import (
+    BIZCODE_ONLINE,
+    BIZCODE_OFFLINE,
+    BIZCODE_NAME_UPDATE,
+    BIZCODE_DPNAME_UPDATE,
     BIZCODE_BIND_USER,
+    BIZCODE_DELETE,
+    PROTOCOL_DEVICE_REPORT,
 )
 from ....lib.tuya_iot.tuya_enums import (
     AuthType,
@@ -28,6 +34,8 @@ from ....const import (
     XTLockingMechanism,
     TUYA_TEST_API_BAD_RETURN_CODES,
     XTDeviceWatcherCategory,
+    BIZCODE_EVENT_NOTIFY,
+    XT_DEVICE_EVENT_NOTIFY_DPCODE,
 )
 from ...shared.shared_classes import (
     XTDevice,
@@ -276,11 +284,50 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             f"[{MESSAGE_SOURCE_TUYA_IOT}]On device other: {biz_code} <=> {data}",
             XTDeviceWatcherCategory.MQTT,
         )
+        if biz_code not in [
+            BIZCODE_ONLINE,
+            BIZCODE_OFFLINE,
+            BIZCODE_NAME_UPDATE,
+            BIZCODE_DPNAME_UPDATE,
+            BIZCODE_BIND_USER,
+            BIZCODE_DELETE,
+            BIZCODE_EVENT_NOTIFY,
+        ]:
+            LOGGER.warning(
+                f"Received unknown BizCode type: {biz_code} with data {data}, please report this to the developer"
+            )
         if biz_code == BIZCODE_BIND_USER:
             self.multi_manager.add_device_by_id(data["devId"])
             return None
-
-        return super()._on_device_other(device_id, biz_code, data)
+        elif biz_code == BIZCODE_EVENT_NOTIFY:
+            data_value: dict[str, Any] = {}
+            biz_data: dict[str, Any] = data.get("bizData", {})
+            if event_type := biz_data.get("etype"):
+                data_value["event_type"] = event_type
+            if event_data := biz_data.get("edata"):
+                data_value["event_data"] = event_data
+            if event_time := data.get("ts"):
+                data_value["event_time"] = event_time
+            if data_value and event_time is not None:
+                self.multi_manager.on_message(
+                    source=MESSAGE_SOURCE_TUYA_IOT,
+                    msg={
+                        "protocol": PROTOCOL_DEVICE_REPORT,
+                        "data": {
+                            "devId": device_id,
+                            "status": [
+                                {
+                                    "code": XT_DEVICE_EVENT_NOTIFY_DPCODE,
+                                    "t": event_time,
+                                    "value": json.dumps(data_value),
+                                }
+                            ],
+                        },
+                        "t": event_time,
+                    },
+                )
+        else:
+            super()._on_device_other(device_id, biz_code, data)
 
     def add_device_by_id(self, device_id: str):
         device_ids = [device_id]

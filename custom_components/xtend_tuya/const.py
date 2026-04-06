@@ -1066,6 +1066,7 @@ class XTDPCode(StrEnum):
     XT_ADD_ELE2_TODAY = "xt_add_ele2_today"
     XT_COVER_INVERT_CONTROL = "xt_cover_invert_control"
     XT_COVER_INVERT_STATUS = "xt_cover_invert_status"
+    XT_DEVICE_EVENT_NOTIFY = "xt_device_event_notify"
     XT_FORWARD_ENERGY_TOTAL = "xt_forward_energy_total"
     XT_FORWARD_ENERGY_TOTAL_THIS_MONTH = "xt_forward_energy_total_this_month"
     XT_FORWARD_ENERGY_TOTAL_THIS_YEAR = "xt_forward_energy_total_this_year"
@@ -1166,6 +1167,9 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "switch_wrap": None,
     "valve_open_degree": None,
 }
+
+XT_DEVICE_EVENT_NOTIFY_DPCODE = XTDPCode.XT_DEVICE_EVENT_NOTIFY
+BIZCODE_EVENT_NOTIFY = "event_notify"
 
 class XTEntityAccessMode(StrEnum):
     READ_ONLY = "ro"

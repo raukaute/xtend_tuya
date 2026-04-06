@@ -14,6 +14,7 @@ from tuya_device_handlers.definition.event import (
 )
 from tuya_device_handlers.device_wrapper.common import (
     DPCodeIntegerWrapper,
+    DPCodeJsonWrapper,
 )
 from .util import (
     restrict_descriptor_category,
@@ -29,6 +30,8 @@ from .const import (
     XTDPCode,
     XTDeviceWatcherCategory,  # noqa: F401
     VirtualStates,
+    CROSS_CATEGORY_DEVICE_DESCRIPTOR,
+    XT_DEVICE_EVENT_NOTIFY_DPCODE,
 )
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaEventEntity,
@@ -40,6 +43,25 @@ from .entity import (
     XTEntityDescriptorManager,
 )
 
+class JSONEventWrapper(DPCodeJsonWrapper[tuple[str, dict[str, Any]]]):
+    """Wrapper for a string message received in a base64/UTF-8 RAW DPCode.
+
+    Raises 'triggered' event, with the message in the event attributes.
+    """
+
+    def __init__(self, dpcode: str, type_information: Any) -> None:
+        """Init IntegerEventWrapper."""
+        super().__init__(dpcode, type_information)
+        self.options = [f"{self.dpcode}"]
+
+    def read_device_status(
+        self, device: TuyaCustomerDevice
+    ) -> tuple[str, dict[str, Any]] | None:
+        """Return the event with message attribute."""
+        if (status := self._read_dpcode_value(device)) is None:
+            return None
+        return (f"{self.dpcode}", status)
+
 
 class IntegerEventWrapper(DPCodeIntegerWrapper[tuple[str, dict[str, Any]]]):
     """Wrapper for a string message received in a base64/UTF-8 RAW DPCode.
@@ -48,7 +70,7 @@ class IntegerEventWrapper(DPCodeIntegerWrapper[tuple[str, dict[str, Any]]]):
     """
 
     def __init__(self, dpcode: str, type_information: Any) -> None:
-        """Init Base64Utf8RawEventWrapper."""
+        """Init IntegerEventWrapper."""
         super().__init__(dpcode, type_information)
         self.options = [f"{self.dpcode}"]
 
@@ -92,6 +114,14 @@ class XTEventEntityDescription(TuyaEventEntityDescription):
 # end up being events.
 # https://developer.tuya.com/en/docs/iot/standarddescription?id=K9i5ql6waswzq
 EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
+    CROSS_CATEGORY_DEVICE_DESCRIPTOR: (
+        XTEventEntityDescription(
+            key=XT_DEVICE_EVENT_NOTIFY_DPCODE,
+            translation_key="xt_device_event_notify",
+            device_class=None,
+            wrapper_class=JSONEventWrapper,
+        ),
+    ),
     # Smart Lock - Track who unlocked the door
     "jtmspro": (
         XTEventEntityDescription(
