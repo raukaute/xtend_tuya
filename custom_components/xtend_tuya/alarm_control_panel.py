@@ -3,6 +3,10 @@
 from __future__ import annotations
 from typing import cast
 from dataclasses import dataclass
+from tuya_device_handlers.definition.alarm_control_panel import (
+    TuyaAlarmControlPanelDefinition,
+    get_default_definition,
+)
 from homeassistant.const import (
     Platform,
 )
@@ -35,11 +39,13 @@ class XTAlarmEntityDescription(TuyaAlarmControlPanelEntityDescription):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTAlarmEntityDescription,
+        definition: TuyaAlarmControlPanelDefinition,
     ) -> XTAlarmEntity:
         return XTAlarmEntity(
             device=device,
             device_manager=device_manager,
             description=XTAlarmEntityDescription(**description.__dict__),
+            definition=definition,
         )
 
 
@@ -97,12 +103,13 @@ async def async_setup_entry(
                         category_descriptions,
                         True,
                         externally_managed_dpcodes,
-                    ):
+                    ) and (definition := get_default_definition(device)):
                         entities.append(
                             XTAlarmEntity.get_entity_instance(
-                                category_descriptions,
-                                device,
-                                hass_data.manager,
+                                device=device,
+                                device_manager=hass_data.manager,
+                                description=category_descriptions,
+                                definition=definition,
                             )
                         )
                     if XTEntity.supports_description(
@@ -111,12 +118,13 @@ async def async_setup_entry(
                         category_descriptions,
                         False,
                         externally_managed_dpcodes,
-                    ):
+                    ) and (definition := get_default_definition(device)):
                         entities.append(
                             XTAlarmEntity.get_entity_instance(
-                                category_descriptions,
-                                device,
-                                hass_data.manager,
+                                device=device,
+                                device_manager=hass_data.manager,
+                                description=category_descriptions,
+                                definition=definition,
                             )
                         )
         async_add_entities(entities)
@@ -135,20 +143,32 @@ class XTAlarmEntity(XTEntity, TuyaAlarmEntity):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTAlarmEntityDescription,
+        definition: TuyaAlarmControlPanelDefinition,
     ) -> None:
         super(XTAlarmEntity, self).__init__(device, device_manager, description)
         super(XTEntity, self).__init__(device, device_manager, description)  # type: ignore
 
     @staticmethod
     def get_entity_instance(
-        description: XTAlarmEntityDescription,
         device: XTDevice,
         device_manager: MultiManager,
+        description: XTAlarmEntityDescription,
+        definition: TuyaAlarmControlPanelDefinition,
     ) -> XTAlarmEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")
         ):
-            return description.get_entity_instance(device, device_manager, description)
+            return description.get_entity_instance(
+                device=device,
+                device_manager=device_manager,
+                description=description,
+                definition=definition,
+            )
         return XTAlarmEntity(
-            device, device_manager, XTAlarmEntityDescription(**description.__dict__)
+            device=device,
+            device_manager=device_manager,
+            description=XTAlarmEntityDescription(
+                **description.__dict__,
+            ),
+            definition=definition,
         )
