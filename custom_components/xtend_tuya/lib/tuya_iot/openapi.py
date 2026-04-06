@@ -42,6 +42,7 @@ class TuyaTokenInfo:
     ):
         """Init TuyaTokenInfo."""
         self.shared_token_info = shared_token_info
+        self.reconnecting = False
         self.update_token(token_response=token_response)
 
     def update_token(self, token_response: dict[str, Any] = {}):
@@ -56,7 +57,6 @@ class TuyaTokenInfo:
         self.uid = result.get("uid", "")
         self.success = token_response.get("success", False)
         self.marked_invalid = False
-        self.reconnecting = False
         logger.debug(f"Refreshing TuyaTokenInfo: {token_response} => {self}")
         if self.shared_token_info is not None:
             self.shared_token_info.update_token(token_response=token_response)
@@ -85,14 +85,14 @@ class TuyaTokenInfo:
             return False
 
         if self.marked_invalid:
-            logger.debug("OpenAPI is_valid: marked_invalid = False")
+            logger.debug("OpenAPI is_valid: marked_invalid = True")
             return False
 
         expiry_check = int(time.time() * 1000) + 5 * 60 * 1000
-        logger.debug(
-            f"OpenAPI is_valid: expiry check: {self.expire_time} <= {expiry_check}: {self.expire_time <= expiry_check}"
-        )
         if self.expire_time <= expiry_check:
+            logger.debug(
+                f"OpenAPI is_valid: expiry check: {self.expire_time} <= {expiry_check}: {self.expire_time <= expiry_check}"
+            )
             return False
 
         return True
