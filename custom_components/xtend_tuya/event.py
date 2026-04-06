@@ -351,7 +351,10 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         updated_status_properties: list[str] | None,
         dp_timestamps: dict[str, int] | None,
     ) -> None:
-        LOGGER.warning(f"_handle_state_update of {self.get_dptype_from_dpcode_wrapper()} => {updated_status_properties=} => {dp_timestamps=}")
+        LOGGER.warning(
+            f"_handle_state_update of {self.get_dptype_from_dpcode_wrapper()} => {updated_status_properties=} => {dp_timestamps=}",
+            stack_info=True,
+        )
         await super()._handle_state_update(
             updated_status_properties=updated_status_properties,
             dp_timestamps=dp_timestamps,

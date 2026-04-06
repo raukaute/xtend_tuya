@@ -23,6 +23,7 @@ from ..const import (
     MESSAGE_SOURCE_TUYA_SHARING,
     XTDeviceWatcherCategory,
     XT_DEVICE_EVENT_NOTIFY_DPCODE,
+    XTEntityAccessMode,
 )
 from .shared.shared_classes import (
     DeviceWatcher,
@@ -224,16 +225,32 @@ class MultiManager:  # noqa: F811
 
     def _add_dpcodes_supported_by_all_devices(self, device: XTDevice):
         # Events can be triggered device wide by the BizCode "event_notify"
-        if XT_DEVICE_EVENT_NOTIFY_DPCODE not in device.status:
+        if XT_DEVICE_EVENT_NOTIFY_DPCODE not in device.status and (
+            (dpId := XTDevice.get_empty_local_strategy_dp_id(device=device)) is not None
+        ):
+            code = str(XT_DEVICE_EVENT_NOTIFY_DPCODE)
             device.status[XT_DEVICE_EVENT_NOTIFY_DPCODE] = "{}"
             device.status_range[XT_DEVICE_EVENT_NOTIFY_DPCODE] = XTDeviceStatusRange(
                 code=XT_DEVICE_EVENT_NOTIFY_DPCODE,
                 type=TuyaDPType.JSON,
                 values="{}",
-                dp_id=0,
+                dp_id=dpId,
                 report_type=None,
             )
-        pass
+            device.local_strategy[dpId] = {
+                "value_convert": "default",
+                "status_code": code,
+                "config_item": {
+                    "statusFormat": f'{{"{code}":"$"}}',
+                    "valueDesc": "{}",
+                    "valueType": TuyaDPType.JSON,
+                    "pid": device.product_id,
+                },
+                "property_update": False,
+                "use_open_api": False,
+                "access_mode": XTEntityAccessMode.READ_ONLY,
+                "status_code_alias": [],
+            }
 
     def _process_pending_messages(self):
         self.is_ready_for_messages = True

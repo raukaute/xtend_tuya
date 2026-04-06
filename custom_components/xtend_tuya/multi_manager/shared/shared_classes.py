@@ -487,6 +487,17 @@ class XTDevice(TuyaDevice):
                         except Exception:
                             pass
         return dp_info
+    
+    @staticmethod
+    def get_empty_local_strategy_dp_id(device: XTDevice) -> int | None:
+        if not hasattr(device, "local_strategy"):
+            return None
+        base_id = 10000
+        while True:
+            if base_id in device.local_strategy:
+                base_id += 1
+                continue
+            return base_id
 
 
 class XTDeviceMap(UserDict[str, XTDevice]):
