@@ -346,6 +346,17 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         self.device_manager = device_manager
         self.entity_description = description  # type: ignore
 
+    async def _handle_state_update(
+        self,
+        updated_status_properties: list[str] | None,
+        dp_timestamps: dict[str, int] | None,
+    ) -> None:
+        LOGGER.warning(f"_handle_state_update of {self.get_dptype_from_dpcode_wrapper()} => {updated_status_properties=} => {dp_timestamps=}")
+        await super()._handle_state_update(
+            updated_status_properties=updated_status_properties,
+            dp_timestamps=dp_timestamps,
+        )
+
     async def _process_device_update(
         self,
         updated_status_properties: list[str],

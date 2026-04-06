@@ -452,17 +452,6 @@ class XTEntity(TuyaEntity):
             # In case we have an error, do nothing
             pass
 
-    async def _handle_state_update(
-        self,
-        updated_status_properties: list[str] | None,
-        dp_timestamps: dict[str, int] | None,
-    ) -> None:
-        LOGGER.warning(f"_handle_state_update of {self.get_dptype_from_dpcode_wrapper()} => {updated_status_properties=} => {dp_timestamps=}")
-        await super()._handle_state_update(
-            updated_status_properties=updated_status_properties,
-            dp_timestamps=dp_timestamps,
-        )
-
     def get_type_information(self) -> TuyaTypeInformation | None:
         if self.dpcode_wrapper is None:
             return None
