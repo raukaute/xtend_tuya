@@ -64,15 +64,22 @@ class JSONEventWrapper(DPCodeJsonWrapper[tuple[str, dict[str, Any]]]):
         if status is None:
             return None
         return (f"{self.dpcode}", status)
-    
+
     def skip_update(
         self,
         device: TuyaCustomerDevice,
         updated_status_properties: list[str],
         dp_timestamps: dict[str, int] | None = None,
     ) -> bool:
-        LOGGER.warning("Calling JSONEventWrapper skip_update")
-        return False
+        LOGGER.warning(
+            f"Calling JSONEventWrapper skip_update: {updated_status_properties=} {dp_timestamps=}",
+            stack_info=True,
+        )
+        return super().skip_update(
+            device=device,
+            updated_status_properties=updated_status_properties,
+            dp_timestamps=dp_timestamps,
+        )
 
 
 class IntegerEventWrapper(DPCodeIntegerWrapper[tuple[str, dict[str, Any]]]):
