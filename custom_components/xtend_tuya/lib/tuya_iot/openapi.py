@@ -57,7 +57,7 @@ class TuyaTokenInfo:
         self.uid = result.get("uid", "")
         self.success = token_response.get("success", False)
         self.marked_invalid = False
-        logger.debug(f"Refreshing TuyaTokenInfo: {token_response} => {self}")
+        # logger.debug(f"Refreshing TuyaTokenInfo: {token_response} => {self}")
         if self.shared_token_info is not None:
             self.shared_token_info.update_token(token_response=token_response)
 
@@ -81,18 +81,18 @@ class TuyaTokenInfo:
 
     def is_valid(self) -> bool:
         if self.success is False:
-            logger.debug("OpenAPI is_valid: sucess = False")
+            # logger.debug("OpenAPI is_valid: sucess = False")
             return False
 
         if self.marked_invalid:
-            logger.debug("OpenAPI is_valid: marked_invalid = True")
+            # logger.debug("OpenAPI is_valid: marked_invalid = True")
             return False
 
         expiry_check = int(time.time() * 1000) + 5 * 60 * 1000
         if self.expire_time <= expiry_check:
-            logger.debug(
-                f"OpenAPI is_valid: expiry check: {self.expire_time} <= {expiry_check}: True"
-            )
+            # logger.debug(
+            #     f"OpenAPI is_valid: expiry check: {self.expire_time} <= {expiry_check}: True"
+            # )
             return False
 
         return True
@@ -208,18 +208,19 @@ class TuyaOpenAPI:
     def __refresh_access_token_if_need(self, path: str, first_pass: bool):
         # logger.debug(f"Check if need to refresh access token. {self.token_info}")
         if first_pass is False:
-            logger.debug("Not the first pass, do not refresh access token again.")
+            # logger.debug("Not the first pass, do not refresh access token again.")
             return
         if self.token_info.is_valid() is True:
-            logger.debug("Access token is valid, no need to refresh.")
+            # logger.debug("Access token is valid, no need to refresh.")
             return
 
         if path.startswith(self.__refresh_path) or path.startswith(self.__login_path):
-            logger.debug("Already requesting refresh token, no need to refresh again.")
+            # logger.debug("Already requesting refresh token, no need to refresh again.")
             return
 
         if self.reconnect(no_loop=False):
-            logger.warning(f"Successfully reconnected: {self.token_info}")
+            # logger.warning(f"Successfully reconnected: {self.token_info}")
+            pass
 
     def set_dev_channel(self, dev_channel: str):
         """Set dev channel."""
@@ -347,14 +348,14 @@ class TuyaOpenAPI:
         elif self.token_info.is_reconnecting() is True and no_loop is False:
             wait_time = 0.2
             loop_pass = 0
-            logger.debug("Already connecting to tuya cloud, wait for it to finish.")
+            #logger.debug("Already connecting to tuya cloud, wait for it to finish.")
             while self.token_info.is_reconnecting() is True:
                 time.sleep(wait_time)
                 loop_pass += 1
             if self.token_info.is_valid() is False:
                 return self.reconnect(no_loop=True)
             logger.debug(
-                f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds."
+                f"Waited {wait_time * loop_pass} seconds for reconnection."
             )
         return self.is_token_valid()
 
