@@ -3,6 +3,7 @@
 from __future__ import annotations
 import logging
 import asyncio
+import time
 from datetime import datetime
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
@@ -255,6 +256,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
         None,
         False,
     )
+    await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+        multi_manager.refresh_mq, multi_manager
+    )
+    return True
+
+def do_post_init_debug_test(multi_manager: MultiManager):
+    time.sleep(5)
+    now_ts = int(datetime.now().timestamp())
     multi_manager.on_message(
         source="tuya_sharing",
         msg={
@@ -267,17 +276,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
                 },
                 "devId": "bf022344b6e0cfd5dafh8e",
                 "productKey": "qi0vjgvbtzun2bbr",
-                "ts": 1775493014088,
+                "ts": now_ts,
                 "uuid": "ybgd878b9650a590a7b6",
             },
             "protocol": 20,
             "pv": "2.0",
             "sign": "0ad63e7159429f021c3308ba73eba811",
-            "t": 1775493014096,
+            "t": now_ts,
         },
     )
-    return True
-
 
 async def cleanup_duplicated_devices(
     hass: HomeAssistant, current_entry: ConfigEntry
