@@ -58,7 +58,9 @@ class JSONEventWrapper(DPCodeJsonWrapper[tuple[str, dict[str, Any]]]):
         self, device: TuyaCustomerDevice
     ) -> tuple[str, dict[str, Any]] | None:
         """Return the event with message attribute."""
-        if (status := self._read_dpcode_value(device)) is None:
+        status = self._read_dpcode_value(device)
+        LOGGER.warning(f"Returned status: {status}")
+        if status is None:
             return None
         return (f"{self.dpcode}", status)
 
