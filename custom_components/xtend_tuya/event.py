@@ -346,44 +346,6 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         self.device_manager = device_manager
         self.entity_description = description  # type: ignore
 
-    async def _handle_state_update(
-        self,
-        updated_status_properties: list[str] | None,
-        dp_timestamps: dict[str, int] | None,
-    ) -> None:
-        LOGGER.warning(
-            f"_handle_state_update of {self.get_dptype_from_dpcode_wrapper()} => {updated_status_properties=} => {dp_timestamps=}",
-            stack_info=True,
-        )
-        await super()._handle_state_update(
-            updated_status_properties=updated_status_properties,
-            dp_timestamps=dp_timestamps,
-        )
-
-    async def _process_device_update(
-        self,
-        updated_status_properties: list[str],
-        dp_timestamps: dict[str, int] | None,
-    ) -> bool:
-        """Called when Tuya device sends an update with updated properties.
-
-        Returns True if the Home Assistant state should be written,
-        or False if the state write should be skipped.
-        """
-        LOGGER.warning(
-            f"Should skip update: {self._dpcode_wrapper.skip_update(
-            self.device, updated_status_properties, dp_timestamps
-        )}"
-        )
-        if self._dpcode_wrapper.skip_update(
-            self.device, updated_status_properties, dp_timestamps
-        ) or not (event_data := self._dpcode_wrapper.read_device_status(self.device)):
-            return False
-
-        event_type, event_attributes = event_data
-        self._trigger_event(event_type, event_attributes)
-        return True
-
     @property
     def state_attributes(self) -> dict[str, Any]:  # type: ignore
         """Return the state attributes."""
