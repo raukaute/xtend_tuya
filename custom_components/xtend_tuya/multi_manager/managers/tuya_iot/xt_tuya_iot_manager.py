@@ -345,7 +345,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             for listener in self.device_listeners:
                 listener.add_device(device)
 
-    def _on_device_report(self, device_id: str, status: list):
+    def _on_device_report(self, device_id: str, status: list[dict[str, Any]]):
         self.multi_manager.device_watcher.report_message(
             device_id,
             f"[{MESSAGE_SOURCE_TUYA_IOT}]On device report: {device_id=} {status=}",
@@ -354,6 +354,8 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         device = self.device_map.get(device_id, None)
         if not device:
             return
+        updated_status_properties = []
+        dp_timestamps = {}
         status_new = self.multi_manager.convert_device_report_status_list(
             device_id,
             status,
@@ -370,8 +372,24 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 code = item["code"]
                 value = item["value"]
                 device.status[code] = value
+                updated_status_properties.append(code)
+                if t := item.get("t"):
+                    dp_timestamps[code] = t
 
-        super()._on_device_report(device_id, [])
+        self._update_device(
+            device=device,
+            updated_status_properties=updated_status_properties,
+            dp_timestamps=dp_timestamps,
+        )
+
+    def _update_device(
+        self,
+        device: XTDevice,
+        updated_status_properties: list[str] | None = None,
+        dp_timestamps: dict | None = None,
+    ):
+        for listener in self.device_listeners:
+            listener.update_device(device, updated_status_properties, dp_timestamps)
 
     def _update_device_list_info_cache(self, devIds: list[str]):
         response = self.get_device_list_info(devIds)

@@ -272,7 +272,7 @@ class XTVirtualStateHandler:
         device: shared.XTDevice,
         status_in: list[dict[str, Any]],
         source: str | None = None,
-    ) -> list:
+    ) -> list[dict[str, Any]]:
         if not status_in:
             return status_in
         status = copy.deepcopy(status_in)
