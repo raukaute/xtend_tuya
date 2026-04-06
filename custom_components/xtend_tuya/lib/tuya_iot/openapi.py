@@ -14,8 +14,8 @@ from .openlogging import logger
 from .tuya_enums import AuthType
 from .version import VERSION
 
-TUYA_ERROR_CODE_TOKEN_INVALID   = 1010
-TUYA_ERROR_SIGN_INVALID         = 1004
+TUYA_ERROR_CODE_TOKEN_INVALID = 1010
+TUYA_ERROR_SIGN_INVALID = 1004
 
 TO_C_CUSTOM_REFRESH_TOKEN_API = "/v1.0/iot-03/users/token/"
 TO_C_SMART_HOME_REFRESH_TOKEN_API = "/v1.0/token/"
@@ -142,7 +142,7 @@ class TuyaOpenAPI:
             self.__refresh_path = TO_C_SMART_HOME_REFRESH_TOKEN_API
 
         self.non_user_specific_api = non_user_specific_api
-        self.token_info = TuyaTokenInfo() #(shared_token_info=shared_token_info)
+        self.token_info = TuyaTokenInfo()  # (shared_token_info=shared_token_info)
         self.shared_token = shared_token_info
 
         self.dev_channel: str = ""
@@ -227,12 +227,12 @@ class TuyaOpenAPI:
 
     def test_validity(self) -> bool:
         response = self.get("/v2.0/cloud/space/child")
-        if success := response.get("success", False):
-            if success is False:
-                logger.error(
-                    f"Test API validity failed: AuthType: {self.auth_type} <=> {response}"
-                )
-            return success is True
+        if response.get("success", False):
+            return True
+        else:
+            logger.error(
+                f"Test API validity failed: AuthType: {self.auth_type} <=> {response}"
+            )
         return False
 
     def connect(
@@ -353,7 +353,9 @@ class TuyaOpenAPI:
                 loop_pass += 1
             if self.token_info.is_valid() is False:
                 return self.reconnect(no_loop=True)
-            logger.debug(f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds.")
+            logger.debug(
+                f"Wait for connecting to finish. Waited {wait_time * loop_pass} seconds."
+            )
         return self.is_token_valid()
 
     def __request(
@@ -366,7 +368,9 @@ class TuyaOpenAPI:
     ) -> dict[str, Any]:
         start_time = time.time()
         self.__refresh_access_token_if_need(path, first_pass)
-        access_token = self.token_info.access_token if self.token_info.is_valid() else ""
+        access_token = (
+            self.token_info.access_token if self.token_info.is_valid() else ""
+        )
         sign, t = self._calculate_sign(method, path, params, body)
         headers = {
             "client_id": self.access_id,
@@ -423,7 +427,10 @@ class TuyaOpenAPI:
             # )
             pass
 
-        if result.get("code", -1) in [TUYA_ERROR_CODE_TOKEN_INVALID, TUYA_ERROR_SIGN_INVALID]:
+        if result.get("code", -1) in [
+            TUYA_ERROR_CODE_TOKEN_INVALID,
+            TUYA_ERROR_SIGN_INVALID,
+        ]:
             self.token_info.mark_invalid()
             if (
                 first_pass is True
