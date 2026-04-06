@@ -337,6 +337,9 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         Returns True if the Home Assistant state should be written,
         or False if the state write should be skipped.
         """
+        LOGGER.warning(f"Should skip update: {self._dpcode_wrapper.skip_update(
+            self.device, updated_status_properties, dp_timestamps
+        )}")
         if self._dpcode_wrapper.skip_update(
             self.device, updated_status_properties, dp_timestamps
         ) or not (event_data := self._dpcode_wrapper.read_device_status(self.device)):
