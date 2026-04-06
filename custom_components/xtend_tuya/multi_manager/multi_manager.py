@@ -426,7 +426,7 @@ class MultiManager:  # noqa: F811
             self.multi_source_handler.register_status_list_from_source(
                 dev_id, source, status_list
             )
-            # self.device_watcher.report_message(dev_id, f"on_message ({source}) status list => {status_list}")
+            self.device_watcher.report_message(dev_id, f"on_message ({source}) status list => {status_list}", XTDeviceWatcherCategory.MQTT)
 
         if source in self.accounts:
             self.accounts[source].on_message(new_message)
