@@ -262,7 +262,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
 
 async def do_post_init_debug_test(multi_manager: MultiManager):
     await asyncio.sleep(5)
-    now_ts = int(datetime.now().timestamp())
+    now_ts = int(datetime.now().timestamp() * 1000)
     multi_manager.on_message(
         source="tuya_sharing",
         msg={
