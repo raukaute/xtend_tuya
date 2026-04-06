@@ -255,7 +255,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
         None,
         False,
     )
-    await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+    XTEventLoopProtector.execute_out_of_event_loop(
         do_post_init_debug_test, multi_manager
     )
     return True
