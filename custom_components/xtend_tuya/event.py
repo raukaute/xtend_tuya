@@ -60,7 +60,6 @@ class JSONEventWrapper(DPCodeJsonWrapper[tuple[str, dict[str, Any]]]):
     ) -> tuple[str, dict[str, Any]] | None:
         """Return the event with message attribute."""
         status = self._read_dpcode_value(device)
-        LOGGER.warning(f"Returned status: {status}")
         if status is None:
             return None
         return (f"{self.dpcode}", status)
@@ -71,10 +70,6 @@ class JSONEventWrapper(DPCodeJsonWrapper[tuple[str, dict[str, Any]]]):
         updated_status_properties: list[str],
         dp_timestamps: dict[str, int] | None = None,
     ) -> bool:
-        LOGGER.warning(
-            f"Calling JSONEventWrapper skip_update: {updated_status_properties=} {dp_timestamps=}",
-            stack_info=True,
-        )
         return super().skip_update(
             device=device,
             updated_status_properties=updated_status_properties,

@@ -276,7 +276,6 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 )
 
     def on_message(self, msg: dict):
-        LOGGER.warning(f"Calling on_message: {msg}")
         super().on_message(msg)
 
     def _on_device_other(self, device_id: str, biz_code: str, data: dict[str, Any]):
