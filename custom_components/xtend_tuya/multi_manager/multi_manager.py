@@ -412,21 +412,25 @@ class MultiManager:  # noqa: F811
             return
 
         new_message = self._convert_message_for_all_accounts(msg)
-        self.device_watcher.report_message(
-            dev_id,
-            f"on_message ({source}) => {msg} <=> {new_message}",
-            XTDeviceWatcherCategory.MQTT,
-        )
+        # self.device_watcher.report_message(
+        #     dev_id,
+        #     f"on_message ({source}) => {msg} <=> {new_message}",
+        #     XTDeviceWatcherCategory.MQTT,
+        # )
         if status_list := self._get_status_list_from_message(msg):
-            self.device_watcher.report_message(
-                dev_id,
-                f"On Message reporting ({source}): {msg}",
-                XTDeviceWatcherCategory.MQTT,
-            )
+            # self.device_watcher.report_message(
+            #     dev_id,
+            #     f"On Message reporting ({source}): {msg}",
+            #     XTDeviceWatcherCategory.MQTT,
+            # )
             self.multi_source_handler.register_status_list_from_source(
                 dev_id, source, status_list
             )
-            self.device_watcher.report_message(dev_id, f"on_message ({source}) status list => {status_list}", XTDeviceWatcherCategory.MQTT)
+            self.device_watcher.report_message(
+                dev_id,
+                f"on_message ({source}) status list => {status_list}",
+                XTDeviceWatcherCategory.MQTT,
+            )
 
         if source in self.accounts:
             self.accounts[source].on_message(new_message)
