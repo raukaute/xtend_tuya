@@ -3,7 +3,6 @@
 from __future__ import annotations
 import logging
 import asyncio
-import time
 from datetime import datetime
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
@@ -261,8 +260,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
     )
     return True
 
-def do_post_init_debug_test(multi_manager: MultiManager):
-    time.sleep(5)
+async def do_post_init_debug_test(multi_manager: MultiManager):
+    await asyncio.sleep(5)
     now_ts = int(datetime.now().timestamp())
     multi_manager.on_message(
         source="tuya_sharing",
