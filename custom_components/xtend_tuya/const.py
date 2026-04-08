@@ -1008,6 +1008,7 @@ class XTDPCode(StrEnum):
     UNIT2 = "Unit"
     UNLOCK_BLE = "unlock_ble"
     UNLOCK_CARD = "unlock_card"
+    UNLOCK_DYNAMIC = "unlock_dynamic"
     UNLOCK_KEY = "unlock_key"
     UNLOCK_FACE = "unlock_face"
     UNLOCK_FINGERPRINT = "unlock_fingerprint"
