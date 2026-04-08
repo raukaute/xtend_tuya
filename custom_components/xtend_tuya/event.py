@@ -208,14 +208,14 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
         XTEventEntityDescription(
             key=XTDPCode.UNLOCK_HAND,
             translation_key="unlock_user",
-            translation_placeholders={"user_type": "Face"},
+            translation_placeholders={"user_type": "Hand"},
             device_class=None,
             wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
             key=XTDPCode.UNLOCK_DYNAMIC,
             translation_key="unlock_user",
-            translation_placeholders={"user_type": "Face"},
+            translation_placeholders={"user_type": "Dynamic"},
             device_class=None,
             wrapper_class=IntegerEventWrapper,
         ),
