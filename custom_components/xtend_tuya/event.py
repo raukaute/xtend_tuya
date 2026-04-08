@@ -135,9 +135,6 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             device_class=None,
             wrapper_class=JSONEventWrapper,
         ),
-    ),
-    # Smart Lock - Track who unlocked the door
-    "jtmspro": (
         XTEventEntityDescription(
             key=XTDPCode.CARD_UNLOCK_USER,
             translation_key="unlock_user",
