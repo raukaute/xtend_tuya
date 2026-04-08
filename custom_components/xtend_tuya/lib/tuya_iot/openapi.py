@@ -354,9 +354,9 @@ class TuyaOpenAPI:
                 loop_pass += 1
             if self.token_info.is_valid() is False:
                 return self.reconnect(no_loop=True)
-            logger.debug(
-                f"Waited {wait_time * loop_pass} seconds for reconnection."
-            )
+            # logger.debug(
+            #     f"Waited {wait_time * loop_pass} seconds for reconnection."
+            # )
         return self.is_token_valid()
 
     def __request(
