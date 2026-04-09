@@ -65,6 +65,5 @@ class XTIOTOpenMQ(TuyaOpenMQ):
                     f"Subscribed to topics: {self.mq_config.source_topic=}",
                     XTDeviceWatcherCategory.MQTT,
                 )
-            # logger.debug(f"[{self.class_id} MQTT] connected and subscribed to topics: {self.mq_config.source_topic}")
         else:
             LOGGER.error(f"[{self.class_id} MQTT] connect failed with rc={rc}")
