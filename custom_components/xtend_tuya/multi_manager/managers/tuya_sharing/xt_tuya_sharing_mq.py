@@ -12,6 +12,7 @@ import custom_components.xtend_tuya.multi_manager.managers.tuya_sharing.xt_tuya_
 from ....const import (
     LOGGER,
     XTDeviceWatcherCategory,
+    XTDeviceWatcherSpecialDevice,
 )
 
 # from paho.mqtt.enums import (
@@ -148,5 +149,10 @@ class XTSharingMQ(SharingMQ):
 
                 if topics_to_subscribe:
                     mqttc.subscribe(topics_to_subscribe)
+                    self.manager.multi_manager.device_watcher.report_message(
+                        XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
+                        f"[SHARING] Subscribed to topics: {topics_to_subscribe=}",
+                        XTDeviceWatcherCategory.MQTT,
+                    )
         else:
             super()._on_connect(mqttc, user_data, flags, rc)
