@@ -629,12 +629,17 @@
             "cat_litter_box_status": {
                 "name": "Estado",
                 "state": {
-                    "clean": "Limpiando",
-                    "empty": "Vaciado",
-                    "level": "Nivelaci\u00f3n",
-                    "sleep": "Ahorro de energ\u00eda",
+                    "cleaning": "Limpiando",
+                    "clock": "Temporizador",
+                    "deodorization": "Desodorizando",
+                    "empty": "Vaciando",
+                    "level": "Nivelando",
+                    "off": "Apagado",
+                    "sleep": "Reposo",
                     "standby": "En espera",
-                    "uv": "Desinfecci\u00f3n"
+                    "standly": "En espera",
+                    "uv": "UV",
+                    "waiting_cluster": "Esperando"
                 }
             },
             "cat_weight": {
