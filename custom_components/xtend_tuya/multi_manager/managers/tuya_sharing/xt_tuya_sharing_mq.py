@@ -112,6 +112,9 @@ class XTSharingMQ(SharingMQ):
 
         for listener in self.message_listeners:
             listener(msg_dict)
+    
+    def _on_subscribe(self, mqttc: mqtt.Client, user_data: Any, mid, granted_qos):
+        LOGGER.debug(f"[SHARING] on_subscribe: {user_data=} {mid=} {granted_qos=}")
 
     def subscribe_to_mqtt_topics(self, dev_id: str) -> None:
         topic1 = self.subscribe_topic(dev_id, True)
