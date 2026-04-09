@@ -62,7 +62,7 @@ class XTIOTOpenMQ(TuyaOpenMQ):
             if self.manager is not None:
                 self.manager.multi_manager.device_watcher.report_message(
                     XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
-                    f"Subscribed to topics: {self.mq_config.source_topic=}",
+                    f"[IOT] Subscribed to topics: {self.mq_config.source_topic=}",
                     XTDeviceWatcherCategory.MQTT,
                 )
         else:

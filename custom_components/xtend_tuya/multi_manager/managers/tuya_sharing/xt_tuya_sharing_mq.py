@@ -119,13 +119,13 @@ class XTSharingMQ(SharingMQ):
             self.client.subscribe([(topic1, 0), (topic2, 0)])
             self.manager.multi_manager.device_watcher.report_message(
                 dev_id,
-                f"Subscribed to topics: {topic1=} {topic2=}",
+                f"[SHARING] Subscribed to topics: {topic1=} {topic2=}",
                 XTDeviceWatcherCategory.MQTT,
             )
         else:
             self.manager.multi_manager.device_watcher.report_message(
                 dev_id,
-                f"Could not subscribe to topics: {topic1=} {topic2=}",
+                f"[SHARING] Could not subscribe to topics: {topic1=} {topic2=}",
                 XTDeviceWatcherCategory.MQTT,
             )
 
