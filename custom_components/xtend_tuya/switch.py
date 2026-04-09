@@ -176,6 +176,17 @@ SWITCHES: dict[str, tuple[XTSwitchEntityDescription, ...]] = {
             translation_key="indicator_light",
             entity_category=EntityCategory.CONFIG,
         ),
+        # ZG-205Z uses "led_onoff" instead of "indicator_led"
+        XTSwitchEntityDescription(
+            key=XTDPCode.LED_ONOFF,
+            translation_key="indicator_light",
+            entity_category=EntityCategory.CONFIG,
+        ),
+        XTSwitchEntityDescription(
+            key=XTDPCode.FALSE_BREATH,
+            translation_key="false_breath",
+            entity_category=EntityCategory.CONFIG,
+        ),
     ),
     "jtmspro": (
         XTSwitchEntityDescription(
@@ -355,6 +366,21 @@ SWITCHES: dict[str, tuple[XTSwitchEntityDescription, ...]] = {
         XTSwitchEntityDescription(
             key=XTDPCode.UV,
             translation_key="uv",
+            entity_category=EntityCategory.CONFIG,
+        ),
+        # DOEL ti+TpCTbt-01 specific DPs
+        XTSwitchEntityDescription(
+            key=XTDPCode.SWITCH,
+            translation_key="switch",
+        ),
+        XTSwitchEntityDescription(
+            key=XTDPCode.INDUCTION_CLEAN_2,
+            translation_key="induction_clean",
+            entity_category=EntityCategory.CONFIG,
+        ),
+        XTSwitchEntityDescription(
+            key=XTDPCode.DEVELOPER_MODE,
+            translation_key="developer_mode",
             entity_category=EntityCategory.CONFIG,
         ),
     ),

@@ -277,11 +277,16 @@ BUTTONS: dict[str, tuple[XTButtonEntityDescription, ...]] = {
             translation_key="change_litter_bag",
             entity_category=EntityCategory.CONFIG,
         ),
-        # Poopy Nano 2 uses the DPCode "clean" for starting a manual clean.
+        # Poopy Nano 2 / DOEL ti+TpCTbt-01 uses the DPCode "clean" for manual clean.
         # We reuse the same translation key.
         XTButtonEntityDescription(
             key=XTDPCode.CLEAN,
             translation_key="manual_clean",
+            entity_category=EntityCategory.CONFIG,
+        ),
+        XTButtonEntityDescription(
+            key=XTDPCode.DEEP_CLEAN,
+            translation_key="deep_clean",
             entity_category=EntityCategory.CONFIG,
         ),
         XTButtonEntityDescription(

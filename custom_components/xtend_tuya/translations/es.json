@@ -77,6 +77,9 @@
             }
         },
         "button": {
+            "deep_clean": {
+                "name": "Limpieza a fondo"
+            },
             "factory_reset": {
                 "name": "Restablecimiento de f\u00e1brica"
             },
@@ -655,6 +658,12 @@
             "depth": {
                 "name": "Profundidad"
             },
+            "detection_near": {
+                "name": "Detecci\u00f3n cercana"
+            },
+            "distance": {
+                "name": "Distancia al objetivo"
+            },
             "dew_point_temperature": {
                 "name": "Punto de roc\u00edo"
             },
@@ -666,6 +675,9 @@
             },
             "excretion_times_day": {
                 "name": "Tiempos de excreci\u00f3n (d\u00eda)"
+            },
+            "fault": {
+                "name": "Error"
             },
             "feels_like_temperature": {
                 "name": "Se siente como"
@@ -746,6 +758,9 @@
             },
             "methane": {
                 "name": "Metano"
+            },
+            "mov_status": {
+                "name": "Estado de movimiento"
             },
             "odor_elimination_status": {
                 "name": "Estado",
@@ -933,6 +948,9 @@
             "cry_detection": {
                 "name": "Detecci\u00f3n de llanto"
             },
+            "developer_mode": {
+                "name": "Modo desarrollador"
+            },
             "disinfection": {
                 "name": "Desinfecci\u00f3n"
             },
@@ -941,6 +959,9 @@
             },
             "energy_saving": {
                 "name": "Ahorro de energ\u00eda"
+            },
+            "false_breath": {
+                "name": "Filtro de falsa respiraci\u00f3n"
             },
             "filter_cartridge_reset": {
                 "name": "Reinicio del cartucho de filtro"

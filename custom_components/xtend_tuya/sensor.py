@@ -86,6 +86,7 @@ from .multi_manager.shared.threading import (
 )
 from .models import (
     XTDPCodeIntegerNoMinMaxCheckWrapper,
+    XTDPCodeBitmapLabelsWrapper,
 )
 
 if TYPE_CHECKING:
@@ -1427,6 +1428,23 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             state_class=SensorStateClass.MEASUREMENT,
             entity_registry_enabled_default=True,
         ),
+        # ZG-205Z specific DPs
+        XTSensorEntityDescription(
+            key=XTDPCode.MOV_STATUS,
+            translation_key="mov_status",
+        ),
+        XTSensorEntityDescription(
+            key=XTDPCode.DISTANCE,
+            translation_key="distance",
+            device_class=SensorDeviceClass.DISTANCE,
+            state_class=SensorStateClass.MEASUREMENT,
+        ),
+        XTSensorEntityDescription(
+            key=XTDPCode.DETECTION_NEAR,
+            translation_key="detection_near",
+            device_class=SensorDeviceClass.DISTANCE,
+            state_class=SensorStateClass.MEASUREMENT,
+        ),
     ),
     # Formaldehyde Detector
     # Note: Not documented
@@ -1709,6 +1727,13 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             translation_key="work_stat",
             state_class=SensorStateClass.MEASUREMENT,
             entity_registry_enabled_default=False,
+        ),
+        # DOEL ti+TpCTbt-01: fault bitmask as a human-readable string
+        XTSensorEntityDescription(
+            key=XTDPCode.FAULT,
+            translation_key="fault",
+            wrapper_class=(XTDPCodeBitmapLabelsWrapper,),
+            entity_category=EntityCategory.DIAGNOSTIC,
         ),
         *TEMPERATURE_SENSORS,
     ),
@@ -2173,6 +2198,21 @@ async def async_setup_entry(
     )
 
 
+# Some Bluetooth devices without a hub always report as offline in the Tuya cloud
+# because connectivity is maintained locally via the app rather than through a hub.
+# Listing them here forces HA to treat them as always available, so their last
+# known state remains visible and updates are reflected when the app syncs data.
+FORCE_ALWAYS_ONLINE_BY_DEVICE_ID: set[str] = {
+    "bfa469yud5ajx1w8",  # SGS01
+}
+FORCE_ALWAYS_ONLINE_BY_PID: set[str] = {
+    "gvygg3m8",          # SGS01 product ID
+}
+FORCE_ALWAYS_ONLINE_BY_CATEGORY: set[str] = {
+    "zwjcy",             # SGS01 category
+}
+
+
 class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
     """XT Sensor Entity."""
 
@@ -2241,6 +2281,17 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                     function_code=description.dpcode or description.key,
                     scale_threshold=description.recalculate_scale_for_percentage_threshold,
                 )
+
+    @property
+    def available(self) -> bool:  # type: ignore[override]
+        """Return True for devices that must be treated as always-online."""
+        if (
+            self.device.id in FORCE_ALWAYS_ONLINE_BY_DEVICE_ID
+            or self.device.product_id in FORCE_ALWAYS_ONLINE_BY_PID
+            or self.device.category in FORCE_ALWAYS_ONLINE_BY_CATEGORY
+        ):
+            return True
+        return self.device.online
 
     def reset_value(self, _: datetime | None, manual_call: bool = False) -> None:
         if manual_call and self.cancel_reset_after_x_seconds is not None:
