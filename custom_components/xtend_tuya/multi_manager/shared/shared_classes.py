@@ -33,7 +33,7 @@ class DeviceWatcher:
             "eb7390e135cc5cd63213qg": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.PLATFORM_SENSOR,
             # "vdevo172985271302839": XTDeviceWatcherCategory.PLATFORM_EVENT | XTDeviceWatcherCategory.VIRTUAL_STATE,
             # "bf022344b6e0cfd5dafh8e": XTDeviceWatcherCategory.MQTT,
-            # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
+            XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE | XTDeviceWatcherCategory.MQTT,
         }
         self.multi_manager = multi_manager
 
