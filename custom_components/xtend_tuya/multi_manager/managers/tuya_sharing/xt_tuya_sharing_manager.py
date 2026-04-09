@@ -98,7 +98,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
         home_ids = [home.id for home in self.user_homes]
         device = [
             device
-            for device in self.device_map.values()
+            for device in self.multi_manager.device_map.values()
             # if hasattr(device, "id") and getattr(device, "set_up", False)
         ]
 
