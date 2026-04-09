@@ -186,7 +186,7 @@ class XTConfigFlows:
 
         return response, data
 
-    async def async_step_configure(
+    async def async_step_configure_api(
         self, user_input: dict[str, Any] | None = None
     ) -> tuple[XTConfigFlows.XTStepResultType, ConfigFlowResult | dict[str, str]]:
         """Manage the options."""
@@ -238,7 +238,7 @@ class XTConfigFlows:
         return (
             XTConfigFlows.XTStepResultType.SHOW_FORM,
             self.async_show_form(
-                step_id="configure",
+                step_id="configure_api",
                 data_schema=vol.Schema(
                     {
                         vol.Optional(
@@ -356,7 +356,7 @@ class TuyaOptionFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         result_type, data = await XTConfigFlows(
             self, self.xt_config_entry
-        ).async_step_configure(user_input=user_input)
+        ).async_step_configure_api(user_input=user_input)
         match result_type:
             case XTConfigFlows.XTStepResultType.SHOW_FORM:
                 data = cast(ConfigFlowResult, data)
@@ -553,7 +553,7 @@ class TuyaConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         result_type, data = await XTConfigFlows(
             self, config_entry=None
-        ).async_step_configure(user_input=user_input)
+        ).async_step_configure_api(user_input=user_input)
         match result_type:
             case XTConfigFlows.XTStepResultType.SHOW_FORM:
                 data = cast(ConfigFlowResult, data)

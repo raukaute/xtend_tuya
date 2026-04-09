@@ -17,8 +17,6 @@ from .const import (
     LOGGER,
     XTDeviceWatcherSpecialDevice,
     XTDeviceWatcherCategory,
-    MESSAGE_SOURCE_TUYA_IOT,
-    MESSAGE_SOURCE_TUYA_SHARING,
 )
 from .multi_manager.multi_manager import (
     MultiManager,
@@ -257,35 +255,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
         None,
         False,
     )
-    # XTEventLoopProtector.execute_out_of_event_loop(
-    #     do_post_init_debug_test, multi_manager
-    # )
     return True
-
-async def do_post_init_debug_test(multi_manager: MultiManager):
-    await asyncio.sleep(5)
-    now_ts = int(datetime.now().timestamp() * 1000)
-    multi_manager.on_message(
-        source=MESSAGE_SOURCE_TUYA_IOT,
-        msg={
-            "data": {
-                "bizCode": "event_notify",
-                "bizData": {
-                    "devId": "bf022344b6e0cfd5dafh8e",
-                    "edata": "63d137291775493013",
-                    "etype": "ac_doorbell",
-                },
-                "devId": "bf022344b6e0cfd5dafh8e",
-                "productKey": "qi0vjgvbtzun2bbr",
-                "ts": now_ts,
-                "uuid": "ybgd878b9650a590a7b6",
-            },
-            "protocol": 20,
-            "pv": "2.0",
-            "sign": "0ad63e7159429f021c3308ba73eba811",
-            "t": now_ts,
-        },
-    )
 
 async def cleanup_duplicated_devices(
     hass: HomeAssistant, current_entry: ConfigEntry

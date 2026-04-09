@@ -179,7 +179,8 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
                 if dev_id is not None:
                     self._on_device_other(dev_id, bizcode, data)
         except Exception as e:
-            LOGGER.error(f"on message error = {e}")
+            LOGGER.error(f"on message error {msg=}")
+            LOGGER.exception(e)
 
     def add_device_by_id(self, device_id: str):
         device_ids = [device_id]
