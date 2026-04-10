@@ -109,6 +109,10 @@ class DPCodeTimeTaskWrapper(TuyaDPCodeRawWrapper):
             if len(decoded) < 11:
                 return
             self.slot_index = decoded[0]
+            count = decoded[1]
+            if count == 0:
+                self.timer = None
+                return
             entry = decoded[2:11]
             mode = entry[0]
             value = int.from_bytes(entry[1:5], byteorder="big")
