@@ -86,6 +86,9 @@
             "manual_clean": {
                 "name": "Limpieza manual"
             },
+            "one_click_cleanup": {
+                "name": "Limpieza r\u00e1pida"
+            },
             "reset_duster_cloth": {
                 "name": "Restablecer pa\u00f1o de limpieza"
             },

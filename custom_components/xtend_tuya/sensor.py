@@ -1694,7 +1694,7 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
         XTSensorEntityDescription(
             key=XTDPCode.STATUS,
             translation_key="cat_litter_box_status",
-            state_class=SensorStateClass.MEASUREMENT,
+            # No state_class: values are string enums (standby, clean, empty, …), not numeric
             entity_category=EntityCategory.DIAGNOSTIC,
             entity_registry_enabled_default=True,
         ),

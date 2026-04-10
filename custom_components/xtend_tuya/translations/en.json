@@ -390,6 +390,9 @@
             "manual_clean": {
                 "name": "Manual clean"
             },
+            "one_click_cleanup": {
+                "name": "One-click cleanup"
+            },
             "manual_lock": {
                 "name": "Manual lock"
             },

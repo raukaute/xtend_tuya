@@ -261,11 +261,7 @@ SWITCHES: dict[str, tuple[XTSwitchEntityDescription, ...]] = {
             translation_key="clean_time_switch",
             entity_category=EntityCategory.CONFIG,
         ),
-        XTSwitchEntityDescription(
-            key=XTDPCode.CLEANING,
-            translation_key="one_click_cleanup",
-            entity_category=EntityCategory.CONFIG,
-        ),
+        # CLEANING is a momentary action — handled as a button, not a switch
         XTSwitchEntityDescription(
             key=XTDPCode.DEEP_CLEAN,
             translation_key="deep_clean",
