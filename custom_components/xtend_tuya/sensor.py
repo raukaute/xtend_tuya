@@ -1547,12 +1547,7 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             state_class=SensorStateClass.MEASUREMENT,
             entity_registry_enabled_default=True,
         ),
-        XTSensorEntityDescription(
-            key=XTDPCode.CAPACITY_CALIBRATION,
-            translation_key="capacity_calibration",
-            state_class=SensorStateClass.MEASUREMENT,
-            entity_registry_enabled_default=True,
-        ),
+        # capacity_calibration is configurable — defined as number in number.py
         XTSensorEntityDescription(
             key=XTDPCode.CAT_WEIGHT,
             translation_key="cat_weight",
@@ -1585,12 +1580,7 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             state_class=SensorStateClass.MEASUREMENT,
             entity_registry_enabled_default=True,
         ),
-        XTSensorEntityDescription(
-            key=XTDPCode.DETECTION_SENSITIVITY,
-            translation_key="detection_sensitivity",
-            state_class=SensorStateClass.MEASUREMENT,
-            entity_registry_enabled_default=True,
-        ),
+        # detection_sensitivity is configurable — defined as number in number.py
         XTSensorEntityDescription(
             key=XTDPCode.EXCRETION_TIME_DAY,
             translation_key="excretion_time_day",
@@ -1617,20 +1607,7 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             state_class=SensorStateClass.MEASUREMENT,
             entity_registry_enabled_default=True,
         ),
-        XTSensorEntityDescription(
-            key=XTDPCode.INDUCTION_DELAY,
-            translation_key="induction_delay",
-            device_class=SensorDeviceClass.DURATION,
-            state_class=SensorStateClass.MEASUREMENT,
-            entity_registry_enabled_default=True,
-        ),
-        XTSensorEntityDescription(
-            key=XTDPCode.INDUCTION_INTERVAL,
-            translation_key="induction_interval",
-            device_class=SensorDeviceClass.DURATION,
-            state_class=SensorStateClass.MEASUREMENT,
-            entity_registry_enabled_default=True,
-        ),
+        # induction_delay and induction_interval are configurable — defined as numbers in number.py
         XTSensorEntityDescription(
             key=XTDPCode.MONITORING,
             translation_key="monitoring",
@@ -1679,12 +1656,7 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             state_class=SensorStateClass.MEASUREMENT,
             entity_registry_enabled_default=False,
         ),
-        XTSensorEntityDescription(
-            key=XTDPCode.SAND_SURFACE_CALIBRATION,
-            translation_key="sand_surface_calibration",
-            state_class=SensorStateClass.MEASUREMENT,
-            entity_registry_enabled_default=True,
-        ),
+        # sand_surface_calibration is configurable — defined as number in number.py
         XTSensorEntityDescription(
             key=XTDPCode.SMART_CLEAN,
             translation_key="smart_clean",
@@ -1725,6 +1697,21 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
         XTSensorEntityDescription(
             key=XTDPCode.WORK_STAT,
             translation_key="work_stat",
+            state_class=SensorStateClass.MEASUREMENT,
+            entity_registry_enabled_default=False,
+        ),
+        # Bag change usage counter — Ti+ / DOEL ti+TpCTbt-01
+        XTSensorEntityDescription(
+            key=XTDPCode.BAG_CHANGE_COUNTING,
+            translation_key="bag_change_counting",
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            entity_registry_enabled_default=True,
+        ),
+        # Cat weight in lb (read-only mirror of cat_weight in pounds) — Ti+ / DOEL ti+TpCTbt-01
+        XTSensorEntityDescription(
+            key=XTDPCode.PONUD,
+            translation_key="ponud",
+            device_class=SensorDeviceClass.WEIGHT,
             state_class=SensorStateClass.MEASUREMENT,
             entity_registry_enabled_default=False,
         ),

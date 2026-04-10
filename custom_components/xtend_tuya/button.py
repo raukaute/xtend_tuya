@@ -296,6 +296,10 @@ BUTTONS: dict[str, tuple[XTButtonEntityDescription, ...]] = {
             translation_key="manual_clean",
         ),
         XTButtonEntityDescription(
+            key=XTDPCode.INDUCTION_CLEAN_2,
+            translation_key="induction_clean",
+        ),
+        XTButtonEntityDescription(
             key=XTDPCode.BAG_CHANGE_MODE,
             translation_key="change_litter_bag",
         ),

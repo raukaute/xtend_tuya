@@ -1078,9 +1078,16 @@ class XTDPCode(StrEnum):
     XT_TOTAL_FORWARD_ENERGY_THIS_YEAR = "xt_total_forward_energy_this_year"
     XT_TOTAL_FORWARD_ENERGY_TODAY = "xt_total_forward_energy_today"
     # Cat litter box (msp)
-    CAT_STATUS        = "status"           # alias for STATUS DP
-    INDUCTION_CLEAN_2 = "induction_clean"
-    DEVELOPER_MODE    = "developer_mode"
+    CAT_STATUS          = "status"              # alias for STATUS DP
+    INDUCTION_CLEAN_2   = "induction_clean"
+    DEVELOPER_MODE      = "developer_mode"
+    SLEEP_NEW           = "sleep_new"           # sleep mode switch (dp120)
+    IN_CLEAN            = "in_clean"            # auto-clean completed flag (dp121)
+    DP_TIME_CLEAR_FLAG  = "dp_time_clear_flag"  # scheduled clean flag (dp106)
+    UNIT_SWITCH         = "unit_switch"         # weight unit kg/lb (dp108)
+    TIME_CLEAR          = "time_clear"          # scheduled clean time (dp129)
+    BAG_CHANGE_COUNTING = "bag_change_counting" # bag usage count (dp139)
+    PONUD               = "ponud"               # cat weight in lb (dp134)
     # ZG-205Z presence sensor (hps)
     SENSITIVITY_CZ      = "sensitivity_cz"
     SENSITIVITY_WD      = "sensitivity_wd"

@@ -313,6 +313,12 @@
             "trash_status": {
                 "name": "Garbage is full"
             },
+            "in_clean": {
+                "name": "Auto-clean completed"
+            },
+            "dp_time_clear_flag": {
+                "name": "Scheduled clean triggered"
+            },
             "wakeup": {
                 "name": "Woken up"
             },
@@ -549,6 +555,9 @@
             "bright_value": {
                 "name": "Brightness"
             },
+            "capacity_calibration": {
+                "name": "Capacity calibration"
+            },
             "charge_cur_set": {
                 "name": "Charging current"
             },
@@ -593,6 +602,9 @@
             },
             "detection_distance_min": {
                 "name": "Min detection distance"
+            },
+            "detection_sensitivity": {
+                "name": "Detection sensitivity"
             },
             "hold_sensitivity": {
                 "name": "Hold sensitivity"
@@ -720,6 +732,33 @@
             "sm_sensitivity": {
                 "name": "Micro-motion detection sensitivity"
             },
+            "sensitivity_cz": {
+                "name": "Sensitivity CZ"
+            },
+            "sensitivity_wd": {
+                "name": "Sensitivity WD"
+            },
+            "false_alarm": {
+                "name": "False alarm threshold"
+            },
+            "study_timer": {
+                "name": "Study timer"
+            },
+            "wd_detection": {
+                "name": "WD detection distance"
+            },
+            "mov_min_detection": {
+                "name": "Min movement detection distance"
+            },
+            "micro_min_detection": {
+                "name": "Min micro-motion detection distance (ZG-205Z)"
+            },
+            "bre_min_detection": {
+                "name": "Min breathing detection distance"
+            },
+            "sand_surface_calibration": {
+                "name": "Sand surface calibration"
+            },
             "standby_bright": {
                 "name": "Standby brightness"
             },
@@ -737,6 +776,9 @@
             },
             "tempsc": {
                 "name": "Temperature correction"
+            },
+            "time_clear": {
+                "name": "Scheduled clean time"
             },
             "timer_on": {
                 "name": "Delayed power on"
@@ -1674,6 +1716,9 @@
             "ch9_temperature": {
                 "name": "Channel 9 Temperature"
             },
+            "bag_change_counting": {
+                "name": "Bag change count"
+            },
             "capacity_calibration": {
                 "name": "Capacity calibration"
             },
@@ -2035,6 +2080,9 @@
             "pir_radar": {
                 "name": "PIR Radar"
             },
+            "ponud": {
+                "name": "Cat weight (lb)"
+            },
             "power_a": {
                 "name": "Power A"
             },
@@ -2231,6 +2279,13 @@
             },
             "unit": {
                 "name": "Unit"
+            },
+            "unit_switch": {
+                "name": "Weight unit",
+                "state": {
+                    "kg": "Kilograms",
+                    "lb": "Pounds"
+                }
             },
             "unlock_card": {
                 "name": "Card unlock user"
@@ -3009,6 +3064,9 @@
             },
             "sleep": {
                 "name": "Sleep"
+            },
+            "sleep_new": {
+                "name": "Sleep mode"
             },
             "sleep_aid": {
                 "name": "Sleep aid"

@@ -369,10 +369,18 @@ SWITCHES: dict[str, tuple[XTSwitchEntityDescription, ...]] = {
             key=XTDPCode.SWITCH,
             translation_key="switch",
         ),
+        # INDUCTION_CLEAN_2 is a one-shot action — handled as a button, not a switch
+        # Ti+ / DOEL ti+TpCTbt-01 specific DPs
         XTSwitchEntityDescription(
-            key=XTDPCode.INDUCTION_CLEAN_2,
-            translation_key="induction_clean",
+            key=XTDPCode.SLEEP_NEW,
+            translation_key="sleep_new",
             entity_category=EntityCategory.CONFIG,
+        ),
+        XTSwitchEntityDescription(
+            key=XTDPCode.TIME,
+            translation_key="time",
+            entity_category=EntityCategory.CONFIG,
+            entity_registry_enabled_default=False,
         ),
         XTSwitchEntityDescription(
             key=XTDPCode.DEVELOPER_MODE,

@@ -74,6 +74,12 @@
             },
             "wet": {
                 "name": "H\u00famedo"
+            },
+            "in_clean": {
+                "name": "Limpieza autom\u00e1tica completada"
+            },
+            "dp_time_clear_flag": {
+                "name": "Limpieza programada activada"
             }
         },
         "button": {
@@ -184,8 +190,14 @@
             "cook_time": {
                 "name": "Tiempo de cocci\u00f3n"
             },
+            "capacity_calibration": {
+                "name": "Calibraci\u00f3n de capacidad"
+            },
             "delay_clean_time": {
                 "name": "Retrasar el tiempo de limpieza"
+            },
+            "detection_sensitivity": {
+                "name": "Sensibilidad de detecci\u00f3n"
             },
             "down_delay": {
                 "name": "Espera de bajada"
@@ -270,6 +282,36 @@
             },
             "water_level": {
                 "name": "Nivel del agua"
+            },
+            "sensitivity_cz": {
+                "name": "Sensibilidad CZ"
+            },
+            "sensitivity_wd": {
+                "name": "Sensibilidad WD"
+            },
+            "false_alarm": {
+                "name": "Umbral de falsas alarmas"
+            },
+            "study_timer": {
+                "name": "Temporizador de estudio"
+            },
+            "wd_detection": {
+                "name": "Distancia de detección WD"
+            },
+            "mov_min_detection": {
+                "name": "Distancia mínima de detección de movimiento"
+            },
+            "micro_min_detection": {
+                "name": "Distancia mínima de microdetección (ZG-205Z)"
+            },
+            "bre_min_detection": {
+                "name": "Distancia m\u00ednima de detecci\u00f3n de respiraci\u00f3n"
+            },
+            "sand_surface_calibration": {
+                "name": "Calibraci\u00f3n de superficie de arena"
+            },
+            "time_clear": {
+                "name": "Hora de limpieza programada"
             }
         },
         "select": {
@@ -585,6 +627,13 @@
                     "96h": "96h",
                     "cancel": "Cancelar"
                 }
+            },
+            "unit_switch": {
+                "name": "Unidad de peso",
+                "state": {
+                    "kg": "Kilogramos",
+                    "lb": "Libras"
+                }
             }
         },
         "sensor": {
@@ -644,6 +693,9 @@
                     "uv": "UV",
                     "waiting_cluster": "Esperando"
                 }
+            },
+            "bag_change_counting": {
+                "name": "Contador de cambios de bolsa"
             },
             "cat_weight": {
                 "name": "Peso del gato"
@@ -781,6 +833,9 @@
             },
             "phase_a_current": {
                 "name": "Corriente de la fase A"
+            },
+            "ponud": {
+                "name": "Peso del gato (lb)"
             },
             "phase_a_power": {
                 "name": "Potencia de la fase A"
@@ -1060,6 +1115,9 @@
             },
             "sleep": {
                 "name": "Dormir"
+            },
+            "sleep_new": {
+                "name": "Modo silencioso"
             },
             "sleep_aid": {
                 "name": "Ayuda para dormir"
