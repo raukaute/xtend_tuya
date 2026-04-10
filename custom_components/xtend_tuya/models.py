@@ -49,7 +49,7 @@ class XTDPCodeIntegerNoMinMaxCheckWrapper(TuyaDPCodeIntegerWrapper):
         return round(value * (10 ** self.type_information.scale))
 
 
-class XTDPCodeBitmapLabelsWrapper(TuyaDPCodeTypeInformationWrapper[TuyaIntegerTypeInformation]):
+class XTDPCodeBitmapLabelsWrapper(TuyaDPCodeTypeInformationWrapper):  # type: ignore[type-arg]
     """Expose a BITMAP dpcode (bitmask) as a single sensor with decoded labels.
 
     Example output:
