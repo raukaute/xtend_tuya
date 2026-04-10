@@ -47,6 +47,9 @@ class DPCodeTimestampWrapper(TuyaDPCodeRawWrapper):
         if decoded := super().read_device_status(device):
             if len(decoded) == 6:
                 y, mo, d, h, mi, s = struct.unpack("BBBBBB", decoded)
+                # 0xFF bytes = no data / unset
+                if y == 255 or mo == 0 or mo > 12 or d == 0 or d > 31:
+                    return None
                 return f"20{y:02d}-{mo:02d}-{d:02d} {h:02d}:{mi:02d}:{s:02d}"
         return None
 
