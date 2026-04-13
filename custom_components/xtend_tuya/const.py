@@ -209,6 +209,7 @@ class XTDeviceWatcherCategory(Flag):
     PLATFORM_CLIMATE        = auto()
     PLATFORM_COVER          = auto()
     PLATFORM_EVENT          = auto()
+    PLATFORM_LIGHT          = auto()
     PLATFORM_LOCK           = auto()
     PLATFORM_NUMBER         = auto()
     PLATFORM_SENSOR         = auto()
