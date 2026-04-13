@@ -33,6 +33,7 @@ class DeviceWatcher:
             "eba792ceaf7c7de77bg0zd": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.PLATFORM_EVENT,
             "eb8bb5qft7riny17": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.PLATFORM_EVENT,
             "bfaa30582e4990330f6rrw": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.PLATFORM_LIGHT,
+            "eb7390e135cc5cd63213qg": XTDeviceWatcherCategory.MQTT,
             # "vdevo172985271302839": XTDeviceWatcherCategory.PLATFORM_EVENT | XTDeviceWatcherCategory.VIRTUAL_STATE,
             # "bf022344b6e0cfd5dafh8e": XTDeviceWatcherCategory.MQTT,
             XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.MQTT,
