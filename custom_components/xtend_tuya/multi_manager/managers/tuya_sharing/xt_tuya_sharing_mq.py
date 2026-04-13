@@ -138,24 +138,32 @@ class XTSharingMQ(SharingMQ):
             if self.mq_config is None:
                 return
             for owner_id in self.owner_ids:
-                mqttc.subscribe(self.mq_config.owner_topic.format(ownerId=owner_id))
-            batch_size = 10
-            for i in range(0, len(self.device), batch_size):
-                batch_devices = self.device[i : i + batch_size]
-                topics_to_subscribe = []
-                for dev in batch_devices:
-                    dev_id = dev.id
-                    topic_str = self.subscribe_topic(dev_id, False)
-                    topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
-                    topic_str = self.subscribe_topic(dev_id, True)
-                    topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
-
-                if topics_to_subscribe:
-                    mqttc.subscribe(topics_to_subscribe)
-                    self.manager.multi_manager.device_watcher.report_message(
+                owner_topic = self.mq_config.owner_topic.format(ownerId=owner_id)
+                error, mid = mqttc.subscribe(owner_topic)
+                self.manager.multi_manager.device_watcher.report_message(
                         XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
-                        f"[SHARING] Subscribed to topics: {topics_to_subscribe=}",
+                        f"[SHARING] Subscribed to owner topic: {owner_topic=} {error=} {mid=}",
                         XTDeviceWatcherCategory.MQTT,
                     )
+            for dev in self.device:
+                self.subscribe_to_mqtt_topics(dev.id)
+            # batch_size = 10
+            # for i in range(0, len(self.device), batch_size):
+            #     batch_devices = self.device[i : i + batch_size]
+            #     topics_to_subscribe = []
+            #     for dev in batch_devices:
+            #         dev_id = dev.id
+            #         topic_str = self.subscribe_topic(dev_id, False)
+            #         topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
+            #         topic_str = self.subscribe_topic(dev_id, True)
+            #         topics_to_subscribe.append((topic_str, 0))  # 指定主题和qos=0
+
+            #     if topics_to_subscribe:
+            #         mqttc.subscribe(topics_to_subscribe)
+            #         self.manager.multi_manager.device_watcher.report_message(
+            #             XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
+            #             f"[SHARING] Subscribed to topics: {topics_to_subscribe=}",
+            #             XTDeviceWatcherCategory.MQTT,
+            #         )
         else:
             super()._on_connect(mqttc, user_data, flags, rc)
