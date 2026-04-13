@@ -49,6 +49,7 @@ from .entity import (
     XTEntityDescriptorManager,
 )
 
+
 @dataclass(frozen=True)
 class XTCoverEntityDescription(TuyaCoverEntityDescription):
     """Describes XT cover entity."""
@@ -317,7 +318,12 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
         definition: TuyaCoverDefinition,
     ) -> None:
         """Initialize the cover entity."""
-        super(XTCoverEntity, self).__init__(device, device_manager, description)
+        super(XTCoverEntity, self).__init__(
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            description=description,
+            definition=definition,
+        )
         super(XTEntity, self).__init__(
             device=device,
             device_manager=device_manager,  # type: ignore

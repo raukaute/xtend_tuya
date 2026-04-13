@@ -342,9 +342,10 @@ class XTEventEntity(XTEntity, TuyaEventEntity):
         """Init Tuya event entity."""
         try:
             super(XTEventEntity, self).__init__(
-                device,
-                device_manager,
-                description,
+                device=device,
+                device_manager=device_manager,  # type: ignore
+                description=description,
+                definition=definition,
                 dpcode_wrapper=definition.event_wrapper,
             )
             super(XTEntity, self).__init__(

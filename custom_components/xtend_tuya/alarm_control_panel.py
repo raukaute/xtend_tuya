@@ -145,10 +145,15 @@ class XTAlarmEntity(XTEntity, TuyaAlarmEntity):
         description: XTAlarmEntityDescription,
         definition: TuyaAlarmControlPanelDefinition,
     ) -> None:
-        super(XTAlarmEntity, self).__init__(device, device_manager, description)
+        super(XTAlarmEntity, self).__init__(
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            description=description,
+            definition=definition,
+        )
         super(XTEntity, self).__init__(
             device=device,
-            device_manager=device_manager, # type: ignore
+            device_manager=device_manager,  # type: ignore
             description=description,
             definition=definition,
         )
