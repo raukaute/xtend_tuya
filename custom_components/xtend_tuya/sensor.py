@@ -2025,6 +2025,7 @@ async def async_setup_entry(
                 generic_dpcodes = XTEntity.get_generic_dpcodes_for_this_platform(
                     device, this_platform
                 )
+                hass_data.manager.device_watcher.report_message(device_id, f"Generic dpcodes for sensor: {generic_dpcodes=}", XTDeviceWatcherCategory.PLATFORM_SENSOR, device)
                 if not generic_dpcodes:
                     continue
                 dev_class_from_uom = XTEntity.get_device_classes_from_uom(
@@ -2050,6 +2051,7 @@ async def async_setup_entry(
                         },
                         entity_registry_enabled_default=False,
                         entity_registry_visible_default=False,
+                        wrapper_class=(TuyaDPCodeStringWrapper, TuyaDPCodeIntegerWrapper, TuyaDPCodeEnumWrapper, TuyaDPCodeBooleanWrapper)
                     )
                     if definition := xt_get_default_definition(
                         device,
