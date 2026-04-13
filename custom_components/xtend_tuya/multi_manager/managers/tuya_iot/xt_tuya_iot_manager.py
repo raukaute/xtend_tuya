@@ -279,11 +279,11 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         super().on_message(msg)
 
     def _on_device_other(self, device_id: str, biz_code: str, data: dict[str, Any]):
-        # self.multi_manager.device_watcher.report_message(
-        #     device_id,
-        #     f"[{MESSAGE_SOURCE_TUYA_IOT}]On device other: {biz_code} <=> {data}",
-        #     XTDeviceWatcherCategory.MQTT,
-        # )
+        self.multi_manager.device_watcher.report_message(
+            device_id,
+            f"[{MESSAGE_SOURCE_TUYA_IOT}]On device other: {biz_code=} {data=}",
+            XTDeviceWatcherCategory.MQTT,
+        )
         if biz_code not in [
             BIZCODE_ONLINE,
             BIZCODE_OFFLINE,
@@ -347,7 +347,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
     def _on_device_report(self, device_id: str, status: list[dict[str, Any]]):
         self.multi_manager.device_watcher.report_message(
             device_id,
-            f"[{MESSAGE_SOURCE_TUYA_IOT}]On device report: {device_id=} {status=}",
+            f"[{MESSAGE_SOURCE_TUYA_IOT}]On device report: {status=}",
             XTDeviceWatcherCategory.MQTT,
         )
         device = self.device_map.get(device_id, None)

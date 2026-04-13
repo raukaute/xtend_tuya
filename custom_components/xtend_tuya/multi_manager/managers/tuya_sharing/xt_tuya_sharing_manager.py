@@ -195,11 +195,11 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
                     listener.add_device(device)
 
     def _on_device_other(self, device_id: str, biz_code: str, data: dict[str, Any]):
-        # self.multi_manager.device_watcher.report_message(
-        #     device_id,
-        #     f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device other: {biz_code} <=> {data}",
-        #     XTDeviceWatcherCategory.MQTT,
-        # )
+        self.multi_manager.device_watcher.report_message(
+            device_id,
+            f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device other: {biz_code=} {data=}",
+            XTDeviceWatcherCategory.MQTT,
+        )
         if biz_code not in [
             BIZCODE_ONLINE,
             BIZCODE_OFFLINE,
@@ -249,7 +249,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
     def _on_device_report(self, device_id: str, status: list):
         self.multi_manager.device_watcher.report_message(
             device_id,
-            f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device report: {status}",
+            f"[{MESSAGE_SOURCE_TUYA_SHARING}]On device report: {status=}",
             XTDeviceWatcherCategory.MQTT,
         )
         device = self.device_map.get(device_id, None)
