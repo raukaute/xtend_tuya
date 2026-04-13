@@ -2051,6 +2051,7 @@ async def async_setup_entry(
                         },
                         entity_registry_enabled_default=False,
                         entity_registry_visible_default=False,
+                        wrapper_class=(TuyaDPCodeStringWrapper, TuyaDPCodeIntegerWrapper, TuyaDPCodeEnumWrapper, TuyaDPCodeBooleanWrapper)
                     )
                     if definition := xt_get_default_definition(
                         device,
