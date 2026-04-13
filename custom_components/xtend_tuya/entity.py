@@ -447,7 +447,7 @@ class XTEntity(TuyaEntity):
         if "dpcode_wrapper" in kwargs:
             kwargs.pop("dpcode_wrapper")
         try:
-            super().__init__(*args, **kwargs)
+            super(XTEntity).__init__(*args, **kwargs)
         except Exception as e:
             # In case we have an error, do nothing
             LOGGER.exception(e)
