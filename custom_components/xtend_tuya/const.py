@@ -424,6 +424,7 @@ class XTDPCode(StrEnum):
     ECO2 = "eco2"
     EDGE_BRUSH = "edge_brush"
     ELECTRICITY_LEFT = "electricity_left"
+    EXTEND = "extend"
     EXCRETION_TIME_DAY = "excretion_time_day"
     EXCRETION_TIMES_DAY = "excretion_times_day"
     FAN_BEEP = "fan_beep"  # Sound
@@ -549,7 +550,9 @@ class XTDPCode(StrEnum):
     ROLL_BRUSH = "roll_brush"
     SEEK = "seek"
     SENSITIVITY = "sensitivity"  # Sensitivity
+    SENSER_NAME = "senser_name"
     SENSOR_HUMIDITY = "sensor_humidity"
+    SENSOR_ID = "sensor_id"
     SENSOR_TEMPERATURE = "sensor_temperature"
     SHAKE = "shake"  # Oscillating
     SHOCK_STATE = "shock_state"  # Vibration status
@@ -646,6 +649,7 @@ class XTDPCode(StrEnum):
     TEMP_VALUE = "temp_value"  # Color temperature
     TEMP_VALUE_V2 = "temp_value_v2"
     TEMPER_ALARM = "temper_alarm"  # Tamper alarm
+    TIME_TASK = "time_task"
     TIME_TOTAL = "time_total"
     TIME_USE = "time_use"  # Total seconds of irrigation
     TOTAL_CLEAN_AREA = "total_clean_area"
@@ -711,6 +715,11 @@ class XTDPCode(StrEnum):
     ADD_ELE2_THIS_YEAR = "add_ele2_this_year"
     ADD_ELE2_TODAY = "add_ele2_today"
     ALARM_LOCK = "alarm_lock"
+    AUTO_TASK = "auto_task"
+    AUTO_TASK1 = "auto_task1"
+    AUTO_TASK2 = "auto_task2"
+    AUTO_TASK3 = "auto_task3"
+    AUTO_TASK4 = "auto_task4"
     AUTO_CLEAN = "auto_clean"
     AUTO_DEORDRIZER = "auto_deordrizer"
     AUTO_LOCK_TIME = "auto_lock_time"
@@ -782,6 +791,8 @@ class XTDPCode(StrEnum):
     CURRENT_B = "current_b"
     CURRENT_YD = "current_yd"
     CUR_CAP = "cur_cap"
+    CUR_TIME = "cur_time"
+    CYC_CONTROL = "cyc_control"
     CYC_NUM = "cyc_num"
     C_CURRENT = "C_Current"
     C_VOLTAGE = "C_Voltage"
@@ -881,6 +892,7 @@ class XTDPCode(StrEnum):
     OFF_BED = "off_bed"
     OFF_BED_TIME = "off_bed_time"
     ONLINE_STATE = "online_state"
+    ONE_CONTROL = "one_control"
     OPEN_CLOSE = "open_close"
     PEDAL_ANGLE = "pedal_angle"
     PHASEFLAG = "PhaseFlag"

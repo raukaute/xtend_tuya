@@ -1,9 +1,10 @@
 """Irrigation valve (fdm5kw) data parser for raw Tuya DP codes."""
 
 from __future__ import annotations
+import logging
 import struct
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 from tuya_device_handlers.definition.sensor import (
     TuyaSensorDefinition,
 )
@@ -28,6 +29,8 @@ from ...ha_tuya_integration.tuya_integration_imports import (
     TuyaRawTypeInformation,
 )
 from ...const import XTDPCode
+
+_LOGGER = logging.getLogger(__name__)
 
 # DP codes not yet in XTDPCode — use string literals until PR is merged
 DP_ONE_CONTROL = "one_control"
@@ -169,6 +172,89 @@ class DPCodeTimeTaskSummaryWrapper(DPCodeTimeTaskWrapper):
         )
 
 
+class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
+    """Accumulates all 7 timer slots across DP updates.
+
+    The device's time_task DP is a sliding window that only shows the
+    last-written slot. This wrapper maintains a dict of all 7 slots,
+    updating each slot as its data comes through the DP. The registry
+    persists across HA restarts via the companion entity's state
+    restoration.
+    """
+
+    NUM_SLOTS = 7
+
+    def __init__(self, dpcode: str, type_information: TuyaRawTypeInformation) -> None:
+        super().__init__(dpcode, type_information)
+        self.slots: dict[int, dict | None] = {i: None for i in range(self.NUM_SLOTS)}
+
+    def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
+        """Parse DP, update the corresponding slot, return active count."""
+        self.update_data(device)
+        if self.timer is not None:
+            idx = self.timer["slot"]
+            if 0 <= idx < self.NUM_SLOTS:
+                self.slots[idx] = dict(self.timer)
+        elif self.slot_index is not None and 0 <= self.slot_index < self.NUM_SLOTS:
+            # count=0 means slot was deleted
+            self.slots[self.slot_index] = None
+        active = sum(1 for s in self.slots.values() if s and s.get("enabled"))
+        return str(active)
+
+    def get_slots_dict(self) -> dict[str, dict | None]:
+        """Return slots keyed by string index (for JSON-safe HA attributes)."""
+        return {str(k): v for k, v in self.slots.items()}
+
+    def restore_slots(self, data: dict) -> None:
+        """Hydrate slots from HA state restoration."""
+        for i in range(self.NUM_SLOTS):
+            slot_data = data.get(str(i)) or data.get(i)
+            if isinstance(slot_data, dict):
+                self.slots[i] = slot_data
+            else:
+                self.slots[i] = None
+
+
+# ---------------------------------------------------------------------------
+# Custom Entity for Timer Registry
+# ---------------------------------------------------------------------------
+
+
+class Fdm5kwTimerRegistryEntity(XTSensorEntity):
+    """Sensor that exposes all 7 timer slots as attributes.
+
+    State value = count of active (enabled) timers.
+    Attributes contain the full slot registry for the irrigation-timer-card.
+    """
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        wrapper = self._dpcode_wrapper
+        if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
+            return None
+        slots = wrapper.get_slots_dict()
+        active = sum(1 for s in slots.values() if s and s.get("enabled"))
+        return {"slots": slots, "active_count": active}
+
+    async def async_added_to_hass(self) -> None:
+        """Restore slot registry from previous HA state."""
+        await super().async_added_to_hass()
+        wrapper = self._dpcode_wrapper
+        if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
+            return
+        last_state = await self.async_get_last_state()
+        if last_state is None:
+            return
+        slots_data = last_state.attributes.get("slots")
+        if isinstance(slots_data, dict):
+            wrapper.restore_slots(slots_data)
+            _LOGGER.debug(
+                "Restored timer registry for %s: %s",
+                self.entity_id,
+                slots_data,
+            )
+
+
 # ---------------------------------------------------------------------------
 # Entity Descriptors
 # ---------------------------------------------------------------------------
@@ -179,6 +265,27 @@ class Fdm5kwSensorEntityDescription(XTSensorEntityDescription):
     """Describes fdm5kw irrigation valve sensor entity."""
 
     pass
+
+
+@dataclass(frozen=True)
+class Fdm5kwTimerRegistryDescription(Fdm5kwSensorEntityDescription):
+    """Descriptor that returns a Fdm5kwTimerRegistryEntity instead of base XTSensorEntity."""
+
+    def get_entity_instance(
+        self,
+        device: XTDevice,
+        device_manager: MultiManager,
+        description: XTSensorEntityDescription,
+        definition: TuyaSensorDefinition,
+        supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
+    ) -> Fdm5kwTimerRegistryEntity:
+        return Fdm5kwTimerRegistryEntity(
+            device=device,
+            device_manager=device_manager,
+            description=XTSensorEntityDescription(**description.__dict__),
+            definition=definition,
+            supported_descriptors=supported_descriptors,
+        )
 
 
 class Fdm5kwSensor:
@@ -237,6 +344,15 @@ class Fdm5kwSensor:
                 icon="mdi:calendar-clock",
                 entity_registry_enabled_default=True,
                 wrapper_class=(DPCodeTimeTaskSummaryWrapper,),
+            ),
+            # --- Timer registry (accumulates all 7 slots) ---
+            Fdm5kwTimerRegistryDescription(
+                key=f"{DP_TIME_TASK}_registry",
+                dpcode=DP_TIME_TASK,
+                name="Irrigation timer registry",
+                icon="mdi:timer-cog",
+                entity_registry_enabled_default=True,
+                wrapper_class=(DPCodeTimeTaskRegistryWrapper,),
             ),
         ]
 
