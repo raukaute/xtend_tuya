@@ -7,6 +7,9 @@ from __future__ import annotations
 import json
 import datetime
 import time
+from tuya_sharing.strategy import (
+    strategy as tuya_sharing_strategy,
+)
 from ....lib.tuya_iot import (
     TuyaDeviceManager,
 )
@@ -370,6 +373,33 @@ class XTIOTDeviceManager(TuyaDeviceManager):
             if "code" in item and "value" in item:
                 code = item["code"]
                 value = item["value"]
+                self.multi_manager.device_watcher.report_message(
+                    device.id,
+                    f"Status update before conversion: {code} => {value}",
+                    XTDeviceWatcherCategory.STATUS_CHANGES,
+                    device,
+                    False,
+                    code,
+                )
+                if dpcode_information := device.get_dpcode_information(dpcode=code):
+                    strategy_name = dpcode_information.value_convert
+                    config_item = dpcode_information.config_item
+                    dp_item = (code, value)
+                    try:
+                        _, new_value = tuya_sharing_strategy.convert(
+                            strategy_name, dp_item, config_item
+                        )
+                        value = new_value
+                    except Exception as e:
+                        LOGGER.exception(e)
+                    self.multi_manager.device_watcher.report_message(
+                        device.id,
+                        f"Status update after conversion: {code} => {value}",
+                        XTDeviceWatcherCategory.STATUS_CHANGES,
+                        device,
+                        False,
+                        code,
+                    )
                 device.status[code] = value
                 updated_status_properties.append(code)
                 if t := item.get("t"):

@@ -269,6 +269,8 @@ class XTDevice(TuyaDevice):
         unit: str | None = None
         range: list[str] = field(default_factory=list)
         label: list[str] = field(default_factory=list)
+        value_convert: str | None = None
+        config_item: dict[str, Any] = field(default_factory=dict)
         value_descr_dict: dict[str, Any] = field(default_factory=dict)
 
     def __init__(self, **kwargs: Any) -> None:
@@ -479,6 +481,7 @@ class XTDevice(TuyaDevice):
 
         if dp_info.dpid is not None:
             if local_strategy := self.local_strategy.get(dp_info.dpid):
+                dp_info.value_convert = local_strategy.get("value_convert")
                 if access_mode := local_strategy.get("access_mode"):
                     dp_info.access_mode = access_mode
                     match access_mode:
@@ -495,6 +498,7 @@ class XTDevice(TuyaDevice):
                             dp_info.write_only = True
                             dp_info.read_write = False
                 if config_item := local_strategy.get("config_item"):
+                    dp_info.config_item = config_item
                     if dp_info.dptype is None:
                         if ls_dptype := config_item.get("valueType"):
                             dp_info.dptype = TuyaDPType.try_parse(ls_dptype)
