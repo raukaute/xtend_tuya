@@ -549,6 +549,9 @@ class XTTrackedDictionnary(UserDict):
         self.original_dict: dict | None = None
         super().__init__(dict, **kwargs)
         self.original_dict = dict
+        self.watched_dpcodes: list[str] = [
+            "colour_data"
+        ]
 
     def __getitem__(self, key):
         # LOGGER.warning(f"__getitem__: {key}")
@@ -558,7 +561,8 @@ class XTTrackedDictionnary(UserDict):
             return super().__getitem__(key)
 
     def __setitem__(self, key, item):
-        LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
+        if not self.watched_dpcodes or key in self.watched_dpcodes:
+            LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
         if self.original_dict is not None:
             super().__setitem__(key, item)
             return self.original_dict.__setitem__(key, item)
