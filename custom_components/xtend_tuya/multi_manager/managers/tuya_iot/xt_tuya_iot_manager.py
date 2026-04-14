@@ -391,8 +391,8 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                         )
                         value = new_value
                     except Exception as e:
-                        if self.multi_manager.device_watcher.is_watched(device.id, [XTDeviceWatcherCategory.STATUS_CHANGES], code):
-                            LOGGER.exception(e)
+                        #if self.multi_manager.device_watcher.is_watched(device.id, [XTDeviceWatcherCategory.STATUS_CHANGES], code):
+                        LOGGER.exception(e)
                     self.multi_manager.device_watcher.report_message(
                         device.id,
                         f"Status update after conversion: {code} => {value}",
