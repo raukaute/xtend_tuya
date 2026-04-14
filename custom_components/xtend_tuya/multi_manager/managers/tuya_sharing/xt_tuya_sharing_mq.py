@@ -122,7 +122,8 @@ class XTSharingMQ(SharingMQ):
             listener(msg_dict)
     
     def _on_subscribe(self, mqttc: mqtt.Client, user_data: Any, mid, granted_qos):
-        LOGGER.debug(f"[SHARING] on_subscribe: {user_data=} {mid=} {granted_qos=}")
+        #LOGGER.debug(f"[SHARING] on_subscribe: {user_data=} {mid=} {granted_qos=}")
+        pass
 
     def _get_mqtt_config(self) -> SharingMQConfig:
         link_id = f"tuya-device-sharing-sdk-python.{uuid.uuid1()}"
