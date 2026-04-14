@@ -221,7 +221,7 @@ class MultiManager:  # noqa: F811
                 device.id, [XTDeviceWatcherCategory.STATUS_CHANGES]
             ):
                 if isinstance(device.status, XTTrackedDictionnary) is False:
-                    device.status = XTTrackedDictionnary(device.status)  # type: ignore
+                    device.status = XTTrackedDictionnary(self, device, device.status)  # type: ignore
 
     def _add_dpcodes_supported_by_all_devices(self, device: XTDevice):
         # Events can be triggered device wide by the BizCode "event_notify"

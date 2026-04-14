@@ -29,10 +29,19 @@ from ...const import (
 
 class DeviceWatcher:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
-        self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
-            "eba792ceaf7c7de77bg0zd": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.PLATFORM_EVENT,
-            "eb8bb5qft7riny17": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.PLATFORM_EVENT,
-            "bfaa30582e4990330f6rrw": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.PLATFORM_LIGHT | XTDeviceWatcherCategory.STATUS_CHANGES,
+        self.watched_dev_id: dict[
+            str, XTDeviceWatcherCategory | tuple[str, XTDeviceWatcherCategory]
+        ] = {
+            "eba792ceaf7c7de77bg0zd": XTDeviceWatcherCategory.MQTT
+            | XTDeviceWatcherCategory.PLATFORM_EVENT,
+            "eb8bb5qft7riny17": XTDeviceWatcherCategory.MQTT
+            | XTDeviceWatcherCategory.PLATFORM_EVENT,
+            "bfaa30582e4990330f6rrw": (
+                "colour_data",
+                XTDeviceWatcherCategory.MQTT
+                | XTDeviceWatcherCategory.PLATFORM_LIGHT
+                | XTDeviceWatcherCategory.STATUS_CHANGES,
+            ),
             "eb7390e135cc5cd63213qg": XTDeviceWatcherCategory.MQTT,
             # "vdevo172985271302839": XTDeviceWatcherCategory.PLATFORM_EVENT | XTDeviceWatcherCategory.VIRTUAL_STATE,
             # "bf022344b6e0cfd5dafh8e": XTDeviceWatcherCategory.MQTT,
@@ -41,13 +50,23 @@ class DeviceWatcher:
         self.multi_manager = multi_manager
 
     def is_watched(
-        self, dev_id: str, category_list: list[XTDeviceWatcherCategory]
+        self,
+        dev_id: str,
+        category_list: list[XTDeviceWatcherCategory],
+        category_parameter: str | None = None,
     ) -> bool:
         if dev_id not in self.watched_dev_id:
             return False
         for category in category_list:
-            if category in self.watched_dev_id[dev_id]:
-                return True
+            if isinstance(self.watched_dev_id[dev_id], tuple):
+                watched_category_paramter, watched_category = self.watched_dev_id[dev_id]
+                if category_parameter is not None and category_parameter != watched_category_paramter:
+                    return False
+                if category in watched_category:
+                    return True
+            else:
+                if category in self.watched_dev_id[dev_id]:
+                    return True
         return False
 
     def report_message(
@@ -57,8 +76,13 @@ class DeviceWatcher:
         category: XTDeviceWatcherCategory,
         device: XTDevice | None = None,
         print_stack: bool = False,
+        category_parameter: str | None = None,
     ):
-        if self.is_watched(dev_id, XTDeviceWatcherCategory.get_unique_flags(category)):
+        if self.is_watched(
+            dev_id,
+            XTDeviceWatcherCategory.get_unique_flags(category),
+            category_parameter,
+        ):
             if dev_id in self.multi_manager.device_map:
                 managed_device = self.multi_manager.device_map[dev_id]
                 LOGGER.warning(
@@ -490,7 +514,7 @@ class XTDevice(TuyaDevice):
                         except Exception:
                             pass
         return dp_info
-    
+
     @staticmethod
     def get_empty_local_strategy_dp_id(device: XTDevice) -> int | None:
         if not hasattr(device, "local_strategy"):
@@ -545,11 +569,10 @@ class XTDeviceMap(UserDict[str, XTDevice]):
 
 
 class XTTrackedDictionnary(UserDict):
-    def __init__(self, dict: dict | None = None, /, **kwargs):
+    def __init__(self, multi_manager: mm.MultiManager, device: XTDevice, dict: dict | None = None, /, **kwargs):
         self.original_dict: dict | None = None
-        self.watched_dpcodes: list[str] = [
-            "colour_data"
-        ]
+        self.multi_manager = multi_manager
+        self.device = device
         super().__init__(dict, **kwargs)
         self.original_dict = dict
 
@@ -561,8 +584,7 @@ class XTTrackedDictionnary(UserDict):
             return super().__getitem__(key)
 
     def __setitem__(self, key, item):
-        if not self.watched_dpcodes or key in self.watched_dpcodes:
-            LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
+        self.multi_manager.device_watcher.report_message(self.device.id, f"Tracked dictionnary SET: {key} => {item}", XTDeviceWatcherCategory.STATUS_CHANGES, self.device, True, key)
         if self.original_dict is not None:
             super().__setitem__(key, item)
             return self.original_dict.__setitem__(key, item)
