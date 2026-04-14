@@ -165,11 +165,12 @@ class XTSharingMQ(SharingMQ):
             for owner_id in self.owner_ids:
                 owner_topic = self.mq_config.owner_topic.format(ownerId=owner_id)
                 error, mid = mqttc.subscribe(owner_topic)
-                self.manager.multi_manager.device_watcher.report_message(
-                        XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
-                        f"[SHARING] Subscribed to owner topic: {owner_topic=} {error=} {mid=}",
-                        XTDeviceWatcherCategory.MQTT,
-                    )
+                if error:
+                    self.manager.multi_manager.device_watcher.report_message(
+                            XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
+                            f"[SHARING] Subscribed to owner topic: {owner_topic=} {error=} {mid=}",
+                            XTDeviceWatcherCategory.MQTT,
+                        )
             for dev in self.device:
                 self.subscribe_to_mqtt_topics(dev)
             # batch_size = 10
