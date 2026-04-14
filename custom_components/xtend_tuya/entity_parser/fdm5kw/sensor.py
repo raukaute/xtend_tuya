@@ -214,6 +214,108 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
             else:
                 self.slots[i] = None
 
+    def merge_cloud_timers(self, cloud_timers: list[dict]) -> int:
+        """Merge cloud timer entries into empty registry slots.
+
+        Cloud timers don't carry a slot index, so we assign them to
+        the first available empty slot (or match by time+days if a
+        slot already has identical data). Returns number of slots populated.
+        """
+        merged = 0
+        for ct in cloud_timers:
+            timer_data = self._parse_cloud_timer(ct)
+            if timer_data is None:
+                continue
+            # Check if this timer already exists in a slot (match by time + days)
+            existing_slot = self._find_matching_slot(timer_data)
+            if existing_slot is not None:
+                # Update existing slot with cloud data (source of truth for SmartLife timers)
+                timer_data["slot"] = existing_slot
+                self.slots[existing_slot] = timer_data
+                merged += 1
+                continue
+            # Assign to first empty slot
+            for i in range(self.NUM_SLOTS):
+                if self.slots[i] is None:
+                    timer_data["slot"] = i
+                    self.slots[i] = timer_data
+                    merged += 1
+                    break
+        return merged
+
+    def _find_matching_slot(self, timer_data: dict) -> int | None:
+        """Find a slot with matching hour, minute, and days_mask."""
+        for i, slot in self.slots.items():
+            if slot is None:
+                continue
+            if (
+                slot.get("hour") == timer_data.get("hour")
+                and slot.get("minute") == timer_data.get("minute")
+                and slot.get("days_mask") == timer_data.get("days_mask")
+            ):
+                return i
+        return None
+
+    @staticmethod
+    def _parse_cloud_timer(cloud_timer: dict) -> dict | None:
+        """Convert a Tuya cloud timer entry to our slot format.
+
+        Cloud timer format (from GET /v1.0/devices/{id}/timers):
+          groups[].timers[].functions[0].value = {
+            duration: int (seconds), capacity: int (liters),
+            loops: str ("1111111"), startTimeStr: "HH:MM", ...
+          }
+          groups[].timers[].status: 1=enabled, 0=disabled
+        """
+        funcs = cloud_timer.get("functions", [])
+        if not funcs:
+            return None
+        value = funcs[0].get("value", {})
+        if not isinstance(value, dict):
+            return None
+
+        # Parse time
+        time_str = value.get("startTimeStr", "")
+        if ":" not in time_str:
+            return None
+        parts = time_str.split(":")
+        hour, minute = int(parts[0]), int(parts[1])
+
+        # Parse mode and value
+        capacity = value.get("capacity", 0)
+        duration = value.get("duration", 0)
+        if capacity and capacity > 0:
+            mode = "volume"
+            timer_value = capacity
+            value_unit = "L"
+        else:
+            mode = "duration"
+            timer_value = duration
+            value_unit = "s"
+
+        # Parse days bitmask from loops string ("1111111" → 0x7F)
+        loops = value.get("loops", "0000000")
+        days_mask = 0
+        for i, ch in enumerate(loops):
+            if ch == "1":
+                days_mask |= (1 << i)
+        days = [DAYS_OF_WEEK[i] for i in range(7) if days_mask & (1 << i)]
+
+        enabled = cloud_timer.get("status", 0) == 1
+
+        return {
+            "slot": -1,  # assigned by caller
+            "hour": hour,
+            "minute": minute,
+            "mode": mode,
+            "value": timer_value,
+            "value_unit": value_unit,
+            "days": days,
+            "days_mask": days_mask,
+            "enabled": enabled,
+            "cloud_timer_id": cloud_timer.get("timer_id"),
+        }
+
 
 # ---------------------------------------------------------------------------
 # Custom Entity for Timer Registry
@@ -237,22 +339,66 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         return {"slots": slots, "active_count": active}
 
     async def async_added_to_hass(self) -> None:
-        """Restore slot registry from previous HA state."""
+        """Restore slot registry from previous HA state, then sync cloud timers."""
         await super().async_added_to_hass()
         wrapper = self._dpcode_wrapper
         if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
             return
+
+        # Step 1: Restore from HA state (fast, local)
         last_state = await self.async_get_last_state()
-        if last_state is None:
+        if last_state is not None:
+            slots_data = last_state.attributes.get("slots")
+            if isinstance(slots_data, dict):
+                wrapper.restore_slots(slots_data)
+                _LOGGER.debug(
+                    "Restored timer registry for %s: %s",
+                    self.entity_id,
+                    slots_data,
+                )
+
+        # Step 2: Sync cloud timers (discovers SmartLife-created timers)
+        await self._sync_cloud_timers(wrapper)
+
+    async def _sync_cloud_timers(self, wrapper: DPCodeTimeTaskRegistryWrapper) -> None:
+        """Fetch cloud timer entries and merge into registry."""
+        device_id = self.device.id
+        account = self.device_manager.get_account_by_name("tuya_iot")
+        if account is None:
+            _LOGGER.debug("No tuya_iot account — skipping cloud timer sync for %s", device_id)
             return
-        slots_data = last_state.attributes.get("slots")
-        if isinstance(slots_data, dict):
-            wrapper.restore_slots(slots_data)
-            _LOGGER.debug(
-                "Restored timer registry for %s: %s",
-                self.entity_id,
-                slots_data,
+
+        url = f"/v1.0/devices/{device_id}/timers"
+        try:
+            response = await self.hass.async_add_executor_job(
+                account.call_api, "GET", url, None
             )
+        except Exception:
+            _LOGGER.warning("Cloud timer sync failed for %s", device_id, exc_info=True)
+            return
+
+        if not response or not response.get("success"):
+            _LOGGER.debug("Cloud timer API returned no data for %s", device_id)
+            return
+
+        # Extract individual timer entries from nested groups structure
+        cloud_timers: list[dict] = []
+        for category in response.get("result", []):
+            for group in category.get("groups", []):
+                for timer in group.get("timers", []):
+                    cloud_timers.append(timer)
+
+        if not cloud_timers:
+            return
+
+        merged = wrapper.merge_cloud_timers(cloud_timers)
+        if merged > 0:
+            _LOGGER.info(
+                "Synced %d cloud timer(s) into registry for %s",
+                merged,
+                self.entity_id,
+            )
+            self.async_write_ha_state()
 
 
 # ---------------------------------------------------------------------------
