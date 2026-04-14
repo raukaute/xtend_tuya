@@ -134,16 +134,23 @@ class XTSharingMQ(SharingMQ):
         return XTMQConfig(response)
 
     def subscribe_to_mqtt_topics(self, device: CustomerDevice) -> None:
-        topic1 = self.subscribe_topic(device.id, device.support_local is True)
-        topic2 = self.subscribe_topic(device.id, device.support_local is False)
+        topic1 = self.subscribe_topic(device.id, True)
+        topic2 = self.subscribe_topic(device.id, False)
         if self.client is not None:
             error, mid = self.client.subscribe((topic1, 0))
-            #error, mid = self.client.subscribe([(topic1, 0), (topic2, 0)])
-            self.manager.multi_manager.device_watcher.report_message(
-                device.id,
-                f"[SHARING] Subscribed to topics: {topic1=} {topic2=} {error=} {mid=}",
-                XTDeviceWatcherCategory.MQTT,
-            )
+            if error:
+                self.manager.multi_manager.device_watcher.report_message(
+                    device.id,
+                    f"[SHARING] Subscribed to topics: {topic1=} {error=} {mid=}",
+                    XTDeviceWatcherCategory.MQTT,
+                )
+            error, mid = self.client.subscribe((topic2, 0))
+            if error:
+                self.manager.multi_manager.device_watcher.report_message(
+                    device.id,
+                    f"[SHARING] Subscribed to topics: {topic2=} {error=} {mid=}",
+                    XTDeviceWatcherCategory.MQTT,
+                )
         else:
             self.manager.multi_manager.device_watcher.report_message(
                 device.id,
