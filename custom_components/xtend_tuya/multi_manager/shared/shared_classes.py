@@ -547,11 +547,11 @@ class XTDeviceMap(UserDict[str, XTDevice]):
 class XTTrackedDictionnary(UserDict):
     def __init__(self, dict: dict | None = None, /, **kwargs):
         self.original_dict: dict | None = None
-        super().__init__(dict, **kwargs)
-        self.original_dict = dict
         self.watched_dpcodes: list[str] = [
             "colour_data"
         ]
+        super().__init__(dict, **kwargs)
+        self.original_dict = dict
 
     def __getitem__(self, key):
         # LOGGER.warning(f"__getitem__: {key}")
