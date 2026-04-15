@@ -447,9 +447,11 @@ class XTEntity(TuyaEntity):
         if "dpcode_wrapper" in kwargs:
             kwargs.pop("dpcode_wrapper")
         try:
-            super().__init__(*args, **kwargs)
-        except Exception:
+            super(XTEntity, self).__init__(*args, **kwargs)
+        except Exception as e:
             # In case we have an error, do nothing
+            LOGGER.exception(e)
+            LOGGER.warning(f"Error calling super constructor: {e}", stack_info=True)
             pass
 
     def get_type_information(self) -> TuyaTypeInformation | None:

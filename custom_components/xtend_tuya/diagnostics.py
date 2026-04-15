@@ -77,7 +77,7 @@ def _async_device_as_dict(hass: HomeAssistant, device: XTDevice) -> dict[str, An
     set_up = {}
     if hasattr(device, "set_up"):
         set_up = device.set_up
-    support_local = {}
+    support_local = None
     if hasattr(device, "support_local"):
         support_local = device.support_local
     local_strategy = ""

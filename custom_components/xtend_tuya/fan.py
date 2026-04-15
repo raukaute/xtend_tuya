@@ -57,7 +57,11 @@ async def async_setup_entry(
         device_ids = [*device_map]
         for device_id in device_ids:
             if device := hass_data.manager.device_map.get(device_id):
-                if device and device.category in supported_descriptors and (definition := get_default_definition(device=device)):
+                if (
+                    device
+                    and device.category in supported_descriptors
+                    and (definition := get_default_definition(device=device))
+                ):
                     entities.append(
                         XTFanEntity(
                             device=device,
@@ -84,7 +88,11 @@ class XTFanEntity(XTEntity, TuyaFanEntity):
         definition: TuyaFanDefinition,
     ) -> None:
         """Init XT Fan Device."""
-        super(XTFanEntity, self).__init__(device, device_manager)
+        super(XTFanEntity, self).__init__(
+            device,
+            device_manager,  # type: ignore
+            definition=definition,
+        )
         super(XTEntity, self).__init__(
             device,
             device_manager,  # type: ignore

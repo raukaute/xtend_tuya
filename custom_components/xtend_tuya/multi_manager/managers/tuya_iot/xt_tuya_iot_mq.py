@@ -58,12 +58,12 @@ class XTIOTOpenMQ(TuyaOpenMQ):
     ):
         if rc == 0:
             for key, value in self.mq_config.source_topic.items():
-                mqttc.subscribe(value)
-            if self.manager is not None:
-                self.manager.multi_manager.device_watcher.report_message(
-                    XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
-                    f"[IOT] Subscribed to topics: {self.mq_config.source_topic=}",
-                    XTDeviceWatcherCategory.MQTT,
-                )
+                error, mid = mqttc.subscribe(value)
+                if self.manager is not None and error:
+                    self.manager.multi_manager.device_watcher.report_message(
+                        XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
+                        f"[IOT] Subscribed to topic: {value=} => {error=} {mid=}",
+                        XTDeviceWatcherCategory.MQTT,
+                    )
         else:
             LOGGER.error(f"[{self.class_id} MQTT] connect failed with rc={rc}")
