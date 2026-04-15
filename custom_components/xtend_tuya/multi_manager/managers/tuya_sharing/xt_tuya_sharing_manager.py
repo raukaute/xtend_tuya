@@ -267,7 +267,75 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
             device, status_new, MESSAGE_SOURCE_TUYA_SHARING
         )
 
-        super()._on_device_report(device_id, status_new)
+        self._on_device_report_tuya_sharing(device_id, status_new)
+    
+    def _on_device_report_tuya_sharing(self, device_id: str, status: list[dict[str, Any]]):
+        device = self.device_map.get(device_id, None)
+        if not device:
+            return
+        LOGGER.debug(f"mq _on_device_report-> {status}")
+        updated_status_properties = []
+        dp_timestamps = {}
+        value = None
+        if device.support_local:
+            for item in status:
+                # [{'dpId': 1, 't': 1752456620499, 'value': 120}]
+                if "dpId" in item and "value" in item:
+                    if item["dpId"] not in device.local_strategy:
+                        LOGGER.debug(f"mq _on_device_report unknown dpId: {item['dpId']}")
+                        continue
+                    #CHANGED
+                    # dp_id_item = device.local_strategy[item["dpId"]]
+                    # strategy_name = dp_id_item["value_convert"]
+                    # config_item = dp_id_item["config_item"]
+                    # dp_item = (dp_id_item["status_code"], item["value"])
+                    # LOGGER.debug(
+                    #     f"mq _on_device_report before strategy convert strategy_name={strategy_name},dp_item={dp_item},config_item={config_item}")
+                    # code, value = strategy.convert(strategy_name, dp_item, config_item)
+                    #END CHANGED
+                    #ADDED
+                    dp_id_item = device.local_strategy.get(item["dpId"], {})
+                    code = dp_id_item.get("status_code")
+                    value = item.get("value")
+                    if code is None:
+                        LOGGER.warning(f"Could not read DPCode for {item} of {device.name}, skipping")
+                        continue
+                    value = device.apply_dpcode_strategy(code, value, self.multi_manager)
+                    #END ADDED
+
+                    status_range = device.status_range.get(code, None)
+                    if status_range and status_range.type == "Enum":
+                        try:
+                            range_values = json.loads(status_range.values)
+                            if value not in range_values.get("range", []):
+                                LOGGER.debug(f"mq _on_device_report value not in range value={value}")
+                                continue
+                        except (json.JSONDecodeError, TypeError) as err:
+                            LOGGER.warning(f"mq _on_device_report failed to parse status_range values for {code}: {err}")
+                    
+                    LOGGER.debug(f"mq _on_device_report after strategy convert code={code},value={value}")
+                    device.status[code] = value
+                    updated_status_properties.append(code)
+                    if t := item.get("t"):
+                        dp_timestamps[code] = t
+        else:
+            for item in status:
+                if "code" in item and "value" in item:
+                    code = item["code"]
+                    value = item["value"]
+                    device.status[code] = value
+                    updated_status_properties.append(code)
+
+        self.__update_device(device, updated_status_properties, dp_timestamps)
+
+    def __update_device(
+        self,
+        device: XTDevice,
+        updated_status_properties: list[str] | None = None,
+        dp_timestamps: dict | None = None,
+    ):
+        for listener in self.device_listeners:
+            listener.update_device(device, updated_status_properties, dp_timestamps)
 
     def send_commands(self, device_id: str, commands: list[dict[str, Any]]):
         self.multi_manager.device_watcher.report_message(
