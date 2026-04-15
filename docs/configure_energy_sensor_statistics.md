@@ -6,7 +6,7 @@ For this, you will need a functioning Tuya IOT Cloud Platform account. If you do
 https://github.com/azerty9971/xtend_tuya/blob/main/docs/cloud_credentials.md
 
 # Steps
-1- Log in your Tuya IOT Cloud Platform account (https://iot.tuya.com/)<br/>
+1- Log in your Tuya IOT Cloud Platform account (https://iot.tuya.com/)<br/> (In some countrys you need to use this url instead: (https://platform.tuya.com/)<br/>
 2- Hover on Cloud and select "Cloud Services"<br/>
 ![image](https://github.com/user-attachments/assets/80d90a6a-f337-417c-9c22-6f298799b803)<br/>
 3- In the list, find the line that says "Beta APIs" and click the "Free Trial" link<br/>
