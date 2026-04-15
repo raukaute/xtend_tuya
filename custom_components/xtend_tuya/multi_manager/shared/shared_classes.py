@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 import copy
 import json
 from enum import StrEnum
+from tuya_sharing.strategy import (
+    strategy as tuya_sharing_strategy,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from tuya_sharing import (
@@ -335,6 +338,22 @@ class XTDevice(TuyaDevice):
             ):
                 setattr(self.original_device, attr, value)
             XTDeviceMap.set_device_key_value_multimap(self.id, attr, value)
+    
+    def apply_dpcode_strategy(self, dpcode: str, value: Any, multi_manager: mm.MultiManager | None = None) -> Any:
+        local_value = value
+        if dpcode_information := self.get_dpcode_information(dpcode=dpcode):
+            strategy_name = dpcode_information.value_convert
+            config_item = dpcode_information.config_item
+            dp_item = (dpcode, value)
+            try:
+                _, new_value = tuya_sharing_strategy.convert(
+                    strategy_name, dp_item, config_item
+                )
+                local_value = new_value
+            except Exception as e:
+                if multi_manager is not None and multi_manager.device_watcher.is_watched(self.id, [XTDeviceWatcherCategory.STATUS_CHANGES], dpcode):
+                    LOGGER.exception(e)
+        return local_value
 
     @staticmethod
     def from_compatible_device(
