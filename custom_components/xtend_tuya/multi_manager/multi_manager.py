@@ -214,6 +214,10 @@ class MultiManager:  # noqa: F811
 
             # Don't allow changes to DPCodes after the global initialization
             device.force_compatibility = True
+
+            #Apply conversion strategy after initial import
+            for dpcode in device.status:
+                device.status[dpcode] = device.apply_dpcode_strategy(dpcode, device.status[dpcode], self)
         self._enable_multi_map_device_alignment()
         self._process_pending_messages()
         for device in self.device_map.values():
