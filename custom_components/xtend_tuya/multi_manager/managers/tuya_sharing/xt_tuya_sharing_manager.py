@@ -273,7 +273,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
         device = self.device_map.get(device_id, None)
         if not device:
             return
-        LOGGER.debug(f"mq _on_device_report-> {status}")
+        #LOGGER.debug(f"mq _on_device_report-> {status}")
         updated_status_properties = []
         dp_timestamps = {}
         value = None
@@ -313,7 +313,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
                         except (json.JSONDecodeError, TypeError) as err:
                             LOGGER.warning(f"mq _on_device_report failed to parse status_range values for {code}: {err}")
                     
-                    LOGGER.debug(f"mq _on_device_report after strategy convert code={code},value={value}")
+                    #LOGGER.debug(f"mq _on_device_report after strategy convert code={code},value={value}")
                     device.status[code] = value
                     updated_status_properties.append(code)
                     if t := item.get("t"):
