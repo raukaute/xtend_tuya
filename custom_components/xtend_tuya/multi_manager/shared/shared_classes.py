@@ -39,12 +39,12 @@ class DeviceWatcher:
             | XTDeviceWatcherCategory.PLATFORM_EVENT,
             "eb8bb5qft7riny17": XTDeviceWatcherCategory.MQTT
             | XTDeviceWatcherCategory.PLATFORM_EVENT,
-            "bfaa30582e4990330f6rrw": (
-                "colour_data",
-                XTDeviceWatcherCategory.MQTT
-                | XTDeviceWatcherCategory.PLATFORM_LIGHT
-                | XTDeviceWatcherCategory.STATUS_CHANGES,
-            ),
+            # "bfaa30582e4990330f6rrw": (
+            #     "colour_data",
+            #     XTDeviceWatcherCategory.MQTT
+            #     | XTDeviceWatcherCategory.PLATFORM_LIGHT
+            #     | XTDeviceWatcherCategory.STATUS_CHANGES,
+            # ),
             "eb7390e135cc5cd63213qg": XTDeviceWatcherCategory.MQTT,
             # "vdevo172985271302839": XTDeviceWatcherCategory.PLATFORM_EVENT | XTDeviceWatcherCategory.VIRTUAL_STATE,
             # "bf022344b6e0cfd5dafh8e": XTDeviceWatcherCategory.MQTT,
