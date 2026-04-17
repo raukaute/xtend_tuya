@@ -257,7 +257,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
     )
     return True
 
-
 async def cleanup_duplicated_devices(
     hass: HomeAssistant, current_entry: ConfigEntry
 ) -> None:

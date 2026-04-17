@@ -193,7 +193,7 @@ XT_CLIMATE_HVAC_ACTION_DPCODES: tuple[XTDPCode, ...] = (XTDPCode.WORK_STATE,)
 
 @dataclass
 class XTClimateDefinition(TuyaClimateDefinition):
-    hvac_mode_wrapper: XTClimateHvacModeWrapper | None # type: ignore
+    hvac_mode_wrapper: XTClimateHvacModeWrapper | None  # type: ignore
     hvac_action_wrapper: TuyaDPCodeEnumWrapper | None
 
 
@@ -566,7 +566,12 @@ class XTClimateEntity(XTEntity, TuyaClimateEntity):
         definition: XTClimateDefinition,
     ) -> None:
         """Determine which values to use."""
-        super(XTClimateEntity, self).__init__(device, device_manager, description)
+        super(XTClimateEntity, self).__init__(
+            device,
+            device_manager,  # type: ignore
+            description,
+            definition=definition,
+        )
         super(XTEntity, self).__init__(
             device,
             device_manager,  # type: ignore

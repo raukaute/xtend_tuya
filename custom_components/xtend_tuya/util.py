@@ -19,7 +19,7 @@ from .const import (
     DOMAIN,
     DOMAIN_ORIG,
 )
-from tuya_sharing.manager import (
+from .lib.tuya_sharing.manager import (
     Manager,
     SharingDeviceListener,
 )

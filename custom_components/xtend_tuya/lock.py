@@ -11,7 +11,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.const import Platform
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, dispatcher_send
 
-from custom_components.xtend_tuya.multi_manager.shared.shared_classes import XTDeviceStatusRange
+from custom_components.xtend_tuya.multi_manager.shared.shared_classes import (
+    XTDeviceStatusRange,
+)
 from .const import (
     TUYA_DISCOVERY_NEW,
     XTDPCode,
@@ -160,7 +162,11 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
         hass: HomeAssistant,
     ) -> None:
         """Init Tuya Lock sensor."""
-        super().__init__(device, device_manager)
+        super().__init__(
+            device=device,
+            device_manager=device_manager,
+            description=description,
+        )
         self.device = device
         self.device_manager = device_manager
         self.local_hass = hass
@@ -315,13 +321,25 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
 
     def lock(self, **kwargs: Any) -> None:
         """Lock the lock."""
-        if self.device_manager.send_lock_unlock_command(self.device, True, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECHANISM, XTLockingMechanism.AUTO)):
+        if self.device_manager.send_lock_unlock_command(
+            self.device,
+            True,
+            self.device.status.get(
+                XTDPCode.XT_LOCK_UNLOCK_MECHANISM, XTLockingMechanism.AUTO
+            ),
+        ):
             if not self.temporary_unlock:
                 self._attr_is_locking = True
 
     def unlock(self, **kwargs: Any) -> None:
         """Unlock the lock."""
-        if self.device_manager.send_lock_unlock_command(self.device, False, self.device.status.get(XTDPCode.XT_LOCK_UNLOCK_MECHANISM, XTLockingMechanism.AUTO)):
+        if self.device_manager.send_lock_unlock_command(
+            self.device,
+            False,
+            self.device.status.get(
+                XTDPCode.XT_LOCK_UNLOCK_MECHANISM, XTLockingMechanism.AUTO
+            ),
+        ):
             if not self.temporary_unlock:
                 self._attr_is_unlocking = True
 
@@ -331,24 +349,27 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
 
     def add_lock_mecanism_option(self) -> None:
         if XTDPCode.XT_LOCK_UNLOCK_MECHANISM not in self.device.status:
-            self.device.status[XTDPCode.XT_LOCK_UNLOCK_MECHANISM] = XTLockingMechanism.AUTO
-            values_dict = { "range": []}
+            self.device.status[XTDPCode.XT_LOCK_UNLOCK_MECHANISM] = (
+                XTLockingMechanism.AUTO
+            )
+            values_dict = {"range": []}
             for mechanism in XTLockingMechanism:
                 values_dict["range"].append(mechanism.value)
             self.device.status_range[XTDPCode.XT_LOCK_UNLOCK_MECHANISM] = (
-                    XTDeviceStatusRange(
-                        code=XTDPCode.XT_LOCK_UNLOCK_MECHANISM,
-                        type=TuyaDPType.ENUM,
-                        values=json.dumps(values_dict),
-                        dp_id=0,
-                    )
+                XTDeviceStatusRange(
+                    code=XTDPCode.XT_LOCK_UNLOCK_MECHANISM,
+                    type=TuyaDPType.ENUM,
+                    values=json.dumps(values_dict),
+                    dp_id=0,
                 )
+            )
             dispatcher_send(
-                    self.local_hass,
-                    TUYA_DISCOVERY_NEW,
-                    [self.device.id],
-                    XTDPCode.XT_LOCK_UNLOCK_MECHANISM,
-                )
+                self.local_hass,
+                TUYA_DISCOVERY_NEW,
+                [self.device.id],
+                XTDPCode.XT_LOCK_UNLOCK_MECHANISM,
+            )
+
     @staticmethod
     def get_entity_instance(
         description: XTLockEntityDescription,
@@ -359,7 +380,12 @@ class XTLockEntity(XTEntity, LockEntity):  # type: ignore
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")
         ):
-            return description.get_entity_instance(device, device_manager, description, hass)
+            return description.get_entity_instance(
+                device, device_manager, description, hass
+            )
         return XTLockEntity(
-            device, device_manager, XTLockEntityDescription(**description.__dict__), hass
+            device,
+            device_manager,
+            XTLockEntityDescription(**description.__dict__),
+            hass,
         )

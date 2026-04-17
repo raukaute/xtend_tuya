@@ -665,7 +665,7 @@ class XTButtonEntity(XTEntity, TuyaButtonEntity):
                 definition=definition,
             )
         return XTButtonEntity(
-            device == device,
+            device=device,
             device_manager=device_manager,
             description=XTButtonEntityDescription(**description.__dict__),
             definition=definition,

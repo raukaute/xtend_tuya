@@ -49,6 +49,7 @@ from .entity import (
     XTEntityDescriptorManager,
 )
 
+
 @dataclass(frozen=True)
 class XTCoverEntityDescription(TuyaCoverEntityDescription):
     """Describes XT cover entity."""
@@ -317,7 +318,12 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
         definition: TuyaCoverDefinition,
     ) -> None:
         """Initialize the cover entity."""
-        super(XTCoverEntity, self).__init__(device, device_manager, description)
+        super(XTCoverEntity, self).__init__(
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            description=description,
+            definition=definition,
+        )
         super(XTEntity, self).__init__(
             device=device,
             device_manager=device_manager,  # type: ignore
@@ -420,10 +426,7 @@ class XTCoverEntity(XTEntity, TuyaCoverEntity):
 
     @property
     def is_closed(self) -> bool | None:
-        is_closed = super().is_closed
-        if is_closed is not None and self.is_cover_status_inverted:
-            is_closed = not is_closed
-        return is_closed
+        return super().is_closed
 
     async def _async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""

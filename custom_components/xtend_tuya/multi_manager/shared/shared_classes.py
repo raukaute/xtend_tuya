@@ -7,7 +7,10 @@ import json
 from enum import StrEnum
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from tuya_sharing import (
+from ...lib.tuya_sharing.strategy import (
+    strategy as tuya_sharing_strategy,
+)
+from ...lib.tuya_sharing import (
     CustomerDevice as TuyaDevice,
 )
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
@@ -29,21 +32,44 @@ from ...const import (
 
 class DeviceWatcher:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
-        self.watched_dev_id: dict[str, XTDeviceWatcherCategory] = {
-            # "bf74848d47bcd0d090ak3g": XTDeviceWatcherCategory.PLATFORM_SENSOR,
+        self.watched_dev_id: dict[
+            str, XTDeviceWatcherCategory | tuple[str, XTDeviceWatcherCategory]
+        ] = {
+            # "eba792ceaf7c7de77bg0zd": XTDeviceWatcherCategory.MQTT
+            # | XTDeviceWatcherCategory.PLATFORM_EVENT,
+            # "eb8bb5qft7riny17": XTDeviceWatcherCategory.MQTT
+            # | XTDeviceWatcherCategory.PLATFORM_EVENT,
+            # "bfaa30582e4990330f6rrw": (
+            #     "colour_data",
+            #     XTDeviceWatcherCategory.MQTT
+            #     | XTDeviceWatcherCategory.PLATFORM_LIGHT
+            #     | XTDeviceWatcherCategory.STATUS_CHANGES,
+            # ),
+            # "eb7390e135cc5cd63213qg": XTDeviceWatcherCategory.MQTT,
             # "vdevo172985271302839": XTDeviceWatcherCategory.PLATFORM_EVENT | XTDeviceWatcherCategory.VIRTUAL_STATE,
-            # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.XT_PERFORMANCE,
+            # "bf022344b6e0cfd5dafh8e": XTDeviceWatcherCategory.MQTT,
+            # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.MQTT,
         }
         self.multi_manager = multi_manager
 
     def is_watched(
-        self, dev_id: str, category_list: list[XTDeviceWatcherCategory]
+        self,
+        dev_id: str,
+        category_list: list[XTDeviceWatcherCategory],
+        category_parameter: str | None = None,
     ) -> bool:
         if dev_id not in self.watched_dev_id:
             return False
         for category in category_list:
-            if category in self.watched_dev_id[dev_id]:
-                return True
+            if isinstance(self.watched_dev_id[dev_id], tuple):
+                watched_category_paramter, watched_category = self.watched_dev_id[dev_id]
+                if category_parameter is not None and category_parameter != watched_category_paramter:
+                    return False
+                if category in watched_category:
+                    return True
+            else:
+                if category in self.watched_dev_id[dev_id]:
+                    return True
         return False
 
     def report_message(
@@ -53,8 +79,13 @@ class DeviceWatcher:
         category: XTDeviceWatcherCategory,
         device: XTDevice | None = None,
         print_stack: bool = False,
+        category_parameter: str | None = None,
     ):
-        if self.is_watched(dev_id, XTDeviceWatcherCategory.get_unique_flags(category)):
+        if self.is_watched(
+            dev_id,
+            XTDeviceWatcherCategory.get_unique_flags(category),
+            category_parameter,
+        ):
             if dev_id in self.multi_manager.device_map:
                 managed_device = self.multi_manager.device_map[dev_id]
                 LOGGER.warning(
@@ -241,6 +272,8 @@ class XTDevice(TuyaDevice):
         unit: str | None = None
         range: list[str] = field(default_factory=list)
         label: list[str] = field(default_factory=list)
+        value_convert: str | None = None
+        config_item: dict[str, Any] = field(default_factory=dict)
         value_descr_dict: dict[str, Any] = field(default_factory=dict)
 
     def __init__(self, **kwargs: Any) -> None:
@@ -305,6 +338,22 @@ class XTDevice(TuyaDevice):
             ):
                 setattr(self.original_device, attr, value)
             XTDeviceMap.set_device_key_value_multimap(self.id, attr, value)
+    
+    def apply_dpcode_strategy(self, dpcode: str, value: Any, multi_manager: mm.MultiManager | None = None) -> Any:
+        local_value = value
+        if dpcode_information := self.get_dpcode_information(dpcode=dpcode):
+            strategy_name = dpcode_information.value_convert
+            config_item = dpcode_information.config_item
+            dp_item = (dpcode, value)
+            try:
+                _, new_value = tuya_sharing_strategy.convert(
+                    strategy_name, dp_item, config_item
+                )
+                local_value = new_value
+            except Exception as e:
+                if multi_manager is not None and multi_manager.device_watcher.is_watched(self.id, [XTDeviceWatcherCategory.STATUS_CHANGES], dpcode):
+                    LOGGER.exception(e)
+        return local_value
 
     @staticmethod
     def from_compatible_device(
@@ -451,6 +500,7 @@ class XTDevice(TuyaDevice):
 
         if dp_info.dpid is not None:
             if local_strategy := self.local_strategy.get(dp_info.dpid):
+                dp_info.value_convert = local_strategy.get("value_convert")
                 if access_mode := local_strategy.get("access_mode"):
                     dp_info.access_mode = access_mode
                     match access_mode:
@@ -467,6 +517,7 @@ class XTDevice(TuyaDevice):
                             dp_info.write_only = True
                             dp_info.read_write = False
                 if config_item := local_strategy.get("config_item"):
+                    dp_info.config_item = config_item
                     if dp_info.dptype is None:
                         if ls_dptype := config_item.get("valueType"):
                             dp_info.dptype = TuyaDPType.try_parse(ls_dptype)
@@ -486,6 +537,17 @@ class XTDevice(TuyaDevice):
                         except Exception:
                             pass
         return dp_info
+
+    @staticmethod
+    def get_empty_local_strategy_dp_id(device: XTDevice) -> int | None:
+        if not hasattr(device, "local_strategy"):
+            return None
+        base_id = 10000
+        while True:
+            if base_id in device.local_strategy:
+                base_id += 1
+                continue
+            return base_id
 
 
 class XTDeviceMap(UserDict[str, XTDevice]):
@@ -530,8 +592,10 @@ class XTDeviceMap(UserDict[str, XTDevice]):
 
 
 class XTTrackedDictionnary(UserDict):
-    def __init__(self, dict: dict | None = None, /, **kwargs):
+    def __init__(self, multi_manager: mm.MultiManager, device: XTDevice, dict: dict | None = None, /, **kwargs):
         self.original_dict: dict | None = None
+        self.multi_manager = multi_manager
+        self.device = device
         super().__init__(dict, **kwargs)
         self.original_dict = dict
 
@@ -543,7 +607,7 @@ class XTTrackedDictionnary(UserDict):
             return super().__getitem__(key)
 
     def __setitem__(self, key, item):
-        LOGGER.warning(f"__setitem__: {key} => {item}", stack_info=True)
+        self.multi_manager.device_watcher.report_message(self.device.id, f"Tracked dictionnary SET: {key} => {item}", XTDeviceWatcherCategory.STATUS_CHANGES, self.device, True, key)
         if self.original_dict is not None:
             super().__setitem__(key, item)
             return self.original_dict.__setitem__(key, item)

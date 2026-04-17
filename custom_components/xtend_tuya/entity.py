@@ -111,6 +111,13 @@ class XTEntityDescriptorManager:
         elif ref_type is XTEntityDescriptorManager.XTEntityDescriptorType.DICT:
             for category_key in category_content:
                 return_list.append(category_key)
+        elif ref_type is XTEntityDescriptorManager.XTEntityDescriptorType.ENTITY:
+            entity = cast(EntityDescription, category_content)
+            compound_key: str | None = XTEntityDescriptorManager.get_compound_key(
+                entity, key_fields
+            )
+            if compound_key is not None:
+                return_list.append(compound_key)
         return return_list
 
     @staticmethod
@@ -330,7 +337,7 @@ class XTEntityDescriptorManager:
     ) -> EntityDescription:
         if real_type is None:
             return base
-        base_dict: dict[str, Any] = base.__dict__ # type: ignore
+        base_dict: dict[str, Any] = base.__dict__  # type: ignore
         if (
             other.translation_placeholders is not None
             and base.translation_placeholders is None
@@ -440,9 +447,11 @@ class XTEntity(TuyaEntity):
         if "dpcode_wrapper" in kwargs:
             kwargs.pop("dpcode_wrapper")
         try:
-            super().__init__(*args, **kwargs)
-        except Exception:
+            super(XTEntity, self).__init__(*args, **kwargs)
+        except Exception as e:
             # In case we have an error, do nothing
+            LOGGER.exception(e)
+            LOGGER.warning(f"Error calling super constructor: {e}", stack_info=True)
             pass
 
     def get_type_information(self) -> TuyaTypeInformation | None:
@@ -777,7 +786,7 @@ class XTEntity(TuyaEntity):
             elif isinstance(device_class_from_uom_dict[dpcode_information.unit], set):
                 return XTEntity.determine_most_probable_device_class_from_uom(
                     dpcode_information,
-                    device_class_from_uom_dict[dpcode_information.unit], # type: ignore
+                    device_class_from_uom_dict[dpcode_information.unit],  # type: ignore
                     device,
                 )
         if dpcode_information.unit is not None:
@@ -793,7 +802,14 @@ class XTEntity(TuyaEntity):
         device: sc.XTDevice,
     ) -> Any | None:
         if dpcode_information.dpcode in DPCODE_PREFERED_DEVICE_CLASS:
-            if DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] is None or DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] in proposed_device_class:
+            if (
+                DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] is None
+                or DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode]
+                in proposed_device_class
+            ):
                 return DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode]
-        LOGGER.warning(f"Multiple possible device class {proposed_device_class} for unit {dpcode_information.unit} on device {device.name} ({dpcode_information.dpcode}), unable to determine the most probable one, returning None. Plese report to developer.", stack_info=True)
+        LOGGER.warning(
+            f"Multiple possible device class {proposed_device_class} for unit {dpcode_information.unit} on device {device.name} ({dpcode_information.dpcode}), unable to determine the most probable one, returning None. Plese report to developer.",
+            stack_info=True,
+        )
         return None

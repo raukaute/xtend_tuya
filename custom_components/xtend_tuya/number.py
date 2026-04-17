@@ -794,15 +794,16 @@ class XTNumberEntity(XTEntity, TuyaNumberEntity):
     ) -> None:
         """Init XT number."""
         super(XTNumberEntity, self).__init__(
-            device,
-            device_manager,
-            description,
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            description=description,
+            definition=definition,
             dpcode_wrapper=definition.number_wrapper,
         )
         super(XTEntity, self).__init__(
-            device,
-            device_manager,  # type: ignore
-            description,
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            description=description,
             definition=definition,
         )
         self.device = device
