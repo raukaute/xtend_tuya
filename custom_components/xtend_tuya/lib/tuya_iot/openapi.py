@@ -351,7 +351,6 @@ class TuyaOpenAPI:
             #logger.debug("Already connecting to tuya cloud, wait for it to finish.")
             while self.token_info.is_reconnecting() is True:
                 time.sleep(wait_time)
-                logger.warning(f"Sleep 5")
                 loop_pass += 1
             if self.token_info.is_valid() is False:
                 return self.reconnect(no_loop=True)
