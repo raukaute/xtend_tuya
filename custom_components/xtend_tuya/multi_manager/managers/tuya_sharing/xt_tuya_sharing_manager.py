@@ -5,7 +5,7 @@ This file contains all the code that inherit from Tuya integration
 from __future__ import annotations
 from typing import Any, cast
 import json
-from tuya_sharing.manager import (
+from ....lib.tuya_sharing.manager import (
     Manager,
     SceneRepository,
     UserRepository,
@@ -18,7 +18,7 @@ from tuya_sharing.manager import (
     BIZCODE_BIND_USER,
     BIZCODE_DELETE,
 )
-from tuya_sharing.home import (
+from ....lib.tuya_sharing.home import (
     SmartLifeHome,
     HomeRepository,
 )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any
 import json
-from tuya_sharing.device import (
+from ....lib.tuya_sharing.device import (
     CustomerDevice,
     DeviceRepository,
 )
