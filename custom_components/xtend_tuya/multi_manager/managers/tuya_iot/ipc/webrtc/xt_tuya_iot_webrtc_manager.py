@@ -22,6 +22,7 @@ from .....shared.threading import (
 )
 from ......const import (
     XTDeviceWatcherCategory,
+    LOGGER,
 )
 
 ENDLINE = "\r\n"
@@ -405,6 +406,7 @@ class XTIOTWebRTCManager:
                             if session.has_all_candidates:
                                 break
                         time.sleep(sleep_step)  # Wait for MQTT responses
+                        LOGGER.warning(f"Sleep 8")
                     if offer_candidates:
                         payload = {
                             "protocol": 302,

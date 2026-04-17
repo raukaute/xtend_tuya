@@ -273,6 +273,7 @@ async def cleanup_duplicated_devices(
         return
     while not are_all_domain_config_loaded(hass, DOMAIN, current_entry):
         await asyncio.sleep(0.1)
+        LOGGER.warning(f"Sleep 1")
     device_registry = dr.async_get(hass)
     entity_registry = er.async_get(hass)
     duplicate_check_table: dict[str, list] = {}
@@ -319,8 +320,10 @@ async def cleanup_device_registry(
         return
     while not are_all_domain_config_loaded(hass, DOMAIN_ORIG, None):
         await asyncio.sleep(0.1)
+        LOGGER.warning(f"Sleep 2")
     while not are_all_domain_config_loaded(hass, DOMAIN, current_entry):
         await asyncio.sleep(0.1)
+        LOGGER.warning(f"Sleep 3")
     device_registry = dr.async_get(hass)
     for dev_id, device_entry in list(device_registry.devices.items()):
         for item in device_entry.identifiers:

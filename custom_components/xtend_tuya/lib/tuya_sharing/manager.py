@@ -203,6 +203,7 @@ class Manager:
             device_ids = [device_id]
             # wait for es sync
             time.sleep(1)
+            logger.warning(f"Sleep 6")
 
             self._update_device_list_info_cache(device_ids)
 

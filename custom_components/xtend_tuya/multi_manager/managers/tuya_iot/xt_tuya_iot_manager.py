@@ -333,6 +333,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         device_ids = [device_id]
         # wait for es sync
         time.sleep(1)
+        LOGGER.warning(f"Sleep 7")
 
         self._update_device_list_info_cache(device_ids)
         self._update_device_list_status_cache(device_ids)
@@ -968,6 +969,7 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                     learned_code_value = result.get("code")
                     break
             time.sleep(check_interval)
+            LOGGER.warning(f"Sleep 7")
 
         learning_mode = api.put(
             f"/v2.0/infrareds/{hub.device_id}/learning-state", {"state": False}

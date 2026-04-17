@@ -201,6 +201,7 @@ class TuyaDeviceManager:
             device_ids = [device_id]
             # wait for es sync
             time.sleep(1)
+            logger.warning(f"Sleep 4")
 
             self._update_device_list_info_cache(device_ids)
             self._update_device_list_status_cache(device_ids)
