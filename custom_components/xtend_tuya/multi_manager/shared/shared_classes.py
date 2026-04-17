@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 import copy
 import json
 from enum import StrEnum
-from tuya_sharing.strategy import (
-    strategy as tuya_sharing_strategy,
-)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from tuya_sharing import (
+from ...lib.tuya_sharing.strategy import (
+    strategy as tuya_sharing_strategy,
+)
+from ...lib.tuya_sharing import (
     CustomerDevice as TuyaDevice,
 )
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
