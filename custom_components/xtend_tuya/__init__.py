@@ -60,6 +60,7 @@ def _getaddrinfo_ipv4_only(host, port, family=0, type=0, proto=0, flags=0):
         "openapi-ueaz.tuyaus.com",
         "openapi-weaz.tuyaeu.com",
     ]
+    LOGGER.warning(f"_getaddrinfo_ipv4_only: {host=} {port=} {family=} {type=} {proto=} {flags=}")
     if host and host in tuya_hosts:
         return _original_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
     return _original_getaddrinfo(host, port, family, type, proto, flags)
