@@ -78,7 +78,7 @@ class CloudFixes:
                         if isinstance(converted_value, str):
                             new_dptype = TuyaDPType.STRING
                         try:
-                            json.loads(converted_value)
+                            LOGGER.warning(f"deserialised {json.loads(converted_value)} for {device.name} => {dpcode_info.dpcode}")
                             new_dptype = TuyaDPType.JSON
                         except Exception as e:
                             LOGGER.exception(e)
