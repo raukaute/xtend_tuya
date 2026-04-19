@@ -48,6 +48,7 @@ from .const import (
     TUYA_SMART_APP,
     TUYA_RESPONSE_PLATFORM_URL,
     XTDiscoverySource,
+    LOGGER,
 )
 from .multi_manager.shared.threading import (
     XTEventLoopProtector,
@@ -502,6 +503,7 @@ class TuyaConfigFlow(ConfigFlow, domain=DOMAIN):
         ):
             return self.generic_data_entry
         else:
+            LOGGER.warning(f"Error while finding step {name=}", stack_info=True)
             raise AttributeError
 
     @staticmethod
