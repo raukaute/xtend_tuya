@@ -119,12 +119,12 @@ def _async_device_as_dict(hass: HomeAssistant, device: XTDevice) -> dict[str, An
     # Gather Tuya states
     for dpcode, value in device.status.items():
         # These statuses may contain sensitive information, redact these..
-        if dpcode in {XTDPCode.ALARM_MESSAGE, XTDPCode.MOVEMENT_DETECT_PIC}:
-            data["status"][dpcode] = REDACTED
-            continue
+        # if dpcode in {XTDPCode.ALARM_MESSAGE, XTDPCode.MOVEMENT_DETECT_PIC}:
+        #     data["status"][dpcode] = REDACTED
+        #     continue
 
-        with suppress(ValueError, TypeError):
-            value = json.loads(value)
+        # with suppress(ValueError, TypeError):
+        #     value = json.loads(value)
         data["status"][dpcode] = value
 
     # Gather Tuya functions
