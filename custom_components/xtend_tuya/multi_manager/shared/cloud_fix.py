@@ -83,7 +83,7 @@ class CloudFixes:
                             LOGGER.warning(f"deserialised {json.loads(converted_value)} for {device.name} => {dpcode_info.dpcode}")
                             new_dptype = TuyaDPType.JSON
                         except Exception as e:
-                            LOGGER.error(f"Exception in JSON conv: {converted_value=} => {e}")
+                            LOGGER.error(f"Exception in JSON conv: {converted_value=} => {device.name}({dpcode})")
                             #LOGGER.exception(e)
                 if new_dptype is not None:
                     dpcode_info.dptype = new_dptype
