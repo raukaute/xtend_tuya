@@ -68,6 +68,8 @@ class CloudFixes:
             if dpcode_info := device.get_dpcode_information(dpcode=dpcode):
                 match dpcode_info.dptype:
                     case TuyaDPType.RAW:
+                        if dpcode_info.value_convert == "default":
+                            continue
                         converted_value = device.apply_dpcode_strategy(
                             dpcode=dpcode,
                             value=device.status[dpcode],
@@ -79,7 +81,7 @@ class CloudFixes:
                             json.loads(converted_value)
                             new_dptype = TuyaDPType.JSON
                         except Exception as e:
-                            pass
+                            LOGGER.exception(e)
                 if new_dptype is not None:
                     dpcode_info.dptype = new_dptype
                     device.set_dpcode_information(dpcode_info)
