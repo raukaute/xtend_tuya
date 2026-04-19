@@ -123,8 +123,8 @@ def _async_device_as_dict(hass: HomeAssistant, device: XTDevice) -> dict[str, An
         #     data["status"][dpcode] = REDACTED
         #     continue
 
-        # with suppress(ValueError, TypeError):
-        #     value = json.loads(value)
+        with suppress(ValueError, TypeError):
+            value = json.loads(value)
         data["status"][dpcode] = value
 
     # Gather Tuya functions
