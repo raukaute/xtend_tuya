@@ -196,10 +196,6 @@ class XTClimateDefinition(TuyaClimateDefinition):
     hvac_mode_wrapper: XTClimateHvacModeWrapper | None  # type: ignore
     hvac_action_wrapper: TuyaDPCodeEnumWrapper | None
 
-@dataclass
-class XTClimateConfigurableProperties:
-    pass
-
 
 @dataclass(frozen=True, kw_only=True)
 class XTClimateEntityDescription(TuyaClimateEntityDescription):
@@ -571,9 +567,10 @@ class XTClimateEntity(XTEntity, TuyaClimateEntity):
     ) -> None:
         """Determine which values to use."""
         super(XTClimateEntity, self).__init__(
-            device=device,
-            device_manager=device_manager,  # type: ignore
-            description=description,
+            device,
+            device_manager,  # type: ignore
+            description,
+            definition=definition,
         )
         super(XTEntity, self).__init__(
             device,

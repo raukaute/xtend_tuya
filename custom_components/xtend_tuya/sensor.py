@@ -2200,6 +2200,8 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             device=device,
             device_manager=device_manager,
             description=description,
+            definition=definition,
+            dpcode_wrapper=definition.sensor_wrapper,
         )
         self._attr_state_class = description.state_class
         super(XTEntity, self).__init__(
@@ -2249,7 +2251,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         if dpcode is None:
             return
         value = self.device.status.get(dpcode)
-        default_value = get_default_value(self.get_dptype_from_dpcode_wrapper(wrapper=self._dpcode_wrapper))
+        default_value = get_default_value(self.get_dptype_from_dpcode_wrapper())
         if value is None or value == default_value:
             return
         self.device.status[dpcode] = default_value
@@ -2445,7 +2447,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 if device := self.device_manager.device_map.get(self.device.id, None):
                     if dpcode in device.status:
                         default_value = get_default_value(
-                            self.get_dptype_from_dpcode_wrapper(self._dpcode_wrapper)
+                            self.get_dptype_from_dpcode_wrapper()
                         )
                         if now.hour != 0 or now.minute != 0:
                             LOGGER.error(
@@ -2491,7 +2493,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         self.async_write_ha_state()
 
     def scale_value_back(self, value: StateType) -> StateType:
-        type_information = self.get_type_information(wrapper=self._dpcode_wrapper)
+        type_information = self.get_type_information()
         if isinstance(type_information, TuyaIntegerTypeInformation):
             if isinstance(value, (int, float)):
                 return type_information.scale_value_back(value)
