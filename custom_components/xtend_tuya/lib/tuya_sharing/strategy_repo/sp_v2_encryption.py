@@ -1,7 +1,6 @@
 import json
 from base64 import b64decode
 from .. import strategy
-from ....const import LOGGER
 
 
 @strategy.register("sp_v2_encryption")
@@ -19,6 +18,6 @@ def convert_value(dp_value):
     new_value = dp_value
     try:
         new_value = b64decode(dp_value).decode("utf8")
-    except Exception as e:
-        LOGGER.exception(e, stack_info=True)
+    except Exception:
+        pass
     return new_value
