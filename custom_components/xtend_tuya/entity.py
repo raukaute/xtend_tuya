@@ -445,14 +445,13 @@ class XTEntity(TuyaEntity):
         self,
         device: mm.XTDevice,
         device_manager: mm.MultiManager,
-        description: EntityDescription | None = None,
         *args,
         **kwargs,
     ) -> None:
         self.device = device
         self.device_manager = device_manager
         try:
-            super(XTEntity, self).__init__(device, device_manager, description, *args, **kwargs)
+            super(XTEntity, self).__init__(device, device_manager, *args, **kwargs)
         except Exception as e:
             # In case we have an error, do nothing
             LOGGER.exception(e)
