@@ -471,6 +471,16 @@
             }
         },
         "event": {
+            "ipc_movement_detect": {
+                "name": "Movement detected",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "motion": "Motion detected"
+                        }
+                    }
+                }
+            },
             "numbered_button": {
                 "name": "Button {button_number}",
                 "state_attributes": {
