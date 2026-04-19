@@ -8,6 +8,9 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.components.event import (
+    EventDeviceClass,
+)
 from tuya_device_handlers.definition.event import (
     TuyaEventDefinition,
     get_default_definition,
@@ -160,7 +163,7 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
         XTEventEntityDescription(
             key=XTDPCode.IPC_MOVEMENT_DETECT,
             translation_key="ipc_movement_detect",
-            device_class=None,
+            device_class=EventDeviceClass.MOTION,
         ),
         XTEventEntityDescription(
             key=XTDPCode.PASSWORD_UNLOCK_USER,
