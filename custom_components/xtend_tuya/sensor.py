@@ -2201,7 +2201,6 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             device_manager=device_manager,
             description=description,
             definition=definition,
-            dpcode_wrapper=definition.sensor_wrapper,
         )
         self._attr_state_class = description.state_class
         super(XTEntity, self).__init__(
