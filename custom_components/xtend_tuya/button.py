@@ -634,8 +634,6 @@ class XTButtonEntity(XTEntity, TuyaButtonEntity):
             device=device,
             device_manager=device_manager,
             description=description,
-            definition=definition,
-            dpcode_wrapper=definition.button_wrapper,
         )
         super(XTEntity, self).__init__(
             device=device,

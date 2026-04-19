@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any, cast, TYPE_CHECKING
 from enum import StrEnum
 from .lib.tuya_sharing import LoginControl
 from .lib.tuya_iot import AuthType
@@ -60,7 +60,8 @@ from .lib.tuya_iot.openapi import (
 import custom_components.xtend_tuya.util as util
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.data_entry.shared_data_entry as data_entry
-import custom_components.xtend_tuya.climate as climate
+if TYPE_CHECKING:
+    import custom_components.xtend_tuya.climate as climate
 
 STEP_METHOD_PREFIX = "async_step_"
 
@@ -440,7 +441,7 @@ class TuyaOptionFlow(OptionsFlow):
         if climate_entity is None:
             return self.async_abort(reason="climate_entity_not_found")
         
-        configurable_properties: climate.XTClimateDefinition | None = climate_entity.get_configurable_properties()
+        configurable_properties: climate.XTClimateConfigurableProperties | None = climate_entity.get_configurable_properties()
         if configurable_properties is None:
             return self.async_abort(reason="no_configurable_properties")
         

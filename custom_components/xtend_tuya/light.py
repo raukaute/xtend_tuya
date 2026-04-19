@@ -270,7 +270,6 @@ class XTLightEntity(XTEntity, TuyaLightEntity):
             device=device,
             device_manager=device_manager,  # type: ignore
             description=description,
-            definition=definition,
         )
         super(XTEntity, self).__init__(
             device=device,

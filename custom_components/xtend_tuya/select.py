@@ -429,8 +429,6 @@ class XTSelectEntity(XTEntity, TuyaSelectEntity):
             device=device,
             device_manager=device_manager,
             description=description,
-            definition=definition,
-            dpcode_wrapper=definition.select_wrapper,
         )
         super(XTEntity, self).__init__(
             device=device,

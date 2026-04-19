@@ -97,7 +97,6 @@ class XTVacuumEntity(XTEntity, TuyaVacuumEntity):
         super(XTVacuumEntity, self).__init__(
             device=device,
             device_manager=device_manager,  # type: ignore
-            definition=definition,
         )
         super(XTEntity, self).__init__(
             device=device,

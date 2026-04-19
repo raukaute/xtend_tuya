@@ -91,7 +91,6 @@ class XTFanEntity(XTEntity, TuyaFanEntity):
         super(XTFanEntity, self).__init__(
             device,
             device_manager,  # type: ignore
-            definition=definition,
         )
         super(XTEntity, self).__init__(
             device,
