@@ -13,7 +13,11 @@ from .multi_manager.multi_manager import (
     XTConfigEntry,
     XTDevice,
 )
-from .const import DOMAIN, DOMAIN_ORIG, XTDPCode
+from .const import (
+    DOMAIN,
+    DOMAIN_ORIG,
+    XTDPCode,  # noqa: F401
+)
 
 
 async def async_get_config_entry_diagnostics(
