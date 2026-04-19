@@ -550,7 +550,7 @@ class TuyaConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
         )
 
-    async def async_step_configure(
+    async def async_step_configure_api(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         result_type, data = await XTConfigFlows(
@@ -639,7 +639,7 @@ class TuyaConfigFlow(ConfigFlow, domain=DOMAIN):
 
         self.config_entry_data = entry_data
         self.config_entry_title = info.get("username", "")
-        return await self.async_step_configure()
+        return await self.async_step_configure_api()
 
     async def async_step_reauth(self, _: Mapping[str, Any]) -> ConfigFlowResult:
         """Handle initiation of re-authentication with Tuya."""
