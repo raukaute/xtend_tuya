@@ -21,4 +21,5 @@ from . import hb_range_v1
 from . import hb_range_v2
 from . import ms_dp_syn_alg
 from . import sd_clean_record
+from . import sp_v2_encryption
 from . import voice_atm_color
