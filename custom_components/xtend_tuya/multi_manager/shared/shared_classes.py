@@ -550,10 +550,11 @@ class XTDevice(TuyaDevice):
         new_dpcode_info_dict = asdict(new_dpcode_info)
         cur_dpcode_info_dict = asdict(cur_dpcode_info)
         changed_fields: list[str] = []
+        processed_fields: list[str] = []
         for key in new_dpcode_info_dict:
             if cur_dpcode_info_dict[key] != new_dpcode_info_dict[key]:
                 changed_fields.append(key)
-        LOGGER.warning(f"set_dpcode_information: {changed_fields=}")
+        #LOGGER.warning(f"set_dpcode_information: {changed_fields=}")
         if "dpcode" in changed_fields or "dpid" in changed_fields:
             LOGGER.warning(f"Changing DPCode or DPId is not yet supported ({self.name} => {cur_dpcode_info.dpcode}({cur_dpcode_info.dpid}) <=> {new_dpcode_info.dpcode}({new_dpcode_info.dpid}))")
             return False
@@ -562,11 +563,15 @@ class XTDevice(TuyaDevice):
             if "dptype" in changed_fields:
                 mod_status_range.type = new_dpcode_info.dptype
                 value_modified = True
+                if "dptype" not in processed_fields:
+                    processed_fields.append("dptype")
         if cur_dpcode_info.in_function:
             mod_function = self.function[cur_dpcode_info.dpcode]
             if "dptype" in changed_fields:
                 mod_function.type = new_dpcode_info.dptype
                 value_modified = True
+                if "dptype" not in processed_fields:
+                    processed_fields.append("dptype")
         if cur_dpcode_info.in_local_strategy and cur_dpcode_info.dpid is not None:
             mod_ls = self.local_strategy[cur_dpcode_info.dpid]
             
@@ -575,7 +580,13 @@ class XTDevice(TuyaDevice):
                 if "dptype" in changed_fields:
                     config_item["valueType"] = new_dpcode_info.dptype
                     value_modified = True
+                    if "dptype" not in processed_fields:
+                        processed_fields.append("dptype")
         
+        for test_field in changed_fields:
+            if test_field not in processed_fields:
+                LOGGER.warning(f"Unprocessed change for {self.name}({cur_dpcode_info.dpcode}): {test_field}")
+
         return value_modified
 
     @staticmethod
