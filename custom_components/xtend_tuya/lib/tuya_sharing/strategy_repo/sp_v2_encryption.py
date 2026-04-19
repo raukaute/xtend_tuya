@@ -18,7 +18,7 @@ def convert(dp_item: tuple, config_item: dict) -> tuple:
 def convert_value(dp_value):
     new_value = dp_value
     try:
-        new_value = str(b64decode(dp_value))
+        new_value = b64decode(dp_value).decode("utf8")
     except Exception as e:
         LOGGER.exception(e, stack_info=True)
     return new_value
