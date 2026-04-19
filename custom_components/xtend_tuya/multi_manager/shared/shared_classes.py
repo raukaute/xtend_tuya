@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import NamedTuple, Any, Optional, cast
 from collections import UserDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 import copy
 import json
 from enum import StrEnum
@@ -536,7 +536,23 @@ class XTDevice(TuyaDevice):
                             dp_info.value_descr_dict = value_descr_dict
                         except Exception:
                             pass
-        return dp_info
+
+        #Break the memory links to avoid changes from outside
+        return copy.deepcopy(dp_info)
+    
+    def set_dpcode_information(self, new_dpcode_info: XTDevice.XTDeviceDPCodeInformation) -> bool:
+        value_modified: bool = False
+        cur_dpcode_info = self.get_dpcode_information(dpcode=new_dpcode_info.dpcode, dpid=new_dpcode_info.dpid)
+        if cur_dpcode_info is None:
+            return False
+        new_dpcode_info_dict = asdict(new_dpcode_info)
+        cur_dpcode_info_dict = asdict(cur_dpcode_info)
+        changed_fields: list[str] = []
+        for key in new_dpcode_info_dict:
+            if cur_dpcode_info_dict[key] != new_dpcode_info_dict[key]:
+                changed_fields.append(key)
+        LOGGER.warning(f"set_dpcode_information: {changed_fields=}")
+        return value_modified
 
     @staticmethod
     def get_empty_local_strategy_dp_id(device: XTDevice) -> int | None:

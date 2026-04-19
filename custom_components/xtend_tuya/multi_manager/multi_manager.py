@@ -209,7 +209,7 @@ class MultiManager:  # noqa: F811
             # Applied twice because some parts at the end of apply_fix would change values of previous calls
             CloudFixes.apply_fixes(device, self)
             CloudFixes.apply_fixes(device, self)
-
+            CloudFixes.apply_post_init_fixes(device, self)
             self._add_dpcodes_supported_by_all_devices(device)
 
             # Don't allow changes to DPCodes after the global initialization

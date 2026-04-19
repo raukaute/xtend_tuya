@@ -54,6 +54,37 @@ class CloudFixes:
             pass
 
     @staticmethod
+    def apply_post_init_fixes(
+        device: XTDevice, multi_manager: mm.MultiManager | None = None
+    ):
+        CloudFixes._redetermine_dptype(device, multi_manager)
+
+    @staticmethod
+    def _redetermine_dptype(
+        device: XTDevice, multi_manager: mm.MultiManager | None = None
+    ):
+        for dpcode in device.status:
+            new_dptype: TuyaDPType | None = None
+            if dpcode_info := device.get_dpcode_information(dpcode=dpcode):
+                match dpcode_info.dptype:
+                    case TuyaDPType.RAW:
+                        converted_value = device.apply_dpcode_strategy(
+                            dpcode=dpcode,
+                            value=device.status[dpcode],
+                            multi_manager=multi_manager,
+                        )
+                        if isinstance(converted_value, str):
+                            new_dptype = TuyaDPType.STRING
+                        try:
+                            json.loads(converted_value)
+                            new_dptype = TuyaDPType.JSON
+                        except Exception as e:
+                            pass
+                if new_dptype is not None:
+                    dpcode_info.dptype = new_dptype
+                    device.set_dpcode_information(dpcode_info)
+
+    @staticmethod
     def fix_incorrect_percent_scale_forced(
         device: XTDevice, function_code: str, scale_threshold: int = 100
     ):
@@ -1045,4 +1076,6 @@ class CloudFixes:
                         dpid = device.function[override].dp_id
                 if dpid is not None and dpid != 0:
                     if dpid in device.local_strategy:
-                        device.local_strategy[dpid]["access_mode"] = DPCODES_OVERRIDES[override]
+                        device.local_strategy[dpid]["access_mode"] = DPCODES_OVERRIDES[
+                            override
+                        ]
