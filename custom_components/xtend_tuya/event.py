@@ -259,6 +259,7 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             translation_key="xt_device_event_notify",
             device_class=None,
             wrapper_class=JSONEventWrapper,
+            entity_registry_visible_default=False,
         ),
     ),
 }
