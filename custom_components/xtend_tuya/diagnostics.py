@@ -13,7 +13,11 @@ from .multi_manager.multi_manager import (
     XTConfigEntry,
     XTDevice,
 )
-from .const import DOMAIN, DOMAIN_ORIG, XTDPCode
+from .const import (
+    DOMAIN,
+    DOMAIN_ORIG,
+    XTDPCode,  # noqa: F401
+)
 
 
 async def async_get_config_entry_diagnostics(
@@ -119,9 +123,9 @@ def _async_device_as_dict(hass: HomeAssistant, device: XTDevice) -> dict[str, An
     # Gather Tuya states
     for dpcode, value in device.status.items():
         # These statuses may contain sensitive information, redact these..
-        if dpcode in {XTDPCode.ALARM_MESSAGE, XTDPCode.MOVEMENT_DETECT_PIC}:
-            data["status"][dpcode] = REDACTED
-            continue
+        # if dpcode in {XTDPCode.ALARM_MESSAGE, XTDPCode.MOVEMENT_DETECT_PIC}:
+        #     data["status"][dpcode] = REDACTED
+        #     continue
 
         with suppress(ValueError, TypeError):
             value = json.loads(value)

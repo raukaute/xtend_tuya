@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import NamedTuple, Any, Optional, cast
 from collections import UserDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 import copy
 import json
 from enum import StrEnum
@@ -258,6 +258,7 @@ class XTDevice(TuyaDevice):
         dptype: TuyaDPType | None = None
         in_status_range: bool = False
         in_function: bool = False
+        in_local_strategy: bool = False
         human_name: str = ""
 
         # From LocalStrategy
@@ -500,6 +501,7 @@ class XTDevice(TuyaDevice):
 
         if dp_info.dpid is not None:
             if local_strategy := self.local_strategy.get(dp_info.dpid):
+                dp_info.in_local_strategy = True
                 dp_info.value_convert = local_strategy.get("value_convert")
                 if access_mode := local_strategy.get("access_mode"):
                     dp_info.access_mode = access_mode
@@ -536,7 +538,56 @@ class XTDevice(TuyaDevice):
                             dp_info.value_descr_dict = value_descr_dict
                         except Exception:
                             pass
-        return dp_info
+
+        #Break the memory links to avoid changes from outside
+        return copy.deepcopy(dp_info)
+    
+    def set_dpcode_information(self, new_dpcode_info: XTDevice.XTDeviceDPCodeInformation) -> bool:
+        value_modified: bool = False
+        cur_dpcode_info = self.get_dpcode_information(dpcode=new_dpcode_info.dpcode, dpid=new_dpcode_info.dpid)
+        if cur_dpcode_info is None:
+            return False
+        new_dpcode_info_dict = asdict(new_dpcode_info)
+        cur_dpcode_info_dict = asdict(cur_dpcode_info)
+        changed_fields: list[str] = []
+        processed_fields: list[str] = []
+        for key in new_dpcode_info_dict:
+            if cur_dpcode_info_dict[key] != new_dpcode_info_dict[key]:
+                changed_fields.append(key)
+        #LOGGER.warning(f"set_dpcode_information: {changed_fields=}")
+        if "dpcode" in changed_fields or "dpid" in changed_fields:
+            LOGGER.warning(f"Changing DPCode or DPId is not yet supported ({self.name} => {cur_dpcode_info.dpcode}({cur_dpcode_info.dpid}) <=> {new_dpcode_info.dpcode}({new_dpcode_info.dpid}))")
+            return False
+        if cur_dpcode_info.in_status_range:
+            mod_status_range = self.status_range[cur_dpcode_info.dpcode]
+            if "dptype" in changed_fields:
+                mod_status_range.type = new_dpcode_info.dptype
+                value_modified = True
+                if "dptype" not in processed_fields:
+                    processed_fields.append("dptype")
+        if cur_dpcode_info.in_function:
+            mod_function = self.function[cur_dpcode_info.dpcode]
+            if "dptype" in changed_fields:
+                mod_function.type = new_dpcode_info.dptype
+                value_modified = True
+                if "dptype" not in processed_fields:
+                    processed_fields.append("dptype")
+        if cur_dpcode_info.in_local_strategy and cur_dpcode_info.dpid is not None:
+            mod_ls = self.local_strategy[cur_dpcode_info.dpid]
+            
+            config_item = mod_ls.get("config_item")
+            if config_item is not None:
+                if "dptype" in changed_fields:
+                    config_item["valueType"] = new_dpcode_info.dptype
+                    value_modified = True
+                    if "dptype" not in processed_fields:
+                        processed_fields.append("dptype")
+        
+        for test_field in changed_fields:
+            if test_field not in processed_fields:
+                LOGGER.warning(f"Unprocessed change for {self.name}({cur_dpcode_info.dpcode}): {test_field}")
+
+        return value_modified
 
     @staticmethod
     def get_empty_local_strategy_dp_id(device: XTDevice) -> int | None:
