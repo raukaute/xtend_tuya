@@ -22,7 +22,7 @@ import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaEntity,
     TuyaDPType,
-    TuyaDPCodeWrapper,
+    TuyaDeviceWrapper,
     TuyaTypeInformation,
 )
 
@@ -441,39 +441,39 @@ class XTEntity(TuyaEntity):
     class XTEntitySharedAttributes(StrEnum):
         IGNORE_OTHER_DP_CODE_HANDLER = "ignore_other_dp_code_handler"
 
-    def __init__(self, *args, **kwargs) -> None:
-        # This is to catch the super call in case the next class in parent's MRO doesn't have an init method
-        self.dpcode_wrapper: TuyaDPCodeWrapper | None = kwargs.get("dpcode_wrapper")
-        if "dpcode_wrapper" in kwargs:
-            kwargs.pop("dpcode_wrapper")
+    def __init__(
+        self,
+        device: mm.XTDevice,
+        device_manager: mm.MultiManager,
+        *args,
+        **kwargs,
+    ) -> None:
+        self.device = device
+        self.device_manager = device_manager
         try:
-            super(XTEntity, self).__init__(*args, **kwargs)
+            super(XTEntity, self).__init__(device, device_manager, *args, **kwargs)
         except Exception as e:
             # In case we have an error, do nothing
             LOGGER.exception(e)
             LOGGER.warning(f"Error calling super constructor: {e}", stack_info=True)
             pass
 
-    def get_type_information(self) -> TuyaTypeInformation | None:
-        if self.dpcode_wrapper is None:
-            return None
-        try:
-            type_information = getattr(self.dpcode_wrapper, "type_information")
+    def get_type_information(self, wrapper: TuyaDeviceWrapper) -> TuyaTypeInformation | None:
+        if hasattr(wrapper, "type_information"):
+            type_information = getattr(wrapper, "type_information")
             if type_information is not None:
                 return type_information
-        except Exception:
-            pass
         return None
 
-    def get_dptype_from_dpcode_wrapper(self) -> TuyaDPType | None:
+    def get_dptype_from_dpcode_wrapper(self, wrapper: TuyaDeviceWrapper) -> TuyaDPType | None:
         # Probably not working. Just kept for backward compatibility
-        if type_information := self.get_type_information():
+        if type_information := self.get_type_information(wrapper=wrapper):
             if hasattr(type_information, "_DPTYPE"):
                 return type_information._DPTYPE
 
         # This is the one that should work
-        if hasattr(self.dpcode_wrapper, "_DPTYPE"):
-            return getattr(self.dpcode_wrapper, "_DPTYPE")
+        if hasattr(wrapper, "_DPTYPE"):
+            return getattr(wrapper, "_DPTYPE")
         return None
 
     @staticmethod
@@ -770,6 +770,9 @@ class XTEntity(TuyaEntity):
         return return_dict
 
     def get_configurable_properties(self) -> Any | None:
+        return None
+
+    def load_configurable_properties(self) -> bool | None:
         return None
 
     @staticmethod

@@ -579,7 +579,6 @@ class XTSwitchEntity(XTEntity, TuyaSwitchEntity):
             device_manager=device_manager,  # type: ignore
             description=description,
             definition=definition,
-            dpcode_wrapper=definition.switch_wrapper,
         )
         super(XTEntity, self).__init__(
             device=device,

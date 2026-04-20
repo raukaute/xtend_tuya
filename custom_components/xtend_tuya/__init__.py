@@ -52,6 +52,9 @@ def _getaddrinfo_ipv4_only(host, port, family=0, type=0, proto=0, flags=0):
     """
     tuya_hosts = [
         "apigw.iotbing.com",
+        "apigw-sg.iotbing.com",
+        "apigw.tuyaeu.com",
+        "apigw.tuyaus.com",
         "openapi.tuyaus.com",
         "openapi.tuyacn.com",
         "openapi.tuyaeu.com",
@@ -59,9 +62,15 @@ def _getaddrinfo_ipv4_only(host, port, family=0, type=0, proto=0, flags=0):
         "openapi-sg.iotbing.com",
         "openapi-ueaz.tuyaus.com",
         "openapi-weaz.tuyaeu.com",
+        "m1-sg.iotbing.com",
+        "m1.tuyaeu.com",
+        "m1.tuyaus.com",
+        "m1.tuyacn.com",
     ]
     if host and host in tuya_hosts:
         return _original_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    # else:
+    #     LOGGER.warning(f"_getaddrinfo_ipv4_only: {host=} {port=} {family=} {type=} {proto=} {flags=}")
     return _original_getaddrinfo(host, port, family, type, proto, flags)
 
 
