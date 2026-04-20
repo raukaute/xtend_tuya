@@ -842,6 +842,7 @@ class XTDPCode(StrEnum):
     INDUCTION_DELAY = "induction_delay"
     INDUCTION_INTERVAL = "induction_interval"
     INFRARED_SENSOR_SWITCH = "infrared_sensor_switch"
+    IPC_MOVEMENT_DETECT = "ipc_movement_detect"
     IR_CONTROL = "ir_control"
     KEY_REC = "key_rec"
     KEY_TONE = "key_tone"

@@ -8,6 +8,9 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.components.event import (
+    EventDeviceClass,
+)
 from tuya_device_handlers.definition.event import (
     TuyaEventDefinition,
     get_default_definition,
@@ -130,10 +133,9 @@ class XTEventEntityDescription(TuyaEventEntityDescription):
 EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
     CROSS_CATEGORY_DEVICE_DESCRIPTOR: (
         XTEventEntityDescription(
-            key=XT_DEVICE_EVENT_NOTIFY_DPCODE,
-            translation_key="xt_device_event_notify",
+            key=XTDPCode.ALARM_LOCK,
+            translation_key="alarm_lock",
             device_class=None,
-            wrapper_class=JSONEventWrapper,
         ),
         XTEventEntityDescription(
             key=XTDPCode.CARD_UNLOCK_USER,
@@ -150,13 +152,6 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
-            key=XTDPCode.HAND_UNLOCK_USER,
-            translation_key="unlock_user",
-            translation_placeholders={"user_type": "Hand"},
-            device_class=None,
-            wrapper_class=IntegerEventWrapper,
-        ),
-        XTEventEntityDescription(
             key=XTDPCode.FINGERPRINT_UNLOCK_USER,
             translation_key="unlock_user",
             translation_placeholders={"user_type": "Fingerprint"},
@@ -164,7 +159,82 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
+            key=XTDPCode.HAND_UNLOCK_USER,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Hand"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.IPC_MOVEMENT_DETECT,
+            translation_key="ipc_movement_detect",
+            device_class=EventDeviceClass.MOTION,
+        ),
+        XTEventEntityDescription(
             key=XTDPCode.PASSWORD_UNLOCK_USER,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Password"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_BLE,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Bluetooth"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_CARD,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Card"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_DYNAMIC,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Dynamic"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_FACE,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Face"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_FINGERPRINT,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Fingerprint"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_FINGER_VEIN,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Finger vein"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_HAND,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Hand"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_KEY,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Key"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_PASSWORD,
             translation_key="unlock_user",
             translation_placeholders={"user_type": "Password"},
             device_class=None,
@@ -178,20 +248,6 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
-            key=XTDPCode.UNLOCK_KEY,
-            translation_key="unlock_user",
-            translation_placeholders={"user_type": "Key"},
-            device_class=None,
-            wrapper_class=IntegerEventWrapper,
-        ),
-        XTEventEntityDescription(
-            key=XTDPCode.UNLOCK_BLE,
-            translation_key="unlock_user",
-            translation_placeholders={"user_type": "Bluetooth"},
-            device_class=None,
-            wrapper_class=IntegerEventWrapper,
-        ),
-        XTEventEntityDescription(
             key=XTDPCode.UNLOCK_VOICE_REMOTE,
             translation_key="unlock_user",
             translation_placeholders={"user_type": "Voice"},
@@ -199,25 +255,11 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
-            key=XTDPCode.UNLOCK_FACE,
-            translation_key="unlock_user",
-            translation_placeholders={"user_type": "Face"},
+            key=XT_DEVICE_EVENT_NOTIFY_DPCODE,
+            translation_key="xt_device_event_notify",
             device_class=None,
-            wrapper_class=IntegerEventWrapper,
-        ),
-        XTEventEntityDescription(
-            key=XTDPCode.UNLOCK_HAND,
-            translation_key="unlock_user",
-            translation_placeholders={"user_type": "Hand"},
-            device_class=None,
-            wrapper_class=IntegerEventWrapper,
-        ),
-        XTEventEntityDescription(
-            key=XTDPCode.UNLOCK_DYNAMIC,
-            translation_key="unlock_user",
-            translation_placeholders={"user_type": "Dynamic"},
-            device_class=None,
-            wrapper_class=IntegerEventWrapper,
+            wrapper_class=JSONEventWrapper,
+            entity_registry_visible_default=False,
         ),
     ),
 }

@@ -471,6 +471,40 @@
             }
         },
         "event": {
+            "alarm_lock": {
+                "name": "Movement detected",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "wrong_finger": "Wrong fingerprint",
+                            "wrong_password": "Wrong password",
+                            "wrong_card": "Wrong card",
+                            "wrong_face": "Wrong face",
+                            "tongue_bad": "Latch stuck",
+                            "too_hot": "Too hot",
+                            "unclosed_time": "Not closed after timeout",
+                            "tongue_not_out": "Deadbolt stuck",
+                            "pry": "Anti-pry alarm",
+                            "key_in": "Not calibrated",
+                            "low_battery": "Low battery",
+                            "power_off": "Battery exhausted",
+                            "shock": "Vibration alarm",
+                            "defense": "Arm alarm",
+                            "test": "Test"
+                        }
+                    }
+                }
+            },
+            "ipc_movement_detect": {
+                "name": "Movement detected",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "motion": "Motion detected"
+                        }
+                    }
+                }
+            },
             "numbered_button": {
                 "name": "Button {button_number}",
                 "state_attributes": {
