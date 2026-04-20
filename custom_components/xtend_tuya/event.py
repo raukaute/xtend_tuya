@@ -133,6 +133,11 @@ class XTEventEntityDescription(TuyaEventEntityDescription):
 EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
     CROSS_CATEGORY_DEVICE_DESCRIPTOR: (
         XTEventEntityDescription(
+            key=XTDPCode.ALARM_LOCK,
+            translation_key="alarm_lock",
+            device_class=None,
+        ),
+        XTEventEntityDescription(
             key=XTDPCode.CARD_UNLOCK_USER,
             translation_key="unlock_user",
             translation_placeholders={"user_type": "Card"},
@@ -180,6 +185,13 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_CARD,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Card"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
             key=XTDPCode.UNLOCK_DYNAMIC,
             translation_key="unlock_user",
             translation_placeholders={"user_type": "Dynamic"},
@@ -194,6 +206,20 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             wrapper_class=IntegerEventWrapper,
         ),
         XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_FINGERPRINT,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Fingerprint"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_FINGER_VEIN,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Finger vein"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
             key=XTDPCode.UNLOCK_HAND,
             translation_key="unlock_user",
             translation_placeholders={"user_type": "Hand"},
@@ -204,6 +230,13 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             key=XTDPCode.UNLOCK_KEY,
             translation_key="unlock_user",
             translation_placeholders={"user_type": "Key"},
+            device_class=None,
+            wrapper_class=IntegerEventWrapper,
+        ),
+        XTEventEntityDescription(
+            key=XTDPCode.UNLOCK_PASSWORD,
+            translation_key="unlock_user",
+            translation_placeholders={"user_type": "Password"},
             device_class=None,
             wrapper_class=IntegerEventWrapper,
         ),
