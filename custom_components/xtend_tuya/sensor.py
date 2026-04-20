@@ -155,7 +155,6 @@ class XTSensorEntityDescription(TuyaSensorEntityDescription, frozen=True):
     reset_daily: bool = False
     reset_monthly: bool = False
     reset_yearly: bool = False
-    reset_after_x_seconds: int = 0
     restoredata: bool = False
     refresh_device_after_load: bool = False
     recalculate_scale_for_percentage: bool = False
@@ -1326,42 +1325,6 @@ TIMER_SENSORS: tuple[XTSensorEntityDescription, ...] = (
 
 LOCK_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_FINGERPRINT,
-        translation_key="unlock_fingerprint",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_PASSWORD,
-        translation_key="unlock_password",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_CARD,
-        translation_key="unlock_card",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_FACE,
-        translation_key="unlock_face",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_HAND,
-        translation_key="unlock_hand",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_FINGER_VEIN,
-        translation_key="unlock_finger_vein",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
         key=XTDPCode.CLOSED_OPENED,
         translation_key="jtmspro_closed_opened",
         entity_registry_enabled_default=True,
@@ -1459,12 +1422,6 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
         ),
     ),
     "jtmspro": (
-        XTSensorEntityDescription(
-            key=XTDPCode.ALARM_LOCK,
-            translation_key="jtmspro_alarm_lock",
-            entity_registry_enabled_default=False,
-            reset_after_x_seconds=2,
-        ),
         *LOCK_SENSORS,
         *ELECTRICITY_SENSORS,
         *BATTERY_SENSORS,
@@ -1712,12 +1669,6 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
         *TEMPERATURE_SENSORS,
     ),
     "ms_category": (
-        XTSensorEntityDescription(
-            key=XTDPCode.ALARM_LOCK,
-            translation_key="ms_category_alarm_lock",
-            entity_registry_enabled_default=False,
-            reset_after_x_seconds=1,
-        ),
         *LOCK_SENSORS,
         *BATTERY_SENSORS,
     ),
