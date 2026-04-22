@@ -156,7 +156,6 @@ class XTSensorEntityDescription(TuyaSensorEntityDescription, frozen=True):
     reset_daily: bool = False
     reset_monthly: bool = False
     reset_yearly: bool = False
-    reset_after_x_seconds: int = 0
     restoredata: bool = False
     refresh_device_after_load: bool = False
     recalculate_scale_for_percentage: bool = False
@@ -1327,42 +1326,6 @@ TIMER_SENSORS: tuple[XTSensorEntityDescription, ...] = (
 
 LOCK_SENSORS: tuple[XTSensorEntityDescription, ...] = (
     XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_FINGERPRINT,
-        translation_key="unlock_fingerprint",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_PASSWORD,
-        translation_key="unlock_password",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_CARD,
-        translation_key="unlock_card",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_FACE,
-        translation_key="unlock_face",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_HAND,
-        translation_key="unlock_hand",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
-        key=XTDPCode.UNLOCK_FINGER_VEIN,
-        translation_key="unlock_finger_vein",
-        entity_registry_enabled_default=True,
-        reset_after_x_seconds=2,
-    ),
-    XTSensorEntityDescription(
         key=XTDPCode.CLOSED_OPENED,
         translation_key="jtmspro_closed_opened",
         entity_registry_enabled_default=True,
@@ -1477,12 +1440,6 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
         ),
     ),
     "jtmspro": (
-        XTSensorEntityDescription(
-            key=XTDPCode.ALARM_LOCK,
-            translation_key="jtmspro_alarm_lock",
-            entity_registry_enabled_default=False,
-            reset_after_x_seconds=2,
-        ),
         *LOCK_SENSORS,
         *ELECTRICITY_SENSORS,
         *BATTERY_SENSORS,
@@ -1725,12 +1682,6 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
         *TEMPERATURE_SENSORS,
     ),
     "ms_category": (
-        XTSensorEntityDescription(
-            key=XTDPCode.ALARM_LOCK,
-            translation_key="ms_category_alarm_lock",
-            entity_registry_enabled_default=False,
-            reset_after_x_seconds=1,
-        ),
         *LOCK_SENSORS,
         *BATTERY_SENSORS,
     ),
@@ -2038,6 +1989,7 @@ async def async_setup_entry(
                 generic_dpcodes = XTEntity.get_generic_dpcodes_for_this_platform(
                     device, this_platform
                 )
+                hass_data.manager.device_watcher.report_message(device_id, f"Generic dpcodes for sensor: {generic_dpcodes=}", XTDeviceWatcherCategory.PLATFORM_SENSOR, device)
                 if not generic_dpcodes:
                     continue
                 dev_class_from_uom = XTEntity.get_device_classes_from_uom(
@@ -2063,6 +2015,7 @@ async def async_setup_entry(
                         },
                         entity_registry_enabled_default=False,
                         entity_registry_visible_default=False,
+                        wrapper_class=(TuyaDPCodeStringWrapper, TuyaDPCodeIntegerWrapper, TuyaDPCodeEnumWrapper, TuyaDPCodeBooleanWrapper)
                     )
                     if definition := xt_get_default_definition(
                         device,
@@ -2227,7 +2180,6 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             device_manager=device_manager,
             description=description,
             definition=definition,
-            dpcode_wrapper=definition.sensor_wrapper,
         )
         self._attr_state_class = description.state_class
         super(XTEntity, self).__init__(
@@ -2288,7 +2240,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         if dpcode is None:
             return
         value = self.device.status.get(dpcode)
-        default_value = get_default_value(self.get_dptype_from_dpcode_wrapper())
+        default_value = get_default_value(self.get_dptype_from_dpcode_wrapper(wrapper=self._dpcode_wrapper))
         if value is None or value == default_value:
             return
         self.device.status[dpcode] = default_value
@@ -2484,7 +2436,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
                 if device := self.device_manager.device_map.get(self.device.id, None):
                     if dpcode in device.status:
                         default_value = get_default_value(
-                            self.get_dptype_from_dpcode_wrapper()
+                            self.get_dptype_from_dpcode_wrapper(wrapper=self._dpcode_wrapper)
                         )
                         if now.hour != 0 or now.minute != 0:
                             LOGGER.error(
@@ -2530,7 +2482,7 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
         self.async_write_ha_state()
 
     def scale_value_back(self, value: StateType) -> StateType:
-        type_information = self.get_type_information()
+        type_information = self.get_type_information(wrapper=self._dpcode_wrapper)
         if isinstance(type_information, TuyaIntegerTypeInformation):
             if isinstance(value, (int, float)):
                 return type_information.scale_value_back(value)

@@ -209,6 +209,7 @@ class XTDeviceWatcherCategory(Flag):
     PLATFORM_CLIMATE        = auto()
     PLATFORM_COVER          = auto()
     PLATFORM_EVENT          = auto()
+    PLATFORM_LIGHT          = auto()
     PLATFORM_LOCK           = auto()
     PLATFORM_NUMBER         = auto()
     PLATFORM_SENSOR         = auto()
@@ -841,6 +842,7 @@ class XTDPCode(StrEnum):
     INDUCTION_DELAY = "induction_delay"
     INDUCTION_INTERVAL = "induction_interval"
     INFRARED_SENSOR_SWITCH = "infrared_sensor_switch"
+    IPC_MOVEMENT_DETECT = "ipc_movement_detect"
     IR_CONTROL = "ir_control"
     KEY_REC = "key_rec"
     KEY_TONE = "key_tone"
@@ -1008,6 +1010,7 @@ class XTDPCode(StrEnum):
     UNIT2 = "Unit"
     UNLOCK_BLE = "unlock_ble"
     UNLOCK_CARD = "unlock_card"
+    UNLOCK_DYNAMIC = "unlock_dynamic"
     UNLOCK_KEY = "unlock_key"
     UNLOCK_FACE = "unlock_face"
     UNLOCK_FINGERPRINT = "unlock_fingerprint"
@@ -1066,6 +1069,7 @@ class XTDPCode(StrEnum):
     XT_ADD_ELE2_TODAY = "xt_add_ele2_today"
     XT_COVER_INVERT_CONTROL = "xt_cover_invert_control"
     XT_COVER_INVERT_STATUS = "xt_cover_invert_status"
+    XT_DEVICE_EVENT_NOTIFY = "xt_device_event_notify"
     XT_FORWARD_ENERGY_TOTAL = "xt_forward_energy_total"
     XT_FORWARD_ENERGY_TOTAL_THIS_MONTH = "xt_forward_energy_total_this_month"
     XT_FORWARD_ENERGY_TOTAL_THIS_YEAR = "xt_forward_energy_total_this_year"
@@ -1199,6 +1203,9 @@ DPCODE_PREFERED_DEVICE_CLASS: dict[str, str | None] = {
     "switch_wrap": None,
     "valve_open_degree": None,
 }
+
+XT_DEVICE_EVENT_NOTIFY_DPCODE = XTDPCode.XT_DEVICE_EVENT_NOTIFY
+BIZCODE_EVENT_NOTIFY = "event_notify"
 
 class XTEntityAccessMode(StrEnum):
     READ_ONLY = "ro"

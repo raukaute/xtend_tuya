@@ -56,12 +56,7 @@ class WebRTCStreamQuality(IntEnum):
 
 # All descriptions can be found here:
 # https://developer.tuya.com/en/docs/iot/standarddescription?id=K9i5ql6waswzq
-CAMERAS: tuple[str, ...] = (
-    "jtmspro",
-    "videolock",
-    "sp",
-    "sp_wnq"
-)
+CAMERAS: tuple[str, ...] = ("jtmspro", "videolock", "sp", "sp_wnq")
 
 
 def xt_get_default_definition(device: XTDevice) -> TuyaCameraDefinition:
@@ -163,9 +158,15 @@ class XTCameraEntity(XTEntity, TuyaCameraEntity):
         stream_quality: WebRTCStreamQuality = WebRTCStreamQuality.HIGH_QUALITY,
     ) -> None:
         """Init XT Camera."""
-        super(XTCameraEntity, self).__init__(device, device_manager)
+        super(XTCameraEntity, self).__init__(
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            definition=definition,
+        )
         super(XTEntity, self).__init__(
-            device, device_manager, definition=definition  # type: ignore
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            definition=definition,
         )
         if stream_quality != WebRTCStreamQuality.HIGH_QUALITY:
             self._attr_unique_id = f"tuya.{device.id}_{stream_quality}"

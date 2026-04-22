@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, cast
 from enum import StrEnum
-from tuya_sharing import LoginControl
+from .lib.tuya_sharing import LoginControl
 from .lib.tuya_iot import AuthType
 import voluptuous as vol
 from homeassistant.core import callback, HomeAssistant
@@ -48,12 +48,16 @@ from .const import (
     TUYA_SMART_APP,
     TUYA_RESPONSE_PLATFORM_URL,
     XTDiscoverySource,
+    LOGGER,
 )
 from .multi_manager.shared.threading import (
     XTEventLoopProtector,
     XTConcurrencyManager,
 )
 from .multi_manager.managers.tuya_iot.xt_tuya_iot_openapi import XTIOTOpenAPI
+from .lib.tuya_iot.openapi import (
+    TuyaTokenInfo,
+)
 import custom_components.xtend_tuya.util as util
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.data_entry.shared_data_entry as data_entry
@@ -166,6 +170,7 @@ class XTConfigFlows:
                 endpoint=data[CONF_ENDPOINT_OT],
                 access_id=data[CONF_ACCESS_ID_OT],
                 access_secret=data[CONF_ACCESS_SECRET_OT],
+                shared_token_info=TuyaTokenInfo(),
                 auth_type=data[CONF_AUTH_TYPE],
             )
             api.set_dev_channel("hass")
@@ -182,7 +187,7 @@ class XTConfigFlows:
 
         return response, data
 
-    async def async_step_configure(
+    async def async_step_configure_api(
         self, user_input: dict[str, Any] | None = None
     ) -> tuple[XTConfigFlows.XTStepResultType, ConfigFlowResult | dict[str, str]]:
         """Manage the options."""
@@ -234,7 +239,7 @@ class XTConfigFlows:
         return (
             XTConfigFlows.XTStepResultType.SHOW_FORM,
             self.async_show_form(
-                step_id="configure",
+                step_id="configure_api",
                 data_schema=vol.Schema(
                     {
                         vol.Optional(
@@ -352,7 +357,7 @@ class TuyaOptionFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         result_type, data = await XTConfigFlows(
             self, self.xt_config_entry
-        ).async_step_configure(user_input=user_input)
+        ).async_step_configure_api(user_input=user_input)
         match result_type:
             case XTConfigFlows.XTStepResultType.SHOW_FORM:
                 data = cast(ConfigFlowResult, data)
@@ -498,6 +503,7 @@ class TuyaConfigFlow(ConfigFlow, domain=DOMAIN):
         ):
             return self.generic_data_entry
         else:
+            LOGGER.warning(f"Error while finding step {name=}", stack_info=True)
             raise AttributeError
 
     @staticmethod
@@ -544,12 +550,12 @@ class TuyaConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
         )
 
-    async def async_step_configure(
+    async def async_step_configure_api(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         result_type, data = await XTConfigFlows(
             self, config_entry=None
-        ).async_step_configure(user_input=user_input)
+        ).async_step_configure_api(user_input=user_input)
         match result_type:
             case XTConfigFlows.XTStepResultType.SHOW_FORM:
                 data = cast(ConfigFlowResult, data)
@@ -633,7 +639,7 @@ class TuyaConfigFlow(ConfigFlow, domain=DOMAIN):
 
         self.config_entry_data = entry_data
         self.config_entry_title = info.get("username", "")
-        return await self.async_step_configure()
+        return await self.async_step_configure_api()
 
     async def async_step_reauth(self, _: Mapping[str, Any]) -> ConfigFlowResult:
         """Handle initiation of re-authentication with Tuya."""

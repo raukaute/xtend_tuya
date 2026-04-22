@@ -22,7 +22,7 @@ import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaEntity,
     TuyaDPType,
-    TuyaDPCodeWrapper,
+    TuyaDeviceWrapper,
     TuyaTypeInformation,
 )
 
@@ -111,6 +111,13 @@ class XTEntityDescriptorManager:
         elif ref_type is XTEntityDescriptorManager.XTEntityDescriptorType.DICT:
             for category_key in category_content:
                 return_list.append(category_key)
+        elif ref_type is XTEntityDescriptorManager.XTEntityDescriptorType.ENTITY:
+            entity = cast(EntityDescription, category_content)
+            compound_key: str | None = XTEntityDescriptorManager.get_compound_key(
+                entity, key_fields
+            )
+            if compound_key is not None:
+                return_list.append(compound_key)
         return return_list
 
     @staticmethod
@@ -330,7 +337,7 @@ class XTEntityDescriptorManager:
     ) -> EntityDescription:
         if real_type is None:
             return base
-        base_dict: dict[str, Any] = base.__dict__ # type: ignore
+        base_dict: dict[str, Any] = base.__dict__  # type: ignore
         if (
             other.translation_placeholders is not None
             and base.translation_placeholders is None
@@ -434,37 +441,39 @@ class XTEntity(TuyaEntity):
     class XTEntitySharedAttributes(StrEnum):
         IGNORE_OTHER_DP_CODE_HANDLER = "ignore_other_dp_code_handler"
 
-    def __init__(self, *args, **kwargs) -> None:
-        # This is to catch the super call in case the next class in parent's MRO doesn't have an init method
-        self.dpcode_wrapper: TuyaDPCodeWrapper | None = kwargs.get("dpcode_wrapper")
-        if "dpcode_wrapper" in kwargs:
-            kwargs.pop("dpcode_wrapper")
+    def __init__(
+        self,
+        device: mm.XTDevice,
+        device_manager: mm.MultiManager,
+        *args,
+        **kwargs,
+    ) -> None:
+        self.device = device
+        self.device_manager = device_manager
         try:
-            super().__init__(*args, **kwargs)
-        except Exception:
+            super(XTEntity, self).__init__(device, device_manager, *args, **kwargs)
+        except Exception as e:
             # In case we have an error, do nothing
+            LOGGER.exception(e)
+            LOGGER.warning(f"Error calling super constructor: {e}", stack_info=True)
             pass
 
-    def get_type_information(self) -> TuyaTypeInformation | None:
-        if self.dpcode_wrapper is None:
-            return None
-        try:
-            type_information = getattr(self.dpcode_wrapper, "type_information")
+    def get_type_information(self, wrapper: TuyaDeviceWrapper) -> TuyaTypeInformation | None:
+        if hasattr(wrapper, "type_information"):
+            type_information = getattr(wrapper, "type_information")
             if type_information is not None:
                 return type_information
-        except Exception:
-            pass
         return None
 
-    def get_dptype_from_dpcode_wrapper(self) -> TuyaDPType | None:
+    def get_dptype_from_dpcode_wrapper(self, wrapper: TuyaDeviceWrapper) -> TuyaDPType | None:
         # Probably not working. Just kept for backward compatibility
-        if type_information := self.get_type_information():
+        if type_information := self.get_type_information(wrapper=wrapper):
             if hasattr(type_information, "_DPTYPE"):
                 return type_information._DPTYPE
 
         # This is the one that should work
-        if hasattr(self.dpcode_wrapper, "_DPTYPE"):
-            return getattr(self.dpcode_wrapper, "_DPTYPE")
+        if hasattr(wrapper, "_DPTYPE"):
+            return getattr(wrapper, "_DPTYPE")
         return None
 
     @staticmethod
@@ -763,6 +772,9 @@ class XTEntity(TuyaEntity):
     def get_configurable_properties(self) -> Any | None:
         return None
 
+    def load_configurable_properties(self) -> bool | None:
+        return None
+
     @staticmethod
     def get_device_class_from_uom(
         dpcode_information: sc.XTDevice.XTDeviceDPCodeInformation | None,
@@ -777,7 +789,7 @@ class XTEntity(TuyaEntity):
             elif isinstance(device_class_from_uom_dict[dpcode_information.unit], set):
                 return XTEntity.determine_most_probable_device_class_from_uom(
                     dpcode_information,
-                    device_class_from_uom_dict[dpcode_information.unit], # type: ignore
+                    device_class_from_uom_dict[dpcode_information.unit],  # type: ignore
                     device,
                 )
         if dpcode_information.unit is not None:
@@ -793,7 +805,14 @@ class XTEntity(TuyaEntity):
         device: sc.XTDevice,
     ) -> Any | None:
         if dpcode_information.dpcode in DPCODE_PREFERED_DEVICE_CLASS:
-            if DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] is None or DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] in proposed_device_class:
+            if (
+                DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode] is None
+                or DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode]
+                in proposed_device_class
+            ):
                 return DPCODE_PREFERED_DEVICE_CLASS[dpcode_information.dpcode]
-        LOGGER.warning(f"Multiple possible device class {proposed_device_class} for unit {dpcode_information.unit} on device {device.name} ({dpcode_information.dpcode}), unable to determine the most probable one, returning None. Plese report to developer.", stack_info=True)
+        LOGGER.warning(
+            f"Multiple possible device class {proposed_device_class} for unit {dpcode_information.unit} on device {device.name} ({dpcode_information.dpcode}), unable to determine the most probable one, returning None. Plese report to developer.",
+            stack_info=True,
+        )
         return None
