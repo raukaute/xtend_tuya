@@ -80,6 +80,31 @@ SERVICE_WEBRTC_DEBUG_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_FDM5KW_SET_TIMER = "fdm5kw_set_timer"
+SERVICE_FDM5KW_SET_TIMER_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DEVICE_ID): cv.string,
+        vol.Required("slot"): vol.All(cv.positive_int, vol.Range(min=0, max=6)),
+        vol.Required("hour"): vol.All(cv.positive_int, vol.Range(min=0, max=23)),
+        vol.Required("minute"): vol.All(cv.positive_int, vol.Range(min=0, max=59)),
+        vol.Required("mode"): vol.In(["duration", "volume"]),
+        vol.Required("value"): cv.positive_int,
+        vol.Optional("days"): vol.Any([cv.string], cv.positive_int),
+        vol.Optional("enabled", default=True): cv.boolean,
+    }
+)
+
+SERVICE_FDM5KW_DELETE_TIMER = "fdm5kw_delete_timer"
+SERVICE_FDM5KW_DELETE_TIMER_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DEVICE_ID): cv.string,
+        vol.Required("slot"): vol.All(cv.positive_int, vol.Range(min=0, max=6)),
+        vol.Optional("hour"): vol.All(cv.positive_int, vol.Range(min=0, max=23)),
+        vol.Optional("minute"): vol.All(cv.positive_int, vol.Range(min=0, max=59)),
+        vol.Optional("days"): vol.Any([cv.string], cv.positive_int),
+    }
+)
+
 
 class ServiceManager:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
@@ -128,6 +153,24 @@ class ServiceManager:
             SERVICE_WEBRTC_DEBUG,
             self._handle_webrtc_debug,
             SERVICE_WEBRTC_DEBUG_SCHEMA,
+            True,
+            True,
+            False,
+        )
+        self._register_service(
+            DOMAIN,
+            SERVICE_FDM5KW_SET_TIMER,
+            self._handle_fdm5kw_set_timer,
+            SERVICE_FDM5KW_SET_TIMER_SCHEMA,
+            True,
+            True,
+            False,
+        )
+        self._register_service(
+            DOMAIN,
+            SERVICE_FDM5KW_DELETE_TIMER,
+            self._handle_fdm5kw_delete_timer,
+            SERVICE_FDM5KW_DELETE_TIMER_SCHEMA,
             True,
             True,
             False,
@@ -309,3 +352,19 @@ class ServiceManager:
                         )
                         return response
                 return None
+
+    async def _handle_fdm5kw_set_timer(
+        self, event: XTEventData
+    ) -> dict[str, Any] | None:
+        from ....entity_parser.fdm5kw.timer_service import set_timer
+
+        ok = await set_timer(self.hass, event.data)
+        return {"success": ok}
+
+    async def _handle_fdm5kw_delete_timer(
+        self, event: XTEventData
+    ) -> dict[str, Any] | None:
+        from ....entity_parser.fdm5kw.timer_service import delete_timer
+
+        ok = await delete_timer(self.hass, event.data)
+        return {"success": ok}

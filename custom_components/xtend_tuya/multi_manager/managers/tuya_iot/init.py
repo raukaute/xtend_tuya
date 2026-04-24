@@ -719,6 +719,8 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
                 return self.iot_account.device_manager.api.get(url, params)
             case "POST":
                 return self.iot_account.device_manager.api.post(url, params)
+            case "DELETE":
+                return self.iot_account.device_manager.api.delete(url, params)
         return None
 
     def get_webrtc_sdp_answer(
