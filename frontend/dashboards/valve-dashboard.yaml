@@ -12,7 +12,7 @@
 title: Solar Valves
 views:
   # =========================================================================
-  - title: S 809
+  - title: S 809 (Green Carpet)
     path: s-809
     type: sections
     max_columns: 3
@@ -97,7 +97,7 @@ views:
             hours_to_show: 24
 
   # =========================================================================
-  - title: S 810
+  - title: S 810 (Verbs line North fence)
     path: s-810
     type: sections
     max_columns: 3
@@ -182,7 +182,7 @@ views:
             hours_to_show: 24
 
   # =========================================================================
-  - title: S 812
+  - title: S 812 (Pumphouse bed)
     path: s-812
     type: sections
     max_columns: 3
