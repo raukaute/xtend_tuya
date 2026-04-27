@@ -1,0 +1,24 @@
+{
+  "name": "irrigation-timer-card",
+  "version": "0.2.0",
+  "description": "Home Assistant Lovelace card for managing Tuya irrigation valve timers",
+  "main": "dist/irrigation-timer-card.js",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c --watch",
+    "lint": "eslint src/"
+  },
+  "keywords": ["home-assistant", "lovelace", "tuya", "irrigation"],
+  "license": "MIT",
+  "devDependencies": {
+    "rollup": "^4.9.0",
+    "@rollup/plugin-node-resolve": "^15.2.0",
+    "@rollup/plugin-typescript": "^11.1.0",
+    "@rollup/plugin-terser": "^0.4.0",
+    "typescript": "^5.3.0",
+    "lit": "^3.1.0"
+  },
+  "dependencies": {
+    "lit": "^3.1.0"
+  }
+}
