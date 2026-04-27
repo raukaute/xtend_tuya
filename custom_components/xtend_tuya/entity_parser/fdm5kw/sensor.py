@@ -329,6 +329,9 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
     Attributes contain the full slot registry for the irrigation-timer-card.
     """
 
+    # device_id → live entity instance, so the resync service can find us
+    INSTANCES: dict[str, "Fdm5kwTimerRegistryEntity"] = {}
+
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
         wrapper = self._dpcode_wrapper
@@ -336,11 +339,21 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
             return None
         slots = wrapper.get_slots_dict()
         active = sum(1 for s in slots.values() if s and s.get("enabled"))
-        return {"slots": slots, "active_count": active}
+        # valve_name reads device.name on every attribute read, so SmartLife
+        # rename pushes (BIZCODE_NAME_UPDATE) propagate to the dashboard
+        # without an HA restart.
+        return {
+            "slots": slots,
+            "active_count": active,
+            "valve_name": self.device.name,
+            "device_id": self.device.id,
+            "product_name": getattr(self.device, "product_name", None),
+        }
 
     async def async_added_to_hass(self) -> None:
         """Restore slot registry from previous HA state, then sync cloud timers."""
         await super().async_added_to_hass()
+        Fdm5kwTimerRegistryEntity.INSTANCES[self.device.id] = self
         wrapper = self._dpcode_wrapper
         if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
             return
@@ -360,12 +373,27 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         # Step 2: Sync cloud timers (discovers SmartLife-created timers)
         await self._sync_cloud_timers(wrapper)
 
+    async def async_will_remove_from_hass(self) -> None:
+        Fdm5kwTimerRegistryEntity.INSTANCES.pop(self.device.id, None)
+        await super().async_will_remove_from_hass()
+
+    async def resync_cloud_timers(self) -> bool:
+        """Re-fetch cloud timers and merge. Returns True on successful run."""
+        wrapper = self._dpcode_wrapper
+        if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
+            return False
+        await self._sync_cloud_timers(wrapper)
+        return True
+
     async def _sync_cloud_timers(self, wrapper: DPCodeTimeTaskRegistryWrapper) -> None:
         """Fetch cloud timer entries and merge into registry."""
         device_id = self.device.id
         account = self.device_manager.get_account_by_name("tuya_iot")
         if account is None:
-            _LOGGER.debug("No tuya_iot account — skipping cloud timer sync for %s", device_id)
+            _LOGGER.warning(
+                "fdm5kw cloud sync: no tuya_iot account for %s — skipping",
+                device_id,
+            )
             return
 
         url = f"/v1.0/devices/{device_id}/timers"
@@ -374,31 +402,87 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
                 account.call_api, "GET", url, None
             )
         except Exception:
-            _LOGGER.warning("Cloud timer sync failed for %s", device_id, exc_info=True)
-            return
-
-        if not response or not response.get("success"):
-            _LOGGER.debug("Cloud timer API returned no data for %s", device_id)
-            return
-
-        # Extract individual timer entries from nested groups structure
-        cloud_timers: list[dict] = []
-        for category in response.get("result", []):
-            for group in category.get("groups", []):
-                for timer in group.get("timers", []):
-                    cloud_timers.append(timer)
-
-        if not cloud_timers:
-            return
-
-        merged = wrapper.merge_cloud_timers(cloud_timers)
-        if merged > 0:
-            _LOGGER.info(
-                "Synced %d cloud timer(s) into registry for %s",
-                merged,
-                self.entity_id,
+            _LOGGER.warning(
+                "fdm5kw cloud sync: API call raised for %s",
+                device_id,
+                exc_info=True,
             )
+            return
+
+        if not response:
+            _LOGGER.warning(
+                "fdm5kw cloud sync: empty response for %s (account.call_api returned None)",
+                device_id,
+            )
+            return
+        if not response.get("success"):
+            _LOGGER.warning(
+                "fdm5kw cloud sync: API returned success=false for %s: code=%s msg=%s",
+                device_id,
+                response.get("code"),
+                response.get("msg"),
+            )
+            return
+
+        result = response.get("result")
+        _LOGGER.info(
+            "fdm5kw cloud sync: %s result type=%s len=%s",
+            device_id,
+            type(result).__name__,
+            len(result) if hasattr(result, "__len__") else "n/a",
+        )
+
+        cloud_timers: list[dict] = self._extract_cloud_timers(result)
+        if not cloud_timers:
+            _LOGGER.info(
+                "fdm5kw cloud sync: no timer entries found in response for %s — raw result keys=%s",
+                device_id,
+                list(result.keys()) if isinstance(result, dict) else None,
+            )
+            return
+
+        _LOGGER.info(
+            "fdm5kw cloud sync: %d cloud timer entry(ies) found for %s",
+            len(cloud_timers),
+            device_id,
+        )
+        merged = wrapper.merge_cloud_timers(cloud_timers)
+        _LOGGER.info(
+            "fdm5kw cloud sync: merged %d/%d timer(s) into registry for %s",
+            merged,
+            len(cloud_timers),
+            self.entity_id,
+        )
+        if merged > 0:
             self.async_write_ha_state()
+
+    @staticmethod
+    def _extract_cloud_timers(result: Any) -> list[dict]:
+        """Walk Tuya's response tree and collect timer entries.
+
+        Tuya's /v1.0/devices/{id}/timers can return shapes like:
+          - [{groups:[{timers:[...]}]}]                  (categorised list)
+          - {groups:[{timers:[...]}]}                    (single category dict)
+          - {timers:[...]}                               (flat)
+          - [...]                                        (already a list of timers)
+        """
+        timers: list[dict] = []
+        if isinstance(result, list):
+            for entry in result:
+                if isinstance(entry, dict) and "functions" in entry:
+                    timers.append(entry)
+                else:
+                    timers.extend(Fdm5kwTimerRegistryEntity._extract_cloud_timers(entry))
+        elif isinstance(result, dict):
+            if "functions" in result and "timer_id" in result:
+                timers.append(result)
+                return timers
+            for key in ("groups", "timers", "result"):
+                if key in result:
+                    timers.extend(
+                        Fdm5kwTimerRegistryEntity._extract_cloud_timers(result[key])
+                    )
+        return timers
 
 
 # ---------------------------------------------------------------------------

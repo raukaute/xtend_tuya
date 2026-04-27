@@ -108,3 +108,9 @@ fdm5kw_delete_timer:
     days:
       required: false
       example: "[Mon, Wed, Fri]"
+
+fdm5kw_resync_timers:
+  fields:
+    device_id:
+      required: true
+      example: "bfbc9ae1e1ad6d3135vxmj"
