@@ -142,15 +142,15 @@ views:
             title: Last Watering
             show_header_toggle: false
             entities:
-              - entity: sensor.s_810
+              - entity: sensor.s_810_last_watering_start
                 name: Start
-              - entity: sensor.s_810_2
+              - entity: sensor.s_810_last_watering_end
                 name: End
               - entity: sensor.s_810_watering_volume
                 name: Volume
               - entity: sensor.s_810_watering_cycle
                 name: Cycles
-              - entity: sensor.s_810_3
+              - entity: sensor.s_810_watering_mode
                 name: Mode
             layout_options:
               grid_columns: 4
@@ -227,15 +227,15 @@ views:
             title: Last Watering
             show_header_toggle: false
             entities:
-              - entity: sensor.s_812
+              - entity: sensor.s_812_last_watering_start
                 name: Start
-              - entity: sensor.s_812_2
+              - entity: sensor.s_812_last_watering_end
                 name: End
               - entity: sensor.s_812_watering_volume
                 name: Volume
               - entity: sensor.s_812_watering_cycle
                 name: Cycles
-              - entity: sensor.s_812_3
+              - entity: sensor.s_812_watering_mode
                 name: Mode
             layout_options:
               grid_columns: 4
