@@ -120,7 +120,7 @@ views:
               grid_columns: 4
               grid_rows: auto
           - type: custom:irrigation-timer-card
-            entity: sensor.s_810_green_carpet_irrigation_timer_registry
+            entity: sensor.s_810_verbs_line_north_fence_irrigation_timer_registry
             device_id: bf7d773582eedd85b8tyqv
             layout_options:
               grid_columns: 4
@@ -205,7 +205,7 @@ views:
               grid_columns: 4
               grid_rows: auto
           - type: custom:irrigation-timer-card
-            entity: sensor.s_812_green_carpet_irrigation_timer_registry
+            entity: sensor.s_812_pumphouse_bed_irrigation_timer_registry
             device_id: bf52565f2a631499211uat
             layout_options:
               grid_columns: 4
