@@ -187,17 +187,26 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
     def __init__(self, dpcode: str, type_information: TuyaRawTypeInformation) -> None:
         super().__init__(dpcode, type_information)
         self.slots: dict[int, dict | None] = {i: None for i in range(self.NUM_SLOTS)}
+        # The DP is a sliding window that shows the last write/delete. We
+        # apply each unique payload to slots once; without this guard, every
+        # state read would re-apply the last delete and wipe a slot that
+        # cloud sync just populated.
+        self._last_applied_payload: bytes | None = None
 
     def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
-        """Parse DP, update the corresponding slot, return active count."""
-        self.update_data(device)
-        if self.timer is not None:
-            idx = self.timer["slot"]
-            if 0 <= idx < self.NUM_SLOTS:
-                self.slots[idx] = dict(self.timer)
-        elif self.slot_index is not None and 0 <= self.slot_index < self.NUM_SLOTS:
-            # count=0 means slot was deleted
-            self.slots[self.slot_index] = None
+        """Parse DP, apply once per unique payload, return active count."""
+        raw = super().read_device_status(device)
+        payload = bytes(raw) if isinstance(raw, (bytes, bytearray)) else None
+        if payload is not None and payload != self._last_applied_payload:
+            self.update_data(device)
+            if self.timer is not None:
+                idx = self.timer["slot"]
+                if 0 <= idx < self.NUM_SLOTS:
+                    self.slots[idx] = dict(self.timer)
+            elif self.slot_index is not None and 0 <= self.slot_index < self.NUM_SLOTS:
+                # count=0 means slot was deleted
+                self.slots[self.slot_index] = None
+            self._last_applied_payload = payload
         active = sum(1 for s in self.slots.values() if s and s.get("enabled"))
         return str(active)
 
