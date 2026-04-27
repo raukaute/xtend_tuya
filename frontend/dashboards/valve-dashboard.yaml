@@ -19,16 +19,24 @@ views:
     sections:
       - type: grid
         cards:
+          - type: custom:irrigation-control-card
+            valve: switch.s_809_valve
+            duration: number.s_809_watering_duration
+            volume_sensor: sensor.s_809_watering_volume
+            start_time_sensor: sensor.s_809
+            end_time_sensor: sensor.s_809_2
+            mode_sensor: sensor.s_809_3
+            registry_entity: sensor.s_809_green_carpet_irrigation_timer_registry
+            device_id: bfbc9ae1e1ad6d3135vxmj
+            layout_options:
+              grid_columns: 4
+              grid_rows: auto
           - type: entities
-            title: Controls
+            title: Other settings
             show_header_toggle: false
             entities:
-              - entity: switch.s_809_valve
-                name: Valve
               - entity: switch.s_809_sleep_mode
                 name: Sleep Mode
-              - entity: number.s_809_watering_duration
-                name: Duration (s)
               - entity: number.s_809_rain_snow_delay
                 name: Rain/Snow Delay
             layout_options:
@@ -104,16 +112,24 @@ views:
     sections:
       - type: grid
         cards:
+          - type: custom:irrigation-control-card
+            valve: switch.s_810_valve
+            duration: number.s_810_watering_duration
+            volume_sensor: sensor.s_810_watering_volume
+            start_time_sensor: sensor.s_810_last_watering_start
+            end_time_sensor: sensor.s_810_last_watering_end
+            mode_sensor: sensor.s_810_watering_mode
+            registry_entity: sensor.s_810_verbs_line_north_fence_irrigation_timer_registry
+            device_id: bf7d773582eedd85b8tyqv
+            layout_options:
+              grid_columns: 4
+              grid_rows: auto
           - type: entities
-            title: Controls
+            title: Other settings
             show_header_toggle: false
             entities:
-              - entity: switch.s_810_valve
-                name: Valve
               - entity: switch.s_810_sleep_mode
                 name: Sleep Mode
-              - entity: number.s_810_watering_duration
-                name: Duration (s)
               - entity: number.s_810_rain_snow_delay
                 name: Rain/Snow Delay
             layout_options:
@@ -189,16 +205,24 @@ views:
     sections:
       - type: grid
         cards:
+          - type: custom:irrigation-control-card
+            valve: switch.s_812_valve
+            duration: number.s_812_watering_duration
+            volume_sensor: sensor.s_812_watering_volume
+            start_time_sensor: sensor.s_812_last_watering_start
+            end_time_sensor: sensor.s_812_last_watering_end
+            mode_sensor: sensor.s_812_watering_mode
+            registry_entity: sensor.s_812_pumphouse_bed_irrigation_timer_registry
+            device_id: bf52565f2a631499211uat
+            layout_options:
+              grid_columns: 4
+              grid_rows: auto
           - type: entities
-            title: Controls
+            title: Other settings
             show_header_toggle: false
             entities:
-              - entity: switch.s_812_valve
-                name: Valve
               - entity: switch.s_812_sleep_mode
                 name: Sleep Mode
-              - entity: number.s_812_watering_duration
-                name: Duration (s)
               - entity: number.s_812_rain_snow_delay
                 name: Rain/Snow Delay
             layout_options:

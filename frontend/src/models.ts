@@ -33,3 +33,28 @@ export interface IrrigationTimerCardConfig {
   /** Name override */
   name?: string;
 }
+
+/** Configuration for the irrigation-control-card. */
+export interface IrrigationControlCardConfig {
+  type: string;
+  /** Valve switch entity (required) */
+  valve: string;
+  /** Number entity for default watering duration (seconds) */
+  duration?: string;
+  /** Sensor with cumulative water volume (liters) */
+  volume_sensor?: string;
+  /** Sensor with last watering start timestamp */
+  start_time_sensor?: string;
+  /** Sensor with last watering end timestamp */
+  end_time_sensor?: string;
+  /** Sensor reporting active mode (idle / duration / volume) */
+  mode_sensor?: string;
+  /** Sensor reporting current target value (sec or L) */
+  value_sensor?: string;
+  /** Tuya device ID — required for the start_watering service */
+  device_id: string;
+  /** Optional registry entity for valve_name discovery */
+  registry_entity?: string;
+  /** Header override */
+  name?: string;
+}
