@@ -1,8 +1,8 @@
 {
   "domain": "xtend_tuya",
-  "name": "Xtend Tuya",
+  "name": "Xtend Tuya (raukaute fork)",
   "after_dependencies": ["tuya"],
-  "codeowners": ["@azerty9971"],
+  "codeowners": ["@raukaute"],
   "config_flow": true,
   "dependencies": ["ffmpeg", "http", "recorder"],
   "dhcp": [
