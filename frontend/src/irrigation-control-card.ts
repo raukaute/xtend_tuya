@@ -248,8 +248,13 @@ export class IrrigationControlCard extends LitElement {
       `;
     }
 
-    // Duration mode
-    const elapsed = (Date.now() - start.getTime()) / 1000;
+    // Duration mode. start_time is reported by the device without a
+    // timezone — Date() parses it as the browser's local time. If the
+    // browser and device disagree on TZ, elapsed can come out negative;
+    // clamp to [0, target] so the UI stays sane until we get the cycle's
+    // first end_time and the right view re-renders.
+    const elapsedRaw = (Date.now() - start.getTime()) / 1000;
+    const elapsed = Math.max(0, Math.min(target, elapsedRaw));
     const pct = target > 0 ? Math.min(100, (elapsed / target) * 100) : 0;
     const remaining = Math.max(0, target - elapsed);
     return html`

@@ -49,12 +49,19 @@ def _mode_to_int(mode: str) -> int:
     raise ValueError(f"mode must be 'duration', 'volume', or 'idle', got {mode!r}")
 
 
-def build_one_control_payload(mode: int, value: int) -> str:
-    """Build base64-encoded 6-byte one_control DP payload."""
+def build_one_control_payload(mode: int, value: int, start: bool = True) -> str:
+    """Build base64-encoded 6-byte one_control DP payload.
+
+    The 6th byte is a "trigger" flag: 1 = start watering now, 0 = idle.
+    Captured idle frames from SmartLife show byte 5 = 0; writing mode+value
+    alone with byte 5 = 0 doesn't actually fire a cycle on the device, so
+    the start flag is required.
+    """
     if mode not in (MODE_IDLE, MODE_DURATION, MODE_VOLUME):
         raise ValueError(f"unknown mode {mode}")
     if value < 0 or value > 0xFFFFFFFF:
         raise ValueError(f"value out of range: {value}")
+    flag = 1 if (start and mode != MODE_IDLE) else 0
     payload = bytes(
         [
             mode & 0xFF,
@@ -62,7 +69,7 @@ def build_one_control_payload(mode: int, value: int) -> str:
             (value >> 16) & 0xFF,
             (value >> 8) & 0xFF,
             value & 0xFF,
-            0,  # flag — observed zero in idle state, awaiting active capture
+            flag,
         ]
     )
     return base64.b64encode(payload).decode("ascii")

@@ -54,17 +54,17 @@ const ct={attribute:!0,type:String,converter:v,reflect:!1,hasChanged:$},lt=(t=ct
           <div class="progress-sub">${s.toFixed(1)} L remaining</div>
         </div>
         <button class="stop-btn" @click=${this._stop}>Stop</button>
-      `}const s=(Date.now()-t.getTime())/1e3,r=i>0?Math.min(100,s/i*100):0,n=Math.max(0,i-s);return I`
+      `}const s=(Date.now()-t.getTime())/1e3,r=Math.max(0,Math.min(i,s)),n=i>0?Math.min(100,r/i*100):0,o=Math.max(0,i-r);return I`
       <div class="progress">
         <div class="progress-text">
-          <span class="big">${ut(n)}</span>
+          <span class="big">${ut(o)}</span>
           <span class="dim"> left of ${ut(i)}</span>
         </div>
         <div class="bar">
-          <div class="fill" style="width:${r}%"></div>
+          <div class="fill" style="width:${n}%"></div>
         </div>
         <div class="progress-sub">
-          ${ut(s)} elapsed
+          ${ut(r)} elapsed
         </div>
       </div>
       <button class="stop-btn" @click=${this._stop}>Stop</button>
