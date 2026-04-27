@@ -112,6 +112,22 @@ SERVICE_FDM5KW_RESYNC_TIMERS_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_FDM5KW_START_WATERING = "fdm5kw_start_watering"
+SERVICE_FDM5KW_START_WATERING_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DEVICE_ID): cv.string,
+        vol.Required("mode"): vol.In(["duration", "volume"]),
+        vol.Required("value"): cv.positive_int,
+    }
+)
+
+SERVICE_FDM5KW_STOP_WATERING = "fdm5kw_stop_watering"
+SERVICE_FDM5KW_STOP_WATERING_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DEVICE_ID): cv.string,
+    }
+)
+
 
 class ServiceManager:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
@@ -187,6 +203,24 @@ class ServiceManager:
             SERVICE_FDM5KW_RESYNC_TIMERS,
             self._handle_fdm5kw_resync_timers,
             SERVICE_FDM5KW_RESYNC_TIMERS_SCHEMA,
+            True,
+            True,
+            False,
+        )
+        self._register_service(
+            DOMAIN,
+            SERVICE_FDM5KW_START_WATERING,
+            self._handle_fdm5kw_start_watering,
+            SERVICE_FDM5KW_START_WATERING_SCHEMA,
+            True,
+            True,
+            False,
+        )
+        self._register_service(
+            DOMAIN,
+            SERVICE_FDM5KW_STOP_WATERING,
+            self._handle_fdm5kw_stop_watering,
+            SERVICE_FDM5KW_STOP_WATERING_SCHEMA,
             True,
             True,
             False,
@@ -398,4 +432,20 @@ class ServiceManager:
                 "error": f"No fdm5kw timer registry entity loaded for {device_id}",
             }
         ok = await entity.resync_cloud_timers()
+        return {"success": ok}
+
+    async def _handle_fdm5kw_start_watering(
+        self, event: XTEventData
+    ) -> dict[str, Any] | None:
+        from ....entity_parser.fdm5kw.control_service import start_watering
+
+        ok = await start_watering(self.hass, event.data)
+        return {"success": ok}
+
+    async def _handle_fdm5kw_stop_watering(
+        self, event: XTEventData
+    ) -> dict[str, Any] | None:
+        from ....entity_parser.fdm5kw.control_service import stop_watering
+
+        ok = await stop_watering(self.hass, event.data)
         return {"success": ok}

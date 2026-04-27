@@ -152,26 +152,31 @@ export class IrrigationControlCard extends LitElement {
 
   private async _startSingleWatering(): Promise<void> {
     if (!this.hass) return;
-    // For now the Start button uses the existing duration number entity +
-    // switch turn_on. When the dedicated fdm5kw_start_watering service
-    // lands in xtend_tuya, swap this for a one_control DP write that
-    // carries mode and value atomically.
-    if (this._config.duration && this._mode === "duration") {
-      await this.hass.callService("number", "set_value", {
-        entity_id: this._config.duration,
-        value: this._target,
-      });
-    }
-    await this.hass.callService("switch", "turn_on", {
-      entity_id: this._config.valve,
+    // Write one_control directly via xtend_tuya.fdm5kw_start_watering so
+    // mode + value land atomically. This sidesteps the "duration ignored
+    // on second start" bug, where toggling the valve switch reuses a
+    // stale value because the number-entity update isn't strictly ordered
+    // with the switch turn_on.
+    await this.hass.callService("xtend_tuya", "fdm5kw_start_watering", {
+      device_id: this._config.device_id,
+      mode: this._mode,
+      value: Math.max(1, Math.round(this._target)),
     });
   }
 
   private async _stop(): Promise<void> {
     if (!this.hass) return;
-    await this.hass.callService("switch", "turn_off", {
-      entity_id: this._config.valve,
-    });
+    // Write one_control idle (mode=0). Falls back to switch turn_off if
+    // the user is on an integration version without the new service.
+    try {
+      await this.hass.callService("xtend_tuya", "fdm5kw_stop_watering", {
+        device_id: this._config.device_id,
+      });
+    } catch {
+      await this.hass.callService("switch", "turn_off", {
+        entity_id: this._config.valve,
+      });
+    }
   }
 
   // ----- Rendering -----

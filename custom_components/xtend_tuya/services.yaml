@@ -114,3 +114,21 @@ fdm5kw_resync_timers:
     device_id:
       required: true
       example: "bfbc9ae1e1ad6d3135vxmj"
+
+fdm5kw_start_watering:
+  fields:
+    device_id:
+      required: true
+      example: "bfbc9ae1e1ad6d3135vxmj"
+    mode:
+      required: true
+      example: "duration"
+    value:
+      required: true
+      example: 60
+
+fdm5kw_stop_watering:
+  fields:
+    device_id:
+      required: true
+      example: "bfbc9ae1e1ad6d3135vxmj"
