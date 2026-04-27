@@ -214,47 +214,75 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
             else:
                 self.slots[i] = None
 
-    def merge_cloud_timers(self, cloud_timers: list[dict]) -> int:
-        """Merge cloud timer entries into empty registry slots.
+    def reconcile_with_cloud(self, cloud_timers: list[dict]) -> int:
+        """Replace registry slots so they exactly mirror the cloud.
 
-        Cloud timers don't carry a slot index, so we assign them to
-        the first available empty slot (or match by time+days if a
-        slot already has identical data). Returns number of slots populated.
+        Cloud is treated as the source of truth: slots not present in the
+        cloud response are cleared, and each cloud timer is placed into a
+        slot. Slot indices are preserved when possible — first by matching
+        cloud_timer_id, then by hour/minute/days, then by filling gaps from
+        slot 0 upward. Returns the number of populated slots.
         """
-        merged = 0
+        parsed: list[dict] = []
         for ct in cloud_timers:
             timer_data = self._parse_cloud_timer(ct)
-            if timer_data is None:
-                continue
-            # Check if this timer already exists in a slot (match by time + days)
-            existing_slot = self._find_matching_slot(timer_data)
-            if existing_slot is not None:
-                # Update existing slot with cloud data (source of truth for SmartLife timers)
-                timer_data["slot"] = existing_slot
-                self.slots[existing_slot] = timer_data
-                merged += 1
-                continue
-            # Assign to first empty slot
-            for i in range(self.NUM_SLOTS):
-                if self.slots[i] is None:
-                    timer_data["slot"] = i
-                    self.slots[i] = timer_data
-                    merged += 1
-                    break
-        return merged
+            if timer_data is not None:
+                parsed.append(timer_data)
 
-    def _find_matching_slot(self, timer_data: dict) -> int | None:
-        """Find a slot with matching hour, minute, and days_mask."""
-        for i, slot in self.slots.items():
-            if slot is None:
-                continue
-            if (
-                slot.get("hour") == timer_data.get("hour")
-                and slot.get("minute") == timer_data.get("minute")
-                and slot.get("days_mask") == timer_data.get("days_mask")
-            ):
-                return i
-        return None
+        new_slots: dict[int, dict | None] = {i: None for i in range(self.NUM_SLOTS)}
+
+        # Pass 1: keep slot index when cloud_timer_id already lives in a slot
+        leftover: list[dict] = []
+        for td in parsed:
+            ctid = td.get("cloud_timer_id")
+            placed = False
+            if ctid is not None:
+                for i, existing in self.slots.items():
+                    if (
+                        existing is not None
+                        and existing.get("cloud_timer_id") == ctid
+                        and new_slots[i] is None
+                    ):
+                        td["slot"] = i
+                        new_slots[i] = td
+                        placed = True
+                        break
+            if not placed:
+                leftover.append(td)
+
+        # Pass 2: keep slot index when hour/minute/days match an existing slot
+        still_leftover: list[dict] = []
+        for td in leftover:
+            placed = False
+            for i, existing in self.slots.items():
+                if (
+                    existing is not None
+                    and new_slots[i] is None
+                    and existing.get("hour") == td.get("hour")
+                    and existing.get("minute") == td.get("minute")
+                    and existing.get("days_mask") == td.get("days_mask")
+                ):
+                    td["slot"] = i
+                    new_slots[i] = td
+                    placed = True
+                    break
+            if not placed:
+                still_leftover.append(td)
+
+        # Pass 3: assign remaining timers to the lowest empty slot
+        for td in still_leftover:
+            for i in range(self.NUM_SLOTS):
+                if new_slots[i] is None:
+                    td["slot"] = i
+                    new_slots[i] = td
+                    break
+
+        self.slots = new_slots
+        return sum(1 for s in self.slots.values() if s is not None)
+
+    # Backwards-compatible alias; behavior is now full reconciliation.
+    def merge_cloud_timers(self, cloud_timers: list[dict]) -> int:
+        return self.reconcile_with_cloud(cloud_timers)
 
     @staticmethod
     def _parse_cloud_timer(cloud_timer: dict) -> dict | None:
@@ -496,15 +524,13 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
             len(cloud_timers),
             device_id,
         )
-        merged = wrapper.merge_cloud_timers(cloud_timers)
+        populated = wrapper.reconcile_with_cloud(cloud_timers)
         _LOGGER.info(
-            "fdm5kw cloud sync: merged %d/%d timer(s) into registry for %s",
-            merged,
-            len(cloud_timers),
+            "fdm5kw cloud sync: registry now has %d populated slot(s) (mirrors cloud) for %s",
+            populated,
             self.entity_id,
         )
-        if merged > 0:
-            self.async_write_ha_state()
+        self.async_write_ha_state()
 
     @staticmethod
     def _extract_cloud_timers(result: Any) -> list[dict]:
