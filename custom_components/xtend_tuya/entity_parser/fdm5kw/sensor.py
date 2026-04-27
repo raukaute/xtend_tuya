@@ -405,6 +405,20 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
             return
 
+        # Step 0: Prime the idempotency guard with the device's current DP
+        # payload. Without this, the first state read after cloud sync
+        # (triggered by async_write_ha_state) re-applies whatever the device
+        # last pushed — typically a "delete slot N" — and trample the slot
+        # we just reconciled from the cloud.
+        try:
+            wrapper.read_device_status(self.device)
+        except Exception:
+            _LOGGER.debug(
+                "fdm5kw: priming read_device_status for %s failed",
+                self.entity_id,
+                exc_info=True,
+            )
+
         # Step 1: Restore from HA state (fast, local)
         last_state = await self.async_get_last_state()
         if last_state is not None:
