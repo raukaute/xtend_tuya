@@ -39,6 +39,7 @@ from .entity import (
 from .multi_manager.shared.tuya_patches.tuya_patches import (
     XTTuyaPatcher,
 )
+from .frontend import async_register_cards
 import socket
 
 # save the original DNS lookup function
@@ -87,6 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
     XTEventLoopProtector.hass = hass
     XTConcurrencyManager.hass = hass
     XTTuyaPatcher.patch_tuya_code()
+    await async_register_cards(hass)
     start_time = datetime.now()
     last_time = start_time
     multi_manager = MultiManager(hass, entry)
