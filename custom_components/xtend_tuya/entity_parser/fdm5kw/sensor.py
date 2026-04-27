@@ -332,6 +332,15 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
     # device_id → live entity instance, so the resync service can find us
     INSTANCES: dict[str, "Fdm5kwTimerRegistryEntity"] = {}
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # SmartLife custom name (set by user in the app); fetched from
+        # /v2.0/cloud/thing/{id}.custom_name. The Tuya OpenAPI returns the
+        # factory name in `name` and the user-set name in `custom_name`,
+        # so device.name alone is "Valve Controller 9" — not what the user
+        # sees in the app.
+        self._custom_name: str | None = None
+
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
         wrapper = self._dpcode_wrapper
@@ -339,13 +348,14 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
             return None
         slots = wrapper.get_slots_dict()
         active = sum(1 for s in slots.values() if s and s.get("enabled"))
-        # valve_name reads device.name on every attribute read, so SmartLife
-        # rename pushes (BIZCODE_NAME_UPDATE) propagate to the dashboard
-        # without an HA restart.
+        # Prefer SmartLife custom_name; fall back to factory device.name.
+        valve_name = self._custom_name or self.device.name
         return {
             "slots": slots,
             "active_count": active,
-            "valve_name": self.device.name,
+            "valve_name": valve_name,
+            "valve_custom_name": self._custom_name,
+            "valve_factory_name": self.device.name,
             "device_id": self.device.id,
             "product_name": getattr(self.device, "product_name", None),
         }
@@ -373,6 +383,9 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         # Step 2: Sync cloud timers (discovers SmartLife-created timers)
         await self._sync_cloud_timers(wrapper)
 
+        # Step 3: Fetch SmartLife custom name
+        await self._sync_custom_name()
+
     async def async_will_remove_from_hass(self) -> None:
         Fdm5kwTimerRegistryEntity.INSTANCES.pop(self.device.id, None)
         await super().async_will_remove_from_hass()
@@ -383,7 +396,44 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
             return False
         await self._sync_cloud_timers(wrapper)
+        await self._sync_custom_name()
         return True
+
+    async def _sync_custom_name(self) -> None:
+        """Fetch SmartLife custom_name from /v2.0/cloud/thing/{id}.
+
+        device.name from the IOT SDK only carries the factory name
+        ("Valve Controller 9"); the user-facing name set in SmartLife
+        lives in custom_name on the cloud thing endpoint.
+        """
+        device_id = self.device.id
+        account = self.device_manager.get_account_by_name("tuya_iot")
+        if account is None:
+            return
+        try:
+            response = await self.hass.async_add_executor_job(
+                account.call_api, "GET", f"/v2.0/cloud/thing/{device_id}", None
+            )
+        except Exception:
+            _LOGGER.warning(
+                "fdm5kw custom_name fetch failed for %s",
+                device_id,
+                exc_info=True,
+            )
+            return
+        if not response or not response.get("success"):
+            return
+        result = response.get("result") or {}
+        custom_name = result.get("custom_name") or None
+        if custom_name and custom_name != self._custom_name:
+            _LOGGER.info(
+                "fdm5kw custom_name for %s: %r (was %r)",
+                device_id,
+                custom_name,
+                self._custom_name,
+            )
+            self._custom_name = custom_name
+            self.async_write_ha_state()
 
     async def _sync_cloud_timers(self, wrapper: DPCodeTimeTaskRegistryWrapper) -> None:
         """Fetch cloud timer entries and merge into registry."""
