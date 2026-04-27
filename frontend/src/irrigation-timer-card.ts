@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing, PropertyValues } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import {
   TimerSlot,
   TimerMode,
@@ -37,7 +37,6 @@ interface SlotAttribute {
   cloud_timer_id?: string;
 }
 
-@customElement("irrigation-timer-card")
 export class IrrigationTimerCard extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @state() private _config!: IrrigationTimerCardConfig;
@@ -593,10 +592,24 @@ export class IrrigationTimerCard extends LitElement {
   `;
 }
 
-// Register card in HA's custom card picker
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
-  type: "irrigation-timer-card",
-  name: "Irrigation Timer",
-  description: "Manage Tuya irrigation valve timer schedules",
-});
+// Idempotent registration — guards against double-load (e.g. an old
+// /local/ resource still hanging around). Without this, the second
+// load throws DOMException("name already used") which aborts the whole
+// module and leaves any later cards unregistered too.
+if (!customElements.get("irrigation-timer-card")) {
+  customElements.define("irrigation-timer-card", IrrigationTimerCard);
+  // Card picker entry — only add once per page load.
+  const w = window as unknown as { customCards?: unknown[] };
+  w.customCards = w.customCards || [];
+  if (
+    !w.customCards.some(
+      (c) => (c as { type?: string }).type === "irrigation-timer-card"
+    )
+  ) {
+    w.customCards.push({
+      type: "irrigation-timer-card",
+      name: "Irrigation Timer",
+      description: "Manage Tuya irrigation valve timer schedules",
+    });
+  }
+}

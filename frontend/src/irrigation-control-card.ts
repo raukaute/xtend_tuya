@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing, PropertyValues } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import { IrrigationControlCardConfig } from "./models";
 
 // HA types (minimal — same shape used in irrigation-timer-card)
@@ -22,7 +22,6 @@ type Mode = "duration" | "volume";
 const MODE_DURATION_DEFAULT = 60; // seconds
 const MODE_VOLUME_DEFAULT = 10; // liters
 
-@customElement("irrigation-control-card")
 export class IrrigationControlCard extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @state() private _config!: IrrigationControlCardConfig;
@@ -589,12 +588,21 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// Card metadata for HA's card picker
-(window as unknown as Record<string, unknown[]>).customCards =
-  (window as unknown as Record<string, unknown[]>).customCards || [];
-((window as unknown as Record<string, unknown[]>).customCards as unknown[]).push({
-  type: "irrigation-control-card",
-  name: "Irrigation Control",
-  description:
-    "Toggle a valve, start a single watering cycle by duration or volume, and watch progress live.",
-});
+// Idempotent registration — guards against double-load.
+if (!customElements.get("irrigation-control-card")) {
+  customElements.define("irrigation-control-card", IrrigationControlCard);
+  const w = window as unknown as { customCards?: unknown[] };
+  w.customCards = w.customCards || [];
+  if (
+    !w.customCards.some(
+      (c) => (c as { type?: string }).type === "irrigation-control-card"
+    )
+  ) {
+    w.customCards.push({
+      type: "irrigation-control-card",
+      name: "Irrigation Control",
+      description:
+        "Toggle a valve, start a single watering cycle by duration or volume, and watch progress live.",
+    });
+  }
+}
