@@ -82,26 +82,31 @@ def _find_account(hass, device_id: str, source: str) -> Any:
     return None
 
 
-async def _write_one_control(account, device_id: str, b64_value: str) -> bool:
-    body = json.dumps(
-        {"commands": [{"code": ONE_CONTROL_CODE, "value": b64_value}]}
-    )
+async def _send_commands(account, device_id: str, commands: list[dict]) -> bool:
+    body = json.dumps({"commands": commands})
     url = f"/v1.0/devices/{device_id}/commands"
     try:
         resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
             account.call_api, "POST", url, body
         )
     except Exception:
-        _LOGGER.exception("one_control DP write failed for %s", device_id)
+        _LOGGER.exception("DP write failed for %s: %s", device_id, commands)
         return False
     if not resp or not resp.get("success"):
-        _LOGGER.warning("one_control DP write rejected for %s: %s", device_id, resp)
+        _LOGGER.warning("DP write rejected for %s (%s): %s", device_id, commands, resp)
         return False
     return True
 
 
 async def start_watering(hass, data: dict) -> bool:
-    """Start a single watering cycle by duration (sec) or volume (L)."""
+    """Start a single watering cycle by duration (sec) or volume (L).
+
+    Writes one_control + switch=true atomically. one_control alone has been
+    observed to silently no-op on some firmware revisions: the device
+    accepts the DP value but does not actually open the valve until switch
+    flips. Bundling both into a single command batch matches what SmartLife
+    sends and ensures the cycle starts.
+    """
     device_id: str = data["device_id"]
     mode_int = _mode_to_int(data.get("mode", "duration"))
     value: int = int(data["value"])
@@ -114,11 +119,18 @@ async def start_watering(hass, data: dict) -> bool:
         return False
 
     b64 = build_one_control_payload(mode_int, value)
-    return await _write_one_control(account, device_id, b64)
+    return await _send_commands(
+        account,
+        device_id,
+        [
+            {"code": ONE_CONTROL_CODE, "value": b64},
+            {"code": "switch", "value": True},
+        ],
+    )
 
 
 async def stop_watering(hass, data: dict) -> bool:
-    """Stop an active watering cycle (writes one_control idle)."""
+    """Stop an active watering cycle (writes one_control idle + switch off)."""
     device_id: str = data["device_id"]
 
     account = _find_account(hass, device_id, "tuya_iot")
@@ -127,4 +139,11 @@ async def stop_watering(hass, data: dict) -> bool:
         return False
 
     b64 = build_one_control_payload(MODE_IDLE, 0)
-    return await _write_one_control(account, device_id, b64)
+    return await _send_commands(
+        account,
+        device_id,
+        [
+            {"code": ONE_CONTROL_CODE, "value": b64},
+            {"code": "switch", "value": False},
+        ],
+    )
