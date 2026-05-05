@@ -1799,6 +1799,14 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             device_class=SensorDeviceClass.WATER,
             native_unit_of_measurement="L",
             suggested_display_precision=0,
+            # cur_cap is the per-run cumulative volume — it resets to 0 at
+            # the start of each cycle. TOTAL_INCREASING tells HA's long-term
+            # statistics to treat each reset as a new accumulator window so
+            # the lifetime sum is computed correctly. This is what unlocks
+            # an "all-time water through the valve" figure (via statistics
+            # or utility_meter); the FDM5KW spec does not expose a
+            # water_total DP of its own.
+            state_class=SensorStateClass.TOTAL_INCREASING,
         ),
         XTSensorEntityDescription(
             key=XTDPCode.CYC_NUM,
