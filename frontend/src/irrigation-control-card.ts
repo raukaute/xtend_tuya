@@ -32,6 +32,12 @@ export class IrrigationControlCard extends LitElement {
   /** Target value the user typed for the next Start (sec or L). */
   @state() private _target: number = MODE_DURATION_DEFAULT;
 
+  /** True only when the active cycle was started via this card's Single
+   * watering button. Manual ON also opens the valve (and the device may
+   * report a fresh start_time), but we don't want the progress/timer view
+   * in that case. Reset on Stop / Manual OFF / page reload. */
+  @state() private _initiatedHere = false;
+
   /** Tick state for live progress refresh while a cycle is running. */
   @state() private _tick = 0;
   private _tickHandle: number | null = null;
@@ -143,6 +149,11 @@ export class IrrigationControlCard extends LitElement {
 
   private async _toggleManual(): Promise<void> {
     if (!this.hass) return;
+    // Manual ON / OFF is a switch toggle. Always clear _initiatedHere so
+    // the progress view does NOT take over — the device may start a cycle
+    // anyway (using its stored countdown), but the user's intent here was
+    // ad-hoc open/close, not a tracked Single watering.
+    this._initiatedHere = false;
     const turn = this._isOn() ? "turn_off" : "turn_on";
     await this.hass.callService("switch", turn, {
       entity_id: this._config.valve,
@@ -151,20 +162,26 @@ export class IrrigationControlCard extends LitElement {
 
   private async _startSingleWatering(): Promise<void> {
     if (!this.hass) return;
-    // Write one_control directly via xtend_tuya.fdm5kw_start_watering so
-    // mode + value land atomically. This sidesteps the "duration ignored
-    // on second start" bug, where toggling the valve switch reuses a
-    // stale value because the number-entity update isn't strictly ordered
-    // with the switch turn_on.
-    await this.hass.callService("xtend_tuya", "fdm5kw_start_watering", {
-      device_id: this._config.device_id,
-      mode: this._mode,
-      value: Math.max(1, Math.round(this._target)),
-    });
+    // Mark this cycle as initiated by the card so the progress view
+    // renders. The service writes one_control + switch=on atomically so
+    // the device actually starts the cycle (one_control alone has been
+    // observed to silently no-op on some firmware revisions).
+    this._initiatedHere = true;
+    try {
+      await this.hass.callService("xtend_tuya", "fdm5kw_start_watering", {
+        device_id: this._config.device_id,
+        mode: this._mode,
+        value: Math.max(1, Math.round(this._target)),
+      });
+    } catch (err) {
+      this._initiatedHere = false;
+      throw err;
+    }
   }
 
   private async _stop(): Promise<void> {
     if (!this.hass) return;
+    this._initiatedHere = false;
     // Write one_control idle (mode=0). Falls back to switch turn_off if
     // the user is on an integration version without the new service.
     try {
@@ -194,11 +211,14 @@ export class IrrigationControlCard extends LitElement {
     const running = this._isOn();
     const start = this._startTime();
     const end = this._endTime();
-    // A cycle is "in progress" if the valve is on AND start is more recent
-    // than end (or end is null). Otherwise the start_time is the *previous*
-    // cycle and we shouldn't show progress.
+    // A cycle is "in progress" only if the user started it from this card's
+    // Single watering button. Manual ON also opens the valve and updates
+    // start_time, but we don't want the progress/timer view in that case.
     const inProgress =
-      running && start !== null && (end === null || start > end);
+      this._initiatedHere &&
+      running &&
+      start !== null &&
+      (end === null || start > end);
 
     return html`
       <ha-card>
@@ -275,9 +295,6 @@ export class IrrigationControlCard extends LitElement {
   }
 
   private _renderControls() {
-    const lastStart = this._startTime();
-    const lastEnd = this._endTime();
-
     return html`
       <div class="mode-tabs">
         <button
@@ -316,14 +333,14 @@ export class IrrigationControlCard extends LitElement {
             }}
           />
           <span class="unit">${this._mode === "duration" ? "sec" : "L"}</span>
+          <button class="start-btn inline" @click=${this._startSingleWatering}>
+            <ha-icon icon="mdi:play"></ha-icon>
+            Single watering
+          </button>
         </div>
       </div>
 
       <div class="primary-actions">
-        <button class="start-btn" @click=${this._startSingleWatering}>
-          <ha-icon icon="mdi:play"></ha-icon>
-          Single watering
-        </button>
         <button
           class="manual-btn ${this._isOn() ? "on" : ""}"
           @click=${this._toggleManual}
@@ -335,19 +352,6 @@ export class IrrigationControlCard extends LitElement {
           Manual ${this._isOn() ? "OFF" : "ON"}
         </button>
       </div>
-
-      ${lastStart || lastEnd
-        ? html`
-            <div class="last-cycle">
-              ${lastStart
-                ? html`<div><span class="dim">Last start</span> ${this._fmtDate(lastStart)}</div>`
-                : nothing}
-              ${lastEnd
-                ? html`<div><span class="dim">Last end</span> ${this._fmtDate(lastEnd)}</div>`
-                : nothing}
-            </div>
-          `
-        : nothing}
     `;
   }
 
@@ -357,15 +361,6 @@ export class IrrigationControlCard extends LitElement {
     if (m === "duration" && this._target < 5) this._target = MODE_DURATION_DEFAULT;
     if (m === "volume" && this._target > 1000) this._target = MODE_VOLUME_DEFAULT;
     this._mode = m;
-  }
-
-  private _fmtDate(d: Date): string {
-    return d.toLocaleString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "short",
-    });
   }
 
   static styles = css`
@@ -453,7 +448,7 @@ export class IrrigationControlCard extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
     .target-row label {
       font-size: 0.85em;
@@ -464,11 +459,12 @@ export class IrrigationControlCard extends LitElement {
     }
     .target-input {
       display: flex;
-      align-items: center;
+      align-items: stretch;
       gap: 8px;
     }
     .target-input input {
       flex: 1;
+      min-width: 0;
       padding: 10px 12px;
       border: 1px solid var(--ic-divider);
       border-radius: 8px;
@@ -481,8 +477,14 @@ export class IrrigationControlCard extends LitElement {
       border-color: var(--ic-primary);
     }
     .target-input .unit {
+      align-self: center;
       color: var(--ic-secondary);
       font-size: 0.95em;
+    }
+    .target-input .start-btn.inline {
+      flex: 0 0 auto;
+      padding: 0 14px;
+      white-space: nowrap;
     }
 
     /* Primary actions */
@@ -505,7 +507,6 @@ export class IrrigationControlCard extends LitElement {
       cursor: pointer;
     }
     .start-btn {
-      flex: 2;
       background: var(--ic-primary);
       color: white;
     }
@@ -528,17 +529,6 @@ export class IrrigationControlCard extends LitElement {
       color: var(--ic-text);
     }
 
-    /* Last-cycle line */
-    .last-cycle {
-      margin-top: 16px;
-      padding-top: 12px;
-      border-top: 1px solid var(--ic-divider);
-      font-size: 0.85em;
-      color: var(--ic-text);
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
     .dim {
       color: var(--ic-secondary);
     }
