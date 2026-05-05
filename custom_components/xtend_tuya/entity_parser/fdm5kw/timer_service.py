@@ -200,6 +200,28 @@ async def _delete_cloud_timer_by_match(
                         )
 
 
+async def _trigger_registry_resync(device_id: str) -> None:
+    """Force the timer registry entity to refetch cloud timers.
+
+    Called after set/delete services so the registry mirrors cloud state
+    immediately rather than waiting for the next debounce / safety-net tick.
+    Lazy import to avoid module-load cycles.
+    """
+    from .sensor import Fdm5kwTimerRegistryEntity
+
+    entity = Fdm5kwTimerRegistryEntity.INSTANCES.get(device_id)
+    if entity is None:
+        return
+    try:
+        await entity.resync_cloud_timers()
+    except Exception:
+        _LOGGER.debug(
+            "fdm5kw: post-service resync raised for %s",
+            device_id,
+            exc_info=True,
+        )
+
+
 async def set_timer(hass, data: dict) -> bool:
     device_id: str = data["device_id"]
     slot: int = int(data["slot"])
@@ -223,6 +245,7 @@ async def set_timer(hass, data: dict) -> bool:
     await _post_cloud_timer(
         account, device_id, hour, minute, days_mask, mode, value, enabled
     )
+    await _trigger_registry_resync(device_id)
     return True
 
 
@@ -251,4 +274,5 @@ async def delete_timer(hass, data: dict) -> bool:
         await _delete_cloud_timer_by_match(
             account, device_id, int(hour), int(minute), days_mask
         )
+    await _trigger_registry_resync(device_id)
     return True
