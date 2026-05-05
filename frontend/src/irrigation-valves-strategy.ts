@@ -327,12 +327,13 @@ function buildValveView(v: ValveEntities, hours: number): DashboardView {
     ].filter(Boolean),
   });
 
-  // Section 2: watering history graph + last watering entities
+  // Section 2: watering history graph + last watering entities + lifetime sum
   sections.push({
     type: "grid",
     cards: [
       buildWateringHistoryCard(v, hours),
       buildLastWateringCard(v),
+      buildLifetimeVolumeCard(v),
     ].filter(Boolean),
   });
 
@@ -394,16 +395,40 @@ function buildTimerCard(v: ValveEntities): unknown {
 }
 
 function buildWateringHistoryCard(v: ValveEntities, hours: number): unknown | null {
+  // Short-term per-cycle view. The volume sensor is the device's
+  // single-run accumulator — it resets when a new cycle starts. Don't
+  // confuse it with lifetime total; the dedicated lifetime card below
+  // handles that.
   const entities: unknown[] = [];
   if (v.switch) entities.push({ entity: v.switch, name: "Valve" });
   if (v.volume_sensor)
-    entities.push({ entity: v.volume_sensor, name: "Volume" });
+    entities.push({ entity: v.volume_sensor, name: "Run volume" });
   if (entities.length === 0) return null;
   return {
     type: "history-graph",
     title: "Watering History",
     hours_to_show: hours,
     entities,
+    layout_options: { grid_columns: 4, grid_rows: "auto" },
+  };
+}
+
+function buildLifetimeVolumeCard(v: ValveEntities): unknown | null {
+  // The cur_cap sensor declares state_class=TOTAL_INCREASING (4.4.112+),
+  // so HA's long-term statistics treat each per-cycle reset as a new
+  // accumulator window and the `sum` stat is the lifetime cumulative.
+  // Plotting it as a daily bucket gives a monotonic "total water through
+  // this valve" curve — answers "how much water has flowed at any point
+  // in time" without a real flow meter.
+  if (!v.volume_sensor) return null;
+  return {
+    type: "statistics-graph",
+    title: "Lifetime water",
+    entities: [v.volume_sensor],
+    stat_types: ["sum"],
+    period: "day",
+    days_to_show: 30,
+    chart_type: "line",
     layout_options: { grid_columns: 4, grid_rows: "auto" },
   };
 }
