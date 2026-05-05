@@ -10,6 +10,29 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.114] — 2026-05-05
+
+Fixes the misleading Watering History graph (`cur_cap` flat-lining at
+the last run's per-cycle total) by adding a dedicated lifetime card.
+
+### Changed
+- **`custom:irrigation-valves` strategy** now renders a
+  `statistics-graph` "Lifetime water" tile per valve in addition to the
+  existing per-cycle history graph. Driven by the `sum` statistic of
+  the `cur_cap` TOTAL_INCREASING sensor (added in 4.4.112), so the
+  lifetime total is correct across per-run resets. Default window 30
+  days, daily buckets.
+- **Renamed** the per-cycle line in "Watering History" from "Volume"
+  to "Run volume" so it's no longer confused with lifetime total.
+
+### Operational notes
+- The lifetime curve only contains data from the 4.4.112 upgrade
+  onwards — pre-existing history can't be retroactively classified.
+- Device-reported volume is still a calibration estimate
+  (flow_rate × open_seconds), not a real flow meter. Inflated readings
+  (4,000+ L on a single short cycle) point at miscalibrated flow rate
+  in SmartLife rather than an HA-side issue.
+
 ## [4.4.113] — 2026-05-05
 
 Fixes the timer / schedule sync drift Simon reported (timer ON in
@@ -114,6 +137,7 @@ auto-generates the multi-valve dashboard.
   so it survives the legacy S 809 vs descriptive S 810/S 812 naming
   split without rename.
 
-[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.113...HEAD
+[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.114...HEAD
+[4.4.114]: https://github.com/raukaute/xtend_tuya/compare/v4.4.113...v4.4.114
 [4.4.113]: https://github.com/raukaute/xtend_tuya/compare/v4.4.112...v4.4.113
 [4.4.112]: https://github.com/raukaute/xtend_tuya/compare/v4.4.111...v4.4.112
