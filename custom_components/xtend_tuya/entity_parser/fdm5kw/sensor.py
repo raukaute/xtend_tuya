@@ -252,13 +252,23 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
                 self.slots[i] = None
 
     def reconcile_with_cloud(self, cloud_timers: list[dict]) -> int:
-        """Replace registry slots so they exactly mirror the cloud.
+        """Replace registry slots so they mirror the cloud schedule shape,
+        but defer to device-side `enabled` when the device has spoken.
 
-        Cloud is treated as the source of truth: slots not present in the
-        cloud response are cleared, and each cloud timer is placed into a
-        slot. Slot indices are preserved when possible — first by matching
-        cloud_timer_id, then by hour/minute/days, then by filling gaps from
-        slot 0 upward. Returns the number of populated slots.
+        Cloud is the source of truth for slot identity (timer_id, hour,
+        minute, days, mode, value) — slots not present in the cloud
+        response are cleared, and each cloud timer is placed into a slot
+        keyed by cloud_timer_id, then hour/min/days, then gap-fill.
+
+        The `enabled` bit is different. The device's time_task DP carries
+        the operational flag the firmware checks at fire time, and that
+        state can drift from Tuya's `/timers.status` (observed: a timer
+        with `is_app_push: true` where cloud `status=0` but device DP
+        `enabled=1` — the valve still fired). When schedule shapes match,
+        we preserve the existing slot's `enabled` so the registry reflects
+        what the valve will actually do.
+
+        Returns the number of populated slots.
         """
         parsed: list[dict] = []
         for ct in cloud_timers:
@@ -280,6 +290,7 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
                         and existing.get("cloud_timer_id") == ctid
                         and new_slots[i] is None
                     ):
+                        self._prefer_device_enabled(td, existing)
                         td["slot"] = i
                         new_slots[i] = td
                         placed = True
@@ -299,6 +310,7 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
                     and existing.get("minute") == td.get("minute")
                     and existing.get("days_mask") == td.get("days_mask")
                 ):
+                    self._prefer_device_enabled(td, existing)
                     td["slot"] = i
                     new_slots[i] = td
                     placed = True
@@ -320,6 +332,28 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
     # Backwards-compatible alias; behavior is now full reconciliation.
     def merge_cloud_timers(self, cloud_timers: list[dict]) -> int:
         return self.reconcile_with_cloud(cloud_timers)
+
+    @staticmethod
+    def _prefer_device_enabled(td_cloud: dict, existing: dict) -> None:
+        """Override td_cloud['enabled'] with existing['enabled'] when the
+        full schedule shape (hour/min/days/mode/value) matches.
+
+        The device DP is operational truth — the firmware fires from its
+        local enabled bit, not from Tuya cloud's `/timers.status`. When
+        shapes diverge, the existing slot is from a different timer
+        (user edited the schedule in cloud since last device sync), so
+        we don't carry over the stale enabled flag.
+        """
+        if (
+            existing.get("hour") == td_cloud.get("hour")
+            and existing.get("minute") == td_cloud.get("minute")
+            and existing.get("days_mask") == td_cloud.get("days_mask")
+            and existing.get("mode") == td_cloud.get("mode")
+            and existing.get("value") == td_cloud.get("value")
+        ):
+            device_enabled = existing.get("enabled")
+            if device_enabled is not None:
+                td_cloud["enabled"] = device_enabled
 
     @staticmethod
     def _parse_cloud_timer(cloud_timer: dict) -> dict | None:

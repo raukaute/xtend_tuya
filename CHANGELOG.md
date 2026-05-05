@@ -10,6 +10,32 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.115] — 2026-05-05
+
+Fixes the case where the registry showed a timer as OFF while the
+valve was actually still going to fire it.
+
+### Changed
+- **`reconcile_with_cloud` now defers to device DP for `enabled`** when
+  the schedule shape (hour/min/days/mode/value) of an existing slot
+  matches the cloud entry being placed. Cloud is still authoritative
+  for slot identity and shape; the firmware-side `enabled` bit wins
+  for "will this fire?" because that's what the device actually
+  checks at fire time.
+
+### Why
+Observed on S 809: cloud `/v1.0/devices/{id}/timers` returned
+`status: 0` for a timer with `is_app_push: true`, but the device's
+`time_task` DP carried `enabled=1` for the same schedule. The valve
+fires from its local DP, not from cloud, so the cloud-only "OFF"
+display was misleading. New logic preserves the device's enabled bit
+when shapes match, so the registry reflects what will actually run.
+
+### Trade-off
+If a user toggles enabled in SmartLife and the device hasn't pulled
+the change yet, the card lags behind cloud until the device echoes
+a fresh `time_task` DP (typically seconds). Eventually consistent.
+
 ## [4.4.114] — 2026-05-05
 
 Fixes the misleading Watering History graph (`cur_cap` flat-lining at
@@ -137,7 +163,8 @@ auto-generates the multi-valve dashboard.
   so it survives the legacy S 809 vs descriptive S 810/S 812 naming
   split without rename.
 
-[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.114...HEAD
+[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.115...HEAD
+[4.4.115]: https://github.com/raukaute/xtend_tuya/compare/v4.4.114...v4.4.115
 [4.4.114]: https://github.com/raukaute/xtend_tuya/compare/v4.4.113...v4.4.114
 [4.4.113]: https://github.com/raukaute/xtend_tuya/compare/v4.4.112...v4.4.113
 [4.4.112]: https://github.com/raukaute/xtend_tuya/compare/v4.4.111...v4.4.112
