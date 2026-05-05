@@ -10,6 +10,40 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.113] — 2026-05-05
+
+Fixes the timer / schedule sync drift Simon reported (timer ON in
+SmartLife, OFF in HA). Cloud is now treated as the authoritative state
+on a continuous basis instead of only at HA boot.
+
+### Changed
+- **Event-driven cloud timer resync** in `Fdm5kwTimerRegistryEntity`
+  (`entity_parser/fdm5kw/sensor.py`). Subscribes to the per-device
+  `tuya_entry_update_<device_id>` dispatch signal — any DP push for the
+  valve schedules a 3 s debounced cloud resync. Coalesces bursts
+  triggered by user actions (timer edit echoes, schedule firings,
+  switch flips). Wraps existing `reconcile_with_cloud` logic; no slot
+  matching changes.
+- **Sparse safety-net resync** every 5 minutes via
+  `async_track_time_interval`. Catches cloud-only edits in SmartLife
+  that produce no device-side DP traffic at all (e.g. toggling
+  `enabled` without altering schedule).
+- **Immediate resync after `xtend_tuya.fdm5kw_set_timer` and
+  `_delete_timer`**. We know cloud changed; no need to wait for a
+  debounce or interval tick.
+- **Re-prime `DPCodeTimeTaskRegistryWrapper._last_applied_payload`**
+  after every cloud reconciliation (new `prime_idempotency_guard`
+  helper). Prevents a delayed device-side `time_task` echo from
+  replaying a stale slot edit over the cloud-truth state.
+
+### Operational notes
+- API cost: 1 GET / valve / DP-burst (debounced) + 12 GETs / hour /
+  valve safety-net. For the current 52-valve fleet, well under
+  Tuya OpenAPI rate limits.
+- Cloud-only "delete all timers" is still not propagated — the early
+  return on empty cloud response in `_sync_cloud_timers` is preserved
+  to avoid spurious clears on transient API failures. Track separately.
+
 ## [4.4.112] — 2026-05-04
 
 Focused session on Simon's irrigation-card feedback (Mattermost DM,
@@ -80,5 +114,6 @@ auto-generates the multi-valve dashboard.
   so it survives the legacy S 809 vs descriptive S 810/S 812 naming
   split without rename.
 
-[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.112...HEAD
+[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.113...HEAD
+[4.4.113]: https://github.com/raukaute/xtend_tuya/compare/v4.4.112...v4.4.113
 [4.4.112]: https://github.com/raukaute/xtend_tuya/compare/v4.4.111...v4.4.112
