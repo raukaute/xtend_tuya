@@ -1791,7 +1791,12 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             device_class=SensorDeviceClass.BATTERY,
             state_class=SensorStateClass.MEASUREMENT,
             entity_category=EntityCategory.DIAGNOSTIC,
-            native_value=lambda x: int(x) & 0x7F,
+            # vbat_state packs the level in the low 7 bits and the
+            # charging flag in bit 7. Mask to extract the level, then
+            # clamp to 0..100 since the raw range is 0..127 but valid
+            # battery percentage is 0..100. (Companion `battery_charging`
+            # binary_sensor exposes the bit-7 flag.)
+            native_value=lambda x: min(int(x) & 0x7F, 100),
         ),
         XTSensorEntityDescription(
             key=XTDPCode.CUR_CAP,
@@ -1831,8 +1836,23 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
         XTSensorEntityDescription(
             key=XTDPCode.RUN_TASK_STA,
             translation_key="watering_task",
-            native_unit_of_measurement="",
-            native_value=lambda x: str(x),
+            device_class=SensorDeviceClass.ENUM,
+            options=[
+                "idle",
+                "scheduled",
+                "running",
+                "complete",
+                "error",
+            ],
+            # Tuya's spec defines run_task_sta as 0..4. Mapping derived
+            # from observation; revisit if a value falls outside range.
+            native_value=lambda x: {
+                0: "idle",
+                1: "scheduled",
+                2: "running",
+                3: "complete",
+                4: "error",
+            }.get(int(x), "unknown") if x is not None else None,
         ),
     ),
     "slj": (

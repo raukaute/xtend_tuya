@@ -10,6 +10,33 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.116] — 2026-05-05
+
+DP-cross-check follow-up to 4.4.115. Several fdm5kw DPs were either
+exposed as raw integers or only partially decoded — fixed.
+
+### Added
+- **`run_task_sta` enum sensor**. Was rendered as `"1"`, `"2"`, …;
+  now maps to `idle / scheduled / running / complete / error` with
+  `device_class=ENUM`. Mapping is observation-derived; values
+  outside 0..4 fall back to `"unknown"`.
+- **fdm5kw binary_sensor block** activated in
+  `binary_sensor.py` (the upstream-authored definitions were sitting
+  commented out). Adds:
+  - `error` — composite `malfunction != 0` problem indicator.
+  - Per-bit `error_flow_meter`, `error_valve_low_battery`,
+    `error_sensor_low_battery`, `error_sensor_offline`,
+    `error_water_shortage`, `error_other` for the 6 documented
+    malfunction bits.
+  - `battery_charging` derived from `vbat_state` bit 7 (charging
+    when raw value > 127).
+
+### Changed
+- **`vbat_state` battery level** now `min(value & 0x7F, 100)`
+  (was just `& 0x7F`). Raw range is 0..127 but valid percentage is
+  0..100; the clamp prevents a value like 100% with bit 6 set
+  appearing as 100 instead of 100.
+
 ## [4.4.115] — 2026-05-05
 
 Fixes the case where the registry showed a timer as OFF while the
@@ -163,7 +190,8 @@ auto-generates the multi-valve dashboard.
   so it survives the legacy S 809 vs descriptive S 810/S 812 naming
   split without rename.
 
-[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.115...HEAD
+[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.116...HEAD
+[4.4.116]: https://github.com/raukaute/xtend_tuya/compare/v4.4.115...v4.4.116
 [4.4.115]: https://github.com/raukaute/xtend_tuya/compare/v4.4.114...v4.4.115
 [4.4.114]: https://github.com/raukaute/xtend_tuya/compare/v4.4.113...v4.4.114
 [4.4.113]: https://github.com/raukaute/xtend_tuya/compare/v4.4.112...v4.4.113
