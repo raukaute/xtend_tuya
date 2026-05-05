@@ -35,6 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 # DP codes not yet in XTDPCode — use string literals until PR is merged
 DP_ONE_CONTROL = "one_control"
 DP_TIME_TASK = "time_task"
+from .active_run_poller import Fdm5kwActiveRunPoller
 from .const import DEVICE_CATEGORY, DAYS_OF_WEEK
 
 
@@ -377,6 +378,7 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         # so device.name alone is "Valve Controller 9" — not what the user
         # sees in the app.
         self._custom_name: str | None = None
+        self._active_run_poller: Fdm5kwActiveRunPoller | None = None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -401,6 +403,13 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         """Restore slot registry from previous HA state, then sync cloud timers."""
         await super().async_added_to_hass()
         Fdm5kwTimerRegistryEntity.INSTANCES[self.device.id] = self
+        # Force-poll device DPs at 1Hz while the valve is open so cur_cap /
+        # cur_time tick smoothly into the recorder; Tuya MQTT only pushes
+        # them every several seconds otherwise.
+        self._active_run_poller = Fdm5kwActiveRunPoller(
+            self.hass, self.device, self.device_manager
+        )
+        self._active_run_poller.start()
         wrapper = self._dpcode_wrapper
         if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
             return
@@ -439,6 +448,9 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
 
     async def async_will_remove_from_hass(self) -> None:
         Fdm5kwTimerRegistryEntity.INSTANCES.pop(self.device.id, None)
+        if self._active_run_poller is not None:
+            await self._active_run_poller.stop()
+            self._active_run_poller = None
         await super().async_will_remove_from_hass()
 
     async def resync_cloud_timers(self) -> bool:
