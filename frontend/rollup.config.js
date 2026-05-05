@@ -18,4 +18,5 @@ const card = (name) => ({
 export default [
   card("irrigation-timer-card"),
   card("irrigation-control-card"),
+  card("irrigation-valves-strategy"),
 ];
