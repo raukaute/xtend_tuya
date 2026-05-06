@@ -10,6 +10,23 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.117] — 2026-05-06
+
+Hotfix for 4.4.116. The `sfkzq` block I activated used `is_on=` lambdas
+that aren't a valid field on `XTBinarySensorEntityDescription` — the
+import failure took down the entire `binary_sensor` platform for every
+config entry, which in turn prevented the integration from ever
+finishing setup (HA showed a cascading "Tuya OpenAPI credentials
+expired" repair as collateral; the OpenAPI was fine).
+
+### Removed
+- `sfkzq` explicit binary_sensor block in `binary_sensor.py`. The six
+  `malfunction` bits still appear automatically via the existing BITMAP
+  auto-discovery path (`async_add_generic_entities`), so no functional
+  loss for the per-bit error sensors. Composite `error` and
+  `battery_charging` are dropped for now — to be reimplemented via
+  proper `bitmap_key=` / a small entity subclass in a follow-up.
+
 ## [4.4.116] — 2026-05-05
 
 DP-cross-check follow-up to 4.4.115. Several fdm5kw DPs were either
@@ -190,7 +207,8 @@ auto-generates the multi-valve dashboard.
   so it survives the legacy S 809 vs descriptive S 810/S 812 naming
   split without rename.
 
-[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.116...HEAD
+[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.117...HEAD
+[4.4.117]: https://github.com/raukaute/xtend_tuya/compare/v4.4.116...v4.4.117
 [4.4.116]: https://github.com/raukaute/xtend_tuya/compare/v4.4.115...v4.4.116
 [4.4.115]: https://github.com/raukaute/xtend_tuya/compare/v4.4.114...v4.4.115
 [4.4.114]: https://github.com/raukaute/xtend_tuya/compare/v4.4.113...v4.4.114

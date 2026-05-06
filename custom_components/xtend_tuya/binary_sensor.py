@@ -176,72 +176,8 @@ BINARY_SENSORS: dict[str, tuple[XTBinarySensorEntityDescription, ...]] = {
         ),
     ),
     # QT-08W Solar Intelligent Water Valve
-    "sfkzq": (
-        XTBinarySensorEntityDescription(
-            key=XTDPCode.MALFUNCTION,
-            translation_key="error",
-            device_class=BinarySensorDeviceClass.PROBLEM,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            is_on=lambda x: None if x is None else x != 0,
-        ),
-        XTBinarySensorEntityDescription(
-            key=f"{XTDPCode.MALFUNCTION}_0",
-            dpcode=XTDPCode.MALFUNCTION,
-            translation_key="error_flow_meter",
-            device_class=BinarySensorDeviceClass.PROBLEM,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            is_on=lambda x: None if x is None else (x >> 0) & 1,
-        ),
-        XTBinarySensorEntityDescription(
-            key=f"{XTDPCode.MALFUNCTION}_1",
-            dpcode=XTDPCode.MALFUNCTION,
-            translation_key="error_valve_low_battery",
-            device_class=BinarySensorDeviceClass.BATTERY,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            is_on=lambda x: None if x is None else (x >> 1) & 1,
-        ),
-        XTBinarySensorEntityDescription(
-            key=f"{XTDPCode.MALFUNCTION}_2",
-            dpcode=XTDPCode.MALFUNCTION,
-            translation_key="error_sensor_low_battery",
-            device_class=BinarySensorDeviceClass.BATTERY,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            is_on=lambda x: None if x is None else (x >> 2) & 1,
-        ),
-        XTBinarySensorEntityDescription(
-            key=f"{XTDPCode.MALFUNCTION}_3",
-            dpcode=XTDPCode.MALFUNCTION,
-            translation_key="error_sensor_offline",
-            device_class=BinarySensorDeviceClass.PROBLEM,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            is_on=lambda x: None if x is None else (x >> 3) & 1,
-        ),
-        XTBinarySensorEntityDescription(
-            key=f"{XTDPCode.MALFUNCTION}_4",
-            dpcode=XTDPCode.MALFUNCTION,
-            translation_key="error_water_shortage",
-            device_class=BinarySensorDeviceClass.PROBLEM,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            is_on=lambda x: None if x is None else (x >> 4) & 1,
-        ),
-        XTBinarySensorEntityDescription(
-            key=f"{XTDPCode.MALFUNCTION}_5",
-            dpcode=XTDPCode.MALFUNCTION,
-            translation_key="error_other",
-            device_class=BinarySensorDeviceClass.PROBLEM,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            is_on=lambda x: None if x is None else (x >> 5) & 1,
-        ),
-        XTBinarySensorEntityDescription(
-            key=XTDPCode.VBAT_STATE,
-            translation_key="battery_charging",
-            device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            # vbat_state packs charging into bit 7. 228 (= 0xE4) = level
-            # 100 + charging; values <= 127 indicate not charging.
-            is_on=lambda x: None if x is None else x > 127,
-        ),
-    ),
+    # MALFUNCTION bits surface automatically via the BITMAP auto-discovery
+    # path below (one binary_sensor per declared label).
     "smd": (
         XTBinarySensorEntityDescription(
             key=XTDPCode.OFF,
