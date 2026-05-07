@@ -10,6 +10,21 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.118] — 2026-05-07
+
+Second hotfix for 4.4.116. The `run_task_sta` ENUM declaration crashed
+the entire `sensor` platform setup with
+`KeyError: <SensorDeviceClass.ENUM: 'enum'>` raised by upstream
+`tuya/sensor.py:1719` — `SENSOR_DEVICE_CLASS_UNITS` doesn't carry an
+ENUM key, and the device's `run_task_sta` DP advertises unit `"无"`
+which trips the validator.
+
+### Changed
+- `run_task_sta` sensor in `custom_components/xtend_tuya/sensor.py` no
+  longer declares `device_class=ENUM` / `options=[...]`. Mapping to
+  `idle / scheduled / running / complete / error` is preserved as a
+  plain string sensor with `native_unit_of_measurement=None`.
+
 ## [4.4.117] — 2026-05-06
 
 Hotfix for 4.4.116. The `sfkzq` block I activated used `is_on=` lambdas
@@ -207,7 +222,8 @@ auto-generates the multi-valve dashboard.
   so it survives the legacy S 809 vs descriptive S 810/S 812 naming
   split without rename.
 
-[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.117...HEAD
+[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.118...HEAD
+[4.4.118]: https://github.com/raukaute/xtend_tuya/compare/v4.4.117...v4.4.118
 [4.4.117]: https://github.com/raukaute/xtend_tuya/compare/v4.4.116...v4.4.117
 [4.4.116]: https://github.com/raukaute/xtend_tuya/compare/v4.4.115...v4.4.116
 [4.4.115]: https://github.com/raukaute/xtend_tuya/compare/v4.4.114...v4.4.115

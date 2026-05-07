@@ -1836,16 +1836,10 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
         XTSensorEntityDescription(
             key=XTDPCode.RUN_TASK_STA,
             translation_key="watering_task",
-            device_class=SensorDeviceClass.ENUM,
-            options=[
-                "idle",
-                "scheduled",
-                "running",
-                "complete",
-                "error",
-            ],
-            # Tuya's spec defines run_task_sta as 0..4. Mapping derived
-            # from observation; revisit if a value falls outside range.
+            # No ENUM device_class: upstream tuya/sensor.py crashes on
+            # SENSOR_DEVICE_CLASS_UNITS[ENUM] because the device reports
+            # unit "无" and ENUM has no entry in that dict.
+            native_unit_of_measurement=None,
             native_value=lambda x: {
                 0: "idle",
                 1: "scheduled",
