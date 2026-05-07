@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import struct
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Mapping
 from tuya_device_handlers.definition.sensor import (
     TuyaSensorDefinition,
 )
@@ -15,9 +15,6 @@ from homeassistant.components.sensor import (
 from homeassistant.const import (
     EntityCategory,
 )
-from homeassistant.core import callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.event import async_call_later
 from ...sensor import (
     XTSensorEntity,
     XTSensorEntityDescription,
@@ -31,19 +28,13 @@ from ...ha_tuya_integration.tuya_integration_imports import (
     TuyaDPCodeRawWrapper,
     TuyaRawTypeInformation,
 )
-from ...const import TUYA_HA_SIGNAL_UPDATE_ENTITY, XTDPCode
+from ...const import XTDPCode
 
 _LOGGER = logging.getLogger(__name__)
 
 # DP codes not yet in XTDPCode — use string literals until PR is merged
 DP_ONE_CONTROL = "one_control"
 DP_TIME_TASK = "time_task"
-
-# Cloud resync debounce. DP pushes (timer edit echoes, schedule firings,
-# switch flips) trigger a single coalesced GET /timers after this delay.
-# No periodic safety net: it would burn the Tuya Trial Edition quota.
-RESYNC_DEBOUNCE_SECONDS = 3.0
-
 from .const import DEVICE_CATEGORY, DAYS_OF_WEEK
 
 
@@ -223,20 +214,6 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
         """Return slots keyed by string index (for JSON-safe HA attributes)."""
         return {str(k): v for k, v in self.slots.items()}
 
-    def prime_idempotency_guard(self, device: TuyaCustomerDevice) -> None:
-        """Mark current device DP as already-applied without applying it.
-
-        Called after a cloud-source-of-truth reconciliation. Without this,
-        a delayed device echo (or a fresh state read after reconcile) would
-        replay an old time_task payload and clobber the slot we just
-        reconciled from cloud.
-        """
-        raw = TuyaDPCodeRawWrapper.read_device_status(self, device)
-        if isinstance(raw, (bytes, bytearray)):
-            self._last_applied_payload = bytes(raw)
-        else:
-            self._last_applied_payload = None
-
     def restore_slots(self, data: dict) -> None:
         """Hydrate slots from HA state restoration."""
         for i in range(self.NUM_SLOTS):
@@ -247,23 +224,13 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
                 self.slots[i] = None
 
     def reconcile_with_cloud(self, cloud_timers: list[dict]) -> int:
-        """Replace registry slots so they mirror the cloud schedule shape,
-        but defer to device-side `enabled` when the device has spoken.
+        """Replace registry slots so they exactly mirror the cloud.
 
-        Cloud is the source of truth for slot identity (timer_id, hour,
-        minute, days, mode, value) — slots not present in the cloud
-        response are cleared, and each cloud timer is placed into a slot
-        keyed by cloud_timer_id, then hour/min/days, then gap-fill.
-
-        The `enabled` bit is different. The device's time_task DP carries
-        the operational flag the firmware checks at fire time, and that
-        state can drift from Tuya's `/timers.status` (observed: a timer
-        with `is_app_push: true` where cloud `status=0` but device DP
-        `enabled=1` — the valve still fired). When schedule shapes match,
-        we preserve the existing slot's `enabled` so the registry reflects
-        what the valve will actually do.
-
-        Returns the number of populated slots.
+        Cloud is treated as the source of truth: slots not present in the
+        cloud response are cleared, and each cloud timer is placed into a
+        slot. Slot indices are preserved when possible — first by matching
+        cloud_timer_id, then by hour/minute/days, then by filling gaps from
+        slot 0 upward. Returns the number of populated slots.
         """
         parsed: list[dict] = []
         for ct in cloud_timers:
@@ -285,7 +252,6 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
                         and existing.get("cloud_timer_id") == ctid
                         and new_slots[i] is None
                     ):
-                        self._prefer_device_enabled(td, existing)
                         td["slot"] = i
                         new_slots[i] = td
                         placed = True
@@ -305,7 +271,6 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
                     and existing.get("minute") == td.get("minute")
                     and existing.get("days_mask") == td.get("days_mask")
                 ):
-                    self._prefer_device_enabled(td, existing)
                     td["slot"] = i
                     new_slots[i] = td
                     placed = True
@@ -327,28 +292,6 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
     # Backwards-compatible alias; behavior is now full reconciliation.
     def merge_cloud_timers(self, cloud_timers: list[dict]) -> int:
         return self.reconcile_with_cloud(cloud_timers)
-
-    @staticmethod
-    def _prefer_device_enabled(td_cloud: dict, existing: dict) -> None:
-        """Override td_cloud['enabled'] with existing['enabled'] when the
-        full schedule shape (hour/min/days/mode/value) matches.
-
-        The device DP is operational truth — the firmware fires from its
-        local enabled bit, not from Tuya cloud's `/timers.status`. When
-        shapes diverge, the existing slot is from a different timer
-        (user edited the schedule in cloud since last device sync), so
-        we don't carry over the stale enabled flag.
-        """
-        if (
-            existing.get("hour") == td_cloud.get("hour")
-            and existing.get("minute") == td_cloud.get("minute")
-            and existing.get("days_mask") == td_cloud.get("days_mask")
-            and existing.get("mode") == td_cloud.get("mode")
-            and existing.get("value") == td_cloud.get("value")
-        ):
-            device_enabled = existing.get("enabled")
-            if device_enabled is not None:
-                td_cloud["enabled"] = device_enabled
 
     @staticmethod
     def _parse_cloud_timer(cloud_timer: dict) -> dict | None:
@@ -434,9 +377,6 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         # so device.name alone is "Valve Controller 9" — not what the user
         # sees in the app.
         self._custom_name: str | None = None
-        self._resync_cancel: Callable[[], None] | None = None
-        self._dispatcher_unsub: Callable[[], None] | None = None
-        self._resync_in_flight: bool = False
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -497,65 +437,9 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         # Step 3: Fetch SmartLife custom name
         await self._sync_custom_name()
 
-        # Step 4: Subscribe to per-device DP push signal. Any DP fired for
-        # this device is a hint that something changed (timer toggled in
-        # SmartLife → device echo, schedule fired, switch flipped). We
-        # debounce and re-fetch the cloud-side timer state so the registry
-        # mirrors SmartLife within seconds rather than at next HA boot.
-        # Cloud-only edits (toggling enabled without altering schedule)
-        # are not picked up here — covered instead by the immediate resync
-        # at the end of the set_timer / delete_timer services.
-        self._dispatcher_unsub = async_dispatcher_connect(
-            self.hass,
-            f"{TUYA_HA_SIGNAL_UPDATE_ENTITY}_{self.device.id}",
-            self._on_dp_update,
-        )
-
     async def async_will_remove_from_hass(self) -> None:
         Fdm5kwTimerRegistryEntity.INSTANCES.pop(self.device.id, None)
-        if self._resync_cancel is not None:
-            self._resync_cancel()
-            self._resync_cancel = None
-        if self._dispatcher_unsub is not None:
-            self._dispatcher_unsub()
-            self._dispatcher_unsub = None
         await super().async_will_remove_from_hass()
-
-    @callback
-    def _on_dp_update(
-        self,
-        updated_codes: list[str] | None = None,
-        dp_timestamps: dict | None = None,
-    ) -> None:
-        """Schedule a debounced cloud resync after any DP push for this device."""
-        if self._resync_cancel is not None:
-            self._resync_cancel()
-        self._resync_cancel = async_call_later(
-            self.hass, RESYNC_DEBOUNCE_SECONDS, self._async_debounced_resync
-        )
-
-    async def _async_debounced_resync(self, _now: Any = None) -> None:
-        self._resync_cancel = None
-        await self._do_resync()
-
-    async def _do_resync(self) -> None:
-        """Single concurrency-guarded resync entry point."""
-        if self._resync_in_flight:
-            return
-        wrapper = self._dpcode_wrapper
-        if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
-            return
-        self._resync_in_flight = True
-        try:
-            await self._sync_cloud_timers(wrapper)
-        except Exception:
-            _LOGGER.warning(
-                "fdm5kw resync raised for %s",
-                self.entity_id,
-                exc_info=True,
-            )
-        finally:
-            self._resync_in_flight = False
 
     async def resync_cloud_timers(self) -> bool:
         """Re-fetch cloud timers and merge. Returns True on successful run."""
@@ -669,17 +553,6 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
             populated,
             self.entity_id,
         )
-        # Cloud is now the authoritative state in the wrapper. Mark the
-        # device's current time_task DP as already-applied so a delayed
-        # echo doesn't replay an old slot edit over our cloud truth.
-        try:
-            wrapper.prime_idempotency_guard(self.device)
-        except Exception:
-            _LOGGER.debug(
-                "fdm5kw resync: priming idempotency guard for %s failed",
-                self.entity_id,
-                exc_info=True,
-            )
         self.async_write_ha_state()
 
     @staticmethod

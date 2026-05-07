@@ -1791,12 +1791,7 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             device_class=SensorDeviceClass.BATTERY,
             state_class=SensorStateClass.MEASUREMENT,
             entity_category=EntityCategory.DIAGNOSTIC,
-            # vbat_state packs the level in the low 7 bits and the
-            # charging flag in bit 7. Mask to extract the level, then
-            # clamp to 0..100 since the raw range is 0..127 but valid
-            # battery percentage is 0..100. (Companion `battery_charging`
-            # binary_sensor exposes the bit-7 flag.)
-            native_value=lambda x: min(int(x) & 0x7F, 100),
+            native_value=lambda x: int(x) & 0x7F,
         ),
         XTSensorEntityDescription(
             key=XTDPCode.CUR_CAP,
@@ -1804,14 +1799,6 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             device_class=SensorDeviceClass.WATER,
             native_unit_of_measurement="L",
             suggested_display_precision=0,
-            # cur_cap is the per-run cumulative volume — it resets to 0 at
-            # the start of each cycle. TOTAL_INCREASING tells HA's long-term
-            # statistics to treat each reset as a new accumulator window so
-            # the lifetime sum is computed correctly. This is what unlocks
-            # an "all-time water through the valve" figure (via statistics
-            # or utility_meter); the FDM5KW spec does not expose a
-            # water_total DP of its own.
-            state_class=SensorStateClass.TOTAL_INCREASING,
         ),
         XTSensorEntityDescription(
             key=XTDPCode.CYC_NUM,
@@ -1836,17 +1823,8 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
         XTSensorEntityDescription(
             key=XTDPCode.RUN_TASK_STA,
             translation_key="watering_task",
-            # No ENUM device_class: upstream tuya/sensor.py crashes on
-            # SENSOR_DEVICE_CLASS_UNITS[ENUM] because the device reports
-            # unit "无" and ENUM has no entry in that dict.
-            native_unit_of_measurement=None,
-            native_value=lambda x: {
-                0: "idle",
-                1: "scheduled",
-                2: "running",
-                3: "complete",
-                4: "error",
-            }.get(int(x), "unknown") if x is not None else None,
+            native_unit_of_measurement="",
+            native_value=lambda x: str(x),
         ),
     ),
     "slj": (

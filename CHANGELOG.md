@@ -10,6 +10,35 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.120] — 2026-05-07
+
+Hard revert. The 4.4.112-119 series — per-second polling, dashboard
+strategy, atomic single-watering writes, DP decoders, schedule-sync
+fixes, lifetime water graph — caused cascading regressions including
+quota exhaustion, device entities going Unavailable, and config-entry
+auth churn.
+
+### Changed
+- `binary_sensor.py`, `sensor.py`,
+  `entity_parser/fdm5kw/control_service.py`,
+  `entity_parser/fdm5kw/sensor.py`,
+  `entity_parser/fdm5kw/timer_service.py`
+  reverted byte-for-byte to v4.4.111. This is the pre-customization
+  baseline. The Single-watering button, schedule registry, valve
+  control, status sensors, etc. all behave exactly as they did in
+  v4.4.111.
+- Frontend `irrigation-control-card.js` and
+  `irrigation-valves-strategy.js` retained at HEAD — pure JS, no API
+  cost, keeps the user's `strategy: custom:irrigation-valves`
+  dashboard YAML working without YAML changes on their side.
+
+### Why
+Working baseline took priority over feature accumulation. Quota was
+exhausted; Single watering, timers and schedule sync were no longer
+reliable; users were getting `Configuration error` banners and
+Unavailable entities. Best path forward is a clean baseline we can
+re-add features to deliberately, with quota-awareness from the start.
+
 ## [4.4.119] — 2026-05-07
 
 API quota cut. The Mavronero Solar Valves Tuya project hit
@@ -261,7 +290,8 @@ auto-generates the multi-valve dashboard.
   so it survives the legacy S 809 vs descriptive S 810/S 812 naming
   split without rename.
 
-[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.119...HEAD
+[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.120...HEAD
+[4.4.120]: https://github.com/raukaute/xtend_tuya/compare/v4.4.119...v4.4.120
 [4.4.119]: https://github.com/raukaute/xtend_tuya/compare/v4.4.118...v4.4.119
 [4.4.118]: https://github.com/raukaute/xtend_tuya/compare/v4.4.117...v4.4.118
 [4.4.117]: https://github.com/raukaute/xtend_tuya/compare/v4.4.116...v4.4.117
