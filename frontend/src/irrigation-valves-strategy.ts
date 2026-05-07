@@ -94,12 +94,17 @@ interface ValveEntities {
 }
 
 const REGISTRY_TRANSLATION_KEY_SUFFIX = "irrigation_timer_registry";
+// v4.4.111 baseline names the registry entity sensor.<slug>_time_task_registry.
+// Keep matching it so the dashboard discovers valves on the reverted code.
+const REGISTRY_LEGACY_SUFFIX = "_time_task_registry";
 
 const TRANSLATION_KEY_TO_FIELD: Record<string, keyof ValveEntities> = {
   // Sensors / numbers exposed by the integration (translation_key →
   // field on ValveEntities). Anything not in this map is ignored.
   start_time: "start_time_sensor",
   close_time: "end_time_sensor",
+  // v4.4.111 baseline uses `end_time` for the CLOSE_TIME sensor.
+  end_time: "end_time_sensor",
   watering_mode: "mode_sensor",
   watering_volume: "volume_sensor",
   battery_level: "battery_level",
@@ -150,7 +155,11 @@ function discoverValves(hass: HomeAssistantLike): ValveEntities[] {
     }
   }
   for (const id of Object.keys(hass.states)) {
-    if (id.startsWith("sensor.") && id.endsWith(REGISTRY_TRANSLATION_KEY_SUFFIX)) {
+    if (
+      id.startsWith("sensor.") &&
+      (id.endsWith(REGISTRY_TRANSLATION_KEY_SUFFIX) ||
+        id.endsWith(REGISTRY_LEGACY_SUFFIX))
+    ) {
       registryIds.add(id);
     }
   }

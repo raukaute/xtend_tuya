@@ -10,6 +10,25 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.121] — 2026-05-07
+
+Follow-up to 4.4.120. The hard revert restored the Python integration
+to v4.4.111 but the kept-at-HEAD frontend strategy was looking for
+entity names that only exist in 4.4.112+ code, leaving the
+`strategy: custom:irrigation-valves` dashboard to render with empty /
+Unavailable cards.
+
+### Fixed
+- **Strategy entity discovery** in
+  `frontend/src/irrigation-valves-strategy.ts`:
+  - Also accepts entity_id suffix `_time_task_registry` (the v4.4.111
+    name for the Irrigation timer registry sensor) in addition to the
+    newer `_irrigation_timer_registry`.
+  - Maps both `close_time` and `end_time` translation_keys to the
+    "End" sensor field; v4.4.111 uses `end_time` for the CLOSE_TIME
+    DP.
+- Compiled JS rebuilt to match.
+
 ## [4.4.120] — 2026-05-07
 
 Hard revert. The 4.4.112-119 series — per-second polling, dashboard
@@ -290,7 +309,8 @@ auto-generates the multi-valve dashboard.
   so it survives the legacy S 809 vs descriptive S 810/S 812 naming
   split without rename.
 
-[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.120...HEAD
+[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.121...HEAD
+[4.4.121]: https://github.com/raukaute/xtend_tuya/compare/v4.4.120...v4.4.121
 [4.4.120]: https://github.com/raukaute/xtend_tuya/compare/v4.4.119...v4.4.120
 [4.4.119]: https://github.com/raukaute/xtend_tuya/compare/v4.4.118...v4.4.119
 [4.4.118]: https://github.com/raukaute/xtend_tuya/compare/v4.4.117...v4.4.118
