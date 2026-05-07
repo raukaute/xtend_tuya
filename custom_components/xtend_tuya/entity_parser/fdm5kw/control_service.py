@@ -23,10 +23,9 @@ sends mode + value + start atomically.
 from __future__ import annotations
 
 import base64
-import json
 import logging
-from typing import Any
 
+from ...multi_manager.multi_manager import MultiManager
 from ...multi_manager.shared.threading import XTEventLoopProtector
 from ...util import get_all_multi_managers
 
@@ -75,27 +74,26 @@ def build_one_control_payload(mode: int, value: int, start: bool = True) -> str:
     return base64.b64encode(payload).decode("ascii")
 
 
-def _find_account(hass, device_id: str, source: str) -> Any:
+def _find_multi_manager(hass, device_id: str) -> MultiManager | None:
     for mm in get_all_multi_managers(hass):
         if mm.device_map.get(device_id):
-            return mm.get_account_by_name(source)
+            return mm
     return None
 
 
-async def _write_one_control(account, device_id: str, b64_value: str) -> bool:
-    body = json.dumps(
-        {"commands": [{"code": ONE_CONTROL_CODE, "value": b64_value}]}
-    )
-    url = f"/v1.0/devices/{device_id}/commands"
+async def _write_one_control(
+    multi_manager: MultiManager, device_id: str, b64_value: str
+) -> bool:
+    commands = [{"code": ONE_CONTROL_CODE, "value": b64_value}]
     try:
-        resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-            account.call_api, "POST", url, body
+        ok = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+            multi_manager.send_commands, device_id, commands
         )
     except Exception:
         _LOGGER.exception("one_control DP write failed for %s", device_id)
         return False
-    if not resp or not resp.get("success"):
-        _LOGGER.warning("one_control DP write rejected for %s: %s", device_id, resp)
+    if not ok:
+        _LOGGER.warning("one_control DP write rejected for %s", device_id)
         return False
     return True
 
@@ -108,23 +106,23 @@ async def start_watering(hass, data: dict) -> bool:
     if mode_int == MODE_IDLE:
         raise ValueError("Use stop_watering for mode=idle/stop")
 
-    account = _find_account(hass, device_id, "tuya_iot")
-    if account is None:
-        _LOGGER.error("No tuya_iot account found for device %s", device_id)
+    multi_manager = _find_multi_manager(hass, device_id)
+    if multi_manager is None:
+        _LOGGER.error("No multi_manager found for device %s", device_id)
         return False
 
     b64 = build_one_control_payload(mode_int, value)
-    return await _write_one_control(account, device_id, b64)
+    return await _write_one_control(multi_manager, device_id, b64)
 
 
 async def stop_watering(hass, data: dict) -> bool:
     """Stop an active watering cycle (writes one_control idle)."""
     device_id: str = data["device_id"]
 
-    account = _find_account(hass, device_id, "tuya_iot")
-    if account is None:
-        _LOGGER.error("No tuya_iot account found for device %s", device_id)
+    multi_manager = _find_multi_manager(hass, device_id)
+    if multi_manager is None:
+        _LOGGER.error("No multi_manager found for device %s", device_id)
         return False
 
     b64 = build_one_control_payload(MODE_IDLE, 0)
-    return await _write_one_control(account, device_id, b64)
+    return await _write_one_control(multi_manager, device_id, b64)

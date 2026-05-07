@@ -1,17 +1,19 @@
-"""Dual-write timer services for fdm5kw irrigation valve.
+"""Timer services for fdm5kw irrigation valve.
 
-Handlers called by ServiceManager. The device DP write is the source of
-truth (offline-safe); the cloud timer write is best-effort for SmartLife
-UI visibility — a cloud failure is logged but does not fail the service.
+Writes the device-side `time_task` DP via the multi-manager (sharing channel
+first; OpenAPI is no longer touched). The device DP is the single source
+of truth — it executes locally and is mirrored back to HA via cloud push.
+The Tuya cloud timer registry is not written or read; SmartLife schedule
+display reads from the DP shadow, and editing schedules is owned by HA.
 """
 
 from __future__ import annotations
 
 import base64
-import json
 import logging
 from typing import Any
 
+from ...multi_manager.multi_manager import MultiManager
 from ...multi_manager.shared.threading import XTEventLoopProtector
 from ...util import get_all_multi_managers
 from .const import DAYS_OF_WEEK
@@ -35,10 +37,6 @@ def _days_to_mask(days: list[str] | int | None) -> int:
         except ValueError:
             _LOGGER.warning("Unknown day %r (expected one of %s)", d, DAYS_OF_WEEK)
     return mask
-
-
-def _mask_to_loops(mask: int) -> str:
-    return "".join("1" if mask & (1 << i) else "0" for i in range(7))
 
 
 def _mode_to_int(mode: str) -> int:
@@ -86,118 +84,28 @@ def build_delete_payload(slot: int) -> str:
     return base64.b64encode(bytes([slot] + [0] * 10)).decode("ascii")
 
 
-def _find_account(hass, device_id: str, source: str) -> Any:
+def _find_multi_manager(hass, device_id: str) -> MultiManager | None:
     for mm in get_all_multi_managers(hass):
         if mm.device_map.get(device_id):
-            return mm.get_account_by_name(source)
+            return mm
     return None
 
 
-async def _write_device_dp(account, device_id: str, b64_value: str) -> bool:
-    body = json.dumps({"commands": [{"code": TIME_TASK_CODE, "value": b64_value}]})
-    url = f"/v1.0/devices/{device_id}/commands"
+async def _write_time_task(
+    multi_manager: MultiManager, device_id: str, b64_value: str
+) -> bool:
+    commands = [{"code": TIME_TASK_CODE, "value": b64_value}]
     try:
-        resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-            account.call_api, "POST", url, body
+        ok = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+            multi_manager.send_commands, device_id, commands
         )
     except Exception:
         _LOGGER.exception("time_task DP write failed for %s", device_id)
         return False
-    if not resp or not resp.get("success"):
-        _LOGGER.warning("time_task DP write rejected for %s: %s", device_id, resp)
+    if not ok:
+        _LOGGER.warning("time_task DP write rejected for %s", device_id)
         return False
     return True
-
-
-async def _post_cloud_timer(
-    account,
-    device_id: str,
-    hour: int,
-    minute: int,
-    days_mask: int,
-    mode: int,
-    value: int,
-    enabled: bool,
-) -> None:
-    """Best-effort cloud timer create for SmartLife visibility.
-
-    Tuya cloud timer POST body is inferred from the read shape — the exact
-    schema is not formally documented for this device category. Failures
-    are logged and swallowed; the DP write is authoritative.
-    """
-    time_str = f"{hour:02d}:{minute:02d}"
-    loops = _mask_to_loops(days_mask)
-    func_value = {
-        "startTimeStr": time_str,
-        "loops": loops,
-        "duration": value if mode == MODE_DURATION else 0,
-        "capacity": value if mode == MODE_VOLUME else 0,
-    }
-    body = json.dumps(
-        {
-            "time": time_str,
-            "loops": loops,
-            "category": TIME_TASK_CODE,
-            "is_app_push": False,
-            "status": 1 if enabled else 0,
-            "functions": [{"code": TIME_TASK_CODE, "value": func_value}],
-        }
-    )
-    url = f"/v1.0/devices/{device_id}/timers"
-    try:
-        resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-            account.call_api, "POST", url, body
-        )
-    except Exception:
-        _LOGGER.warning(
-            "Cloud timer POST failed for %s (non-fatal)", device_id, exc_info=True
-        )
-        return
-    if not resp or not resp.get("success"):
-        _LOGGER.info(
-            "Cloud timer POST returned no success for %s: %s", device_id, resp
-        )
-
-
-async def _delete_cloud_timer_by_match(
-    account, device_id: str, hour: int, minute: int, days_mask: int
-) -> None:
-    """List cloud timers, delete the one matching time+days. Best-effort."""
-    try:
-        resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-            account.call_api, "GET", f"/v1.0/devices/{device_id}/timers", None
-        )
-    except Exception:
-        _LOGGER.warning(
-            "Cloud timer list failed for %s (non-fatal)", device_id, exc_info=True
-        )
-        return
-    if not resp or not resp.get("success"):
-        return
-    time_str = f"{hour:02d}:{minute:02d}"
-    loops = _mask_to_loops(days_mask)
-    for category in resp.get("result", []):
-        for group in category.get("groups", []):
-            for timer in group.get("timers", []):
-                funcs = timer.get("functions") or []
-                v = funcs[0].get("value", {}) if funcs else {}
-                if v.get("startTimeStr") == time_str and v.get("loops") == loops:
-                    timer_id = timer.get("timer_id")
-                    if not timer_id:
-                        continue
-                    try:
-                        await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-                            account.call_api,
-                            "DELETE",
-                            f"/v1.0/devices/{device_id}/timers/{timer_id}",
-                            None,
-                        )
-                    except Exception:
-                        _LOGGER.warning(
-                            "Cloud timer delete failed for %s (non-fatal)",
-                            device_id,
-                            exc_info=True,
-                        )
 
 
 async def set_timer(hass, data: dict) -> bool:
@@ -210,45 +118,23 @@ async def set_timer(hass, data: dict) -> bool:
     days_mask: int = _days_to_mask(data.get("days"))
     enabled: bool = bool(data.get("enabled", True))
 
-    account = _find_account(hass, device_id, "tuya_iot")
-    if account is None:
-        _LOGGER.error("No tuya_iot account found for device %s", device_id)
+    multi_manager = _find_multi_manager(hass, device_id)
+    if multi_manager is None:
+        _LOGGER.error("No multi_manager found for device %s", device_id)
         return False
 
     b64 = build_time_task_payload(slot, mode, value, hour, minute, days_mask, enabled)
-    ok = await _write_device_dp(account, device_id, b64)
-    if not ok:
-        return False
-
-    await _post_cloud_timer(
-        account, device_id, hour, minute, days_mask, mode, value, enabled
-    )
-    return True
+    return await _write_time_task(multi_manager, device_id, b64)
 
 
 async def delete_timer(hass, data: dict) -> bool:
     device_id: str = data["device_id"]
     slot: int = int(data["slot"])
 
-    account = _find_account(hass, device_id, "tuya_iot")
-    if account is None:
-        _LOGGER.error("No tuya_iot account found for device %s", device_id)
+    multi_manager = _find_multi_manager(hass, device_id)
+    if multi_manager is None:
+        _LOGGER.error("No multi_manager found for device %s", device_id)
         return False
 
     b64 = build_delete_payload(slot)
-    ok = await _write_device_dp(account, device_id, b64)
-    if not ok:
-        return False
-
-    # Cloud cleanup is best-effort and only runs when the caller (e.g. the
-    # irrigation-timer-card) supplies enough to match a cloud timer entry.
-    # The card has the slot's current time/days; the service doesn't need
-    # to recover them from the registry.
-    hour = data.get("hour")
-    minute = data.get("minute")
-    if hour is not None and minute is not None:
-        days_mask = _days_to_mask(data.get("days"))
-        await _delete_cloud_timer_by_match(
-            account, device_id, int(hour), int(minute), days_mask
-        )
-    return True
+    return await _write_time_task(multi_manager, device_id, b64)

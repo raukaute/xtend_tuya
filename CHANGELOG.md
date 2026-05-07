@@ -10,6 +10,85 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.122] — 2026-05-07
+
+Strip the Tuya OpenAPI dependency from the fdm5kw irrigation valve path.
+The OpenAPI channel is the metered tier (Trial Edition $0.20/month
+budget); the sharing-API + cloud-MQTT push channel is free and
+push-based. With this release, the fdm5kw services and registry rely
+exclusively on the sharing channel.
+
+The device-side `time_task` DP is now treated as the single source of
+truth for schedules. The Tuya cloud timer registry — a redundant
+server-side mirror that the fork previously read on boot and on every
+service call — is no longer consulted or written. SmartLife displays
+schedules from the DP shadow that propagates through cloud MQTT
+regardless, so the valve detail screen still shows live state; only the
+SmartLife "Schedule" editor tab will appear empty (HA owns scheduling).
+
+See `docs/migration_strategy.md` for the broader plan (Phase 2:
+LocalTuya, Phase 3: Cloudcutter + ESPHome).
+
+### Removed
+- **Cloud timer registry sync** in
+  `entity_parser/fdm5kw/sensor.py`: `_sync_cloud_timers()`,
+  `_extract_cloud_timers()`, `_sync_custom_name()`, and
+  `resync_cloud_timers()`. The boot sync was the largest historical
+  quota burner — every restart fetched timers for every valve via
+  `GET /v1.0/devices/{id}/timers` and `GET /v2.0/cloud/thing/{id}`.
+- **Cloud timer registry write** in
+  `entity_parser/fdm5kw/timer_service.py`: `_post_cloud_timer()` and
+  `_delete_cloud_timer_by_match()`. Schedule writes go to the device
+  DP only.
+- **`fdm5kw_resync_timers` service** (and `services.yaml` entry).
+  There is nothing to resync from once the cloud registry is out of
+  the loop; the registry hydrates from HA state restoration plus DP
+  push events.
+- **`DPCodeTimeTaskRegistryWrapper.reconcile_with_cloud` /
+  `merge_cloud_timers` / `_parse_cloud_timer`** — cloud-specific
+  reconciliation logic.
+
+### Changed
+- **DP writes go through the multi-manager** rather than directly
+  hitting `account.call_api("POST", "/v1.0/devices/{id}/commands")`
+  on the `tuya_iot` (OpenAPI) account:
+  - `entity_parser/fdm5kw/timer_service.py:_write_time_task`
+  - `entity_parser/fdm5kw/control_service.py:_write_one_control`
+  Both now call `multi_manager.send_commands(device_id, [...])`,
+  which prefers the sharing channel and only falls back to OpenAPI
+  if sharing is unavailable.
+- **Registry entity attributes** in `Fdm5kwTimerRegistryEntity`:
+  dropped `valve_custom_name` and `valve_factory_name`; `valve_name`
+  is now `device.name`. The SmartLife user-set custom name is no
+  longer fetched. Rename in HA (Settings → Devices) if desired —
+  one-time, persists.
+
+### Why
+- **Quota.** Trial Edition is hard-capped at $0.20/month
+  (~54k EU calls). Per-restart sync × 21 valves and per-service-call
+  list+delete burned through it in days. Sharing channel is free and
+  has no per-call meter.
+- **Device cap.** Trial Edition limits 50 devices per cloud project.
+  Fleet is expected to exceed 50; sharing-only operation removes the
+  OpenAPI device-cap pressure on the schedule path (account-link cap
+  still applies, but is the next problem to solve via Cloudcutter, not
+  this release).
+- **Source-of-truth drift.** The two-tier model (cloud registry +
+  device DP) was the root cause of multiple regressions in 4.4.112–119.
+  One tier is simpler and correct.
+
+### Trade-off
+- SmartLife's "Schedule" editor tab will show no entries for fdm5kw
+  valves. Workers diagnosing in the field still see live state in
+  SmartLife's valve detail screen (open/closed, last run, battery)
+  via DP shadow. Editing schedules is owned by HA Companion or the
+  custom irrigation-timer card. Acceptable per migration plan.
+
+### Notes
+- This is Phase 1 of a three-phase migration documented in
+  `docs/migration_strategy.md`. Phase 2 (LocalTuya in parallel) and
+  Phase 3 (Cloudcutter → ESPHome) follow.
+
 ## [4.4.121] — 2026-05-07
 
 Follow-up to 4.4.120. The hard revert restored the Python integration

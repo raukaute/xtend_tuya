@@ -105,13 +105,6 @@ SERVICE_FDM5KW_DELETE_TIMER_SCHEMA = vol.Schema(
     }
 )
 
-SERVICE_FDM5KW_RESYNC_TIMERS = "fdm5kw_resync_timers"
-SERVICE_FDM5KW_RESYNC_TIMERS_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_DEVICE_ID): cv.string,
-    }
-)
-
 SERVICE_FDM5KW_START_WATERING = "fdm5kw_start_watering"
 SERVICE_FDM5KW_START_WATERING_SCHEMA = vol.Schema(
     {
@@ -194,15 +187,6 @@ class ServiceManager:
             SERVICE_FDM5KW_DELETE_TIMER,
             self._handle_fdm5kw_delete_timer,
             SERVICE_FDM5KW_DELETE_TIMER_SCHEMA,
-            True,
-            True,
-            False,
-        )
-        self._register_service(
-            DOMAIN,
-            SERVICE_FDM5KW_RESYNC_TIMERS,
-            self._handle_fdm5kw_resync_timers,
-            SERVICE_FDM5KW_RESYNC_TIMERS_SCHEMA,
             True,
             True,
             False,
@@ -417,21 +401,6 @@ class ServiceManager:
         from ....entity_parser.fdm5kw.timer_service import delete_timer
 
         ok = await delete_timer(self.hass, event.data)
-        return {"success": ok}
-
-    async def _handle_fdm5kw_resync_timers(
-        self, event: XTEventData
-    ) -> dict[str, Any] | None:
-        from ....entity_parser.fdm5kw.sensor import Fdm5kwTimerRegistryEntity
-
-        device_id = event.data[CONF_DEVICE_ID]
-        entity = Fdm5kwTimerRegistryEntity.INSTANCES.get(device_id)
-        if entity is None:
-            return {
-                "success": False,
-                "error": f"No fdm5kw timer registry entity loaded for {device_id}",
-            }
-        ok = await entity.resync_cloud_timers()
         return {"success": ok}
 
     async def _handle_fdm5kw_start_watering(

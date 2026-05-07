@@ -8,13 +8,6 @@ from typing import Any, Mapping
 from tuya_device_handlers.definition.sensor import (
     TuyaSensorDefinition,
 )
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorStateClass,
-)
-from homeassistant.const import (
-    EntityCategory,
-)
 from ...sensor import (
     XTSensorEntity,
     XTSensorEntityDescription,
@@ -179,7 +172,8 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
     last-written slot. This wrapper maintains a dict of all 7 slots,
     updating each slot as its data comes through the DP. The registry
     persists across HA restarts via the companion entity's state
-    restoration.
+    restoration. The device DP is the single source of truth — no cloud
+    timer registry is consulted.
     """
 
     NUM_SLOTS = 7
@@ -187,10 +181,10 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
     def __init__(self, dpcode: str, type_information: TuyaRawTypeInformation) -> None:
         super().__init__(dpcode, type_information)
         self.slots: dict[int, dict | None] = {i: None for i in range(self.NUM_SLOTS)}
-        # The DP is a sliding window that shows the last write/delete. We
-        # apply each unique payload to slots once; without this guard, every
-        # state read would re-apply the last delete and wipe a slot that
-        # cloud sync just populated.
+        # The DP is a sliding window that shows the last write/delete. Apply
+        # each unique payload to slots once; without this guard, every state
+        # read would re-apply the last delete and wipe a previously restored
+        # slot.
         self._last_applied_payload: bytes | None = None
 
     def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
@@ -223,136 +217,6 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
             else:
                 self.slots[i] = None
 
-    def reconcile_with_cloud(self, cloud_timers: list[dict]) -> int:
-        """Replace registry slots so they exactly mirror the cloud.
-
-        Cloud is treated as the source of truth: slots not present in the
-        cloud response are cleared, and each cloud timer is placed into a
-        slot. Slot indices are preserved when possible — first by matching
-        cloud_timer_id, then by hour/minute/days, then by filling gaps from
-        slot 0 upward. Returns the number of populated slots.
-        """
-        parsed: list[dict] = []
-        for ct in cloud_timers:
-            timer_data = self._parse_cloud_timer(ct)
-            if timer_data is not None:
-                parsed.append(timer_data)
-
-        new_slots: dict[int, dict | None] = {i: None for i in range(self.NUM_SLOTS)}
-
-        # Pass 1: keep slot index when cloud_timer_id already lives in a slot
-        leftover: list[dict] = []
-        for td in parsed:
-            ctid = td.get("cloud_timer_id")
-            placed = False
-            if ctid is not None:
-                for i, existing in self.slots.items():
-                    if (
-                        existing is not None
-                        and existing.get("cloud_timer_id") == ctid
-                        and new_slots[i] is None
-                    ):
-                        td["slot"] = i
-                        new_slots[i] = td
-                        placed = True
-                        break
-            if not placed:
-                leftover.append(td)
-
-        # Pass 2: keep slot index when hour/minute/days match an existing slot
-        still_leftover: list[dict] = []
-        for td in leftover:
-            placed = False
-            for i, existing in self.slots.items():
-                if (
-                    existing is not None
-                    and new_slots[i] is None
-                    and existing.get("hour") == td.get("hour")
-                    and existing.get("minute") == td.get("minute")
-                    and existing.get("days_mask") == td.get("days_mask")
-                ):
-                    td["slot"] = i
-                    new_slots[i] = td
-                    placed = True
-                    break
-            if not placed:
-                still_leftover.append(td)
-
-        # Pass 3: assign remaining timers to the lowest empty slot
-        for td in still_leftover:
-            for i in range(self.NUM_SLOTS):
-                if new_slots[i] is None:
-                    td["slot"] = i
-                    new_slots[i] = td
-                    break
-
-        self.slots = new_slots
-        return sum(1 for s in self.slots.values() if s is not None)
-
-    # Backwards-compatible alias; behavior is now full reconciliation.
-    def merge_cloud_timers(self, cloud_timers: list[dict]) -> int:
-        return self.reconcile_with_cloud(cloud_timers)
-
-    @staticmethod
-    def _parse_cloud_timer(cloud_timer: dict) -> dict | None:
-        """Convert a Tuya cloud timer entry to our slot format.
-
-        Cloud timer format (from GET /v1.0/devices/{id}/timers):
-          groups[].timers[].functions[0].value = {
-            duration: int (seconds), capacity: int (liters),
-            loops: str ("1111111"), startTimeStr: "HH:MM", ...
-          }
-          groups[].timers[].status: 1=enabled, 0=disabled
-        """
-        funcs = cloud_timer.get("functions", [])
-        if not funcs:
-            return None
-        value = funcs[0].get("value", {})
-        if not isinstance(value, dict):
-            return None
-
-        # Parse time
-        time_str = value.get("startTimeStr", "")
-        if ":" not in time_str:
-            return None
-        parts = time_str.split(":")
-        hour, minute = int(parts[0]), int(parts[1])
-
-        # Parse mode and value
-        capacity = value.get("capacity", 0)
-        duration = value.get("duration", 0)
-        if capacity and capacity > 0:
-            mode = "volume"
-            timer_value = capacity
-            value_unit = "L"
-        else:
-            mode = "duration"
-            timer_value = duration
-            value_unit = "s"
-
-        # Parse days bitmask from loops string ("1111111" → 0x7F)
-        loops = value.get("loops", "0000000")
-        days_mask = 0
-        for i, ch in enumerate(loops):
-            if ch == "1":
-                days_mask |= (1 << i)
-        days = [DAYS_OF_WEEK[i] for i in range(7) if days_mask & (1 << i)]
-
-        enabled = cloud_timer.get("status", 0) == 1
-
-        return {
-            "slot": -1,  # assigned by caller
-            "hour": hour,
-            "minute": minute,
-            "mode": mode,
-            "value": timer_value,
-            "value_unit": value_unit,
-            "days": days,
-            "days_mask": days_mask,
-            "enabled": enabled,
-            "cloud_timer_id": cloud_timer.get("timer_id"),
-        }
-
 
 # ---------------------------------------------------------------------------
 # Custom Entity for Timer Registry
@@ -364,19 +228,12 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
 
     State value = count of active (enabled) timers.
     Attributes contain the full slot registry for the irrigation-timer-card.
+    Slots accumulate from the device's time_task DP push events; the
+    registry survives HA restarts via state restoration.
     """
 
-    # device_id → live entity instance, so the resync service can find us
+    # device_id → live entity instance
     INSTANCES: dict[str, "Fdm5kwTimerRegistryEntity"] = {}
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        # SmartLife custom name (set by user in the app); fetched from
-        # /v2.0/cloud/thing/{id}.custom_name. The Tuya OpenAPI returns the
-        # factory name in `name` and the user-set name in `custom_name`,
-        # so device.name alone is "Valve Controller 9" — not what the user
-        # sees in the app.
-        self._custom_name: str | None = None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -385,31 +242,25 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
             return None
         slots = wrapper.get_slots_dict()
         active = sum(1 for s in slots.values() if s and s.get("enabled"))
-        # Prefer SmartLife custom_name; fall back to factory device.name.
-        valve_name = self._custom_name or self.device.name
         return {
             "slots": slots,
             "active_count": active,
-            "valve_name": valve_name,
-            "valve_custom_name": self._custom_name,
-            "valve_factory_name": self.device.name,
+            "valve_name": self.device.name,
             "device_id": self.device.id,
             "product_name": getattr(self.device, "product_name", None),
         }
 
     async def async_added_to_hass(self) -> None:
-        """Restore slot registry from previous HA state, then sync cloud timers."""
+        """Restore slot registry from previous HA state."""
         await super().async_added_to_hass()
         Fdm5kwTimerRegistryEntity.INSTANCES[self.device.id] = self
         wrapper = self._dpcode_wrapper
         if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
             return
 
-        # Step 0: Prime the idempotency guard with the device's current DP
-        # payload. Without this, the first state read after cloud sync
-        # (triggered by async_write_ha_state) re-applies whatever the device
-        # last pushed — typically a "delete slot N" — and trample the slot
-        # we just reconciled from the cloud.
+        # Prime the idempotency guard with the device's current DP payload
+        # before restoring slots; otherwise the next state read would re-apply
+        # the last DP push (often a delete) and trample the restored data.
         try:
             wrapper.read_device_status(self.device)
         except Exception:
@@ -419,7 +270,6 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
                 exc_info=True,
             )
 
-        # Step 1: Restore from HA state (fast, local)
         last_state = await self.async_get_last_state()
         if last_state is not None:
             slots_data = last_state.attributes.get("slots")
@@ -431,157 +281,9 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
                     slots_data,
                 )
 
-        # Step 2: Sync cloud timers (discovers SmartLife-created timers)
-        await self._sync_cloud_timers(wrapper)
-
-        # Step 3: Fetch SmartLife custom name
-        await self._sync_custom_name()
-
     async def async_will_remove_from_hass(self) -> None:
         Fdm5kwTimerRegistryEntity.INSTANCES.pop(self.device.id, None)
         await super().async_will_remove_from_hass()
-
-    async def resync_cloud_timers(self) -> bool:
-        """Re-fetch cloud timers and merge. Returns True on successful run."""
-        wrapper = self._dpcode_wrapper
-        if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
-            return False
-        await self._sync_cloud_timers(wrapper)
-        await self._sync_custom_name()
-        return True
-
-    async def _sync_custom_name(self) -> None:
-        """Fetch SmartLife custom_name from /v2.0/cloud/thing/{id}.
-
-        device.name from the IOT SDK only carries the factory name
-        ("Valve Controller 9"); the user-facing name set in SmartLife
-        lives in custom_name on the cloud thing endpoint.
-        """
-        device_id = self.device.id
-        account = self.device_manager.get_account_by_name("tuya_iot")
-        if account is None:
-            return
-        try:
-            response = await self.hass.async_add_executor_job(
-                account.call_api, "GET", f"/v2.0/cloud/thing/{device_id}", None
-            )
-        except Exception:
-            _LOGGER.warning(
-                "fdm5kw custom_name fetch failed for %s",
-                device_id,
-                exc_info=True,
-            )
-            return
-        if not response or not response.get("success"):
-            return
-        result = response.get("result") or {}
-        custom_name = result.get("custom_name") or None
-        if custom_name and custom_name != self._custom_name:
-            _LOGGER.info(
-                "fdm5kw custom_name for %s: %r (was %r)",
-                device_id,
-                custom_name,
-                self._custom_name,
-            )
-            self._custom_name = custom_name
-            self.async_write_ha_state()
-
-    async def _sync_cloud_timers(self, wrapper: DPCodeTimeTaskRegistryWrapper) -> None:
-        """Fetch cloud timer entries and merge into registry."""
-        device_id = self.device.id
-        account = self.device_manager.get_account_by_name("tuya_iot")
-        if account is None:
-            _LOGGER.warning(
-                "fdm5kw cloud sync: no tuya_iot account for %s — skipping",
-                device_id,
-            )
-            return
-
-        url = f"/v1.0/devices/{device_id}/timers"
-        try:
-            response = await self.hass.async_add_executor_job(
-                account.call_api, "GET", url, None
-            )
-        except Exception:
-            _LOGGER.warning(
-                "fdm5kw cloud sync: API call raised for %s",
-                device_id,
-                exc_info=True,
-            )
-            return
-
-        if not response:
-            _LOGGER.warning(
-                "fdm5kw cloud sync: empty response for %s (account.call_api returned None)",
-                device_id,
-            )
-            return
-        if not response.get("success"):
-            _LOGGER.warning(
-                "fdm5kw cloud sync: API returned success=false for %s: code=%s msg=%s",
-                device_id,
-                response.get("code"),
-                response.get("msg"),
-            )
-            return
-
-        result = response.get("result")
-        _LOGGER.info(
-            "fdm5kw cloud sync: %s result type=%s len=%s",
-            device_id,
-            type(result).__name__,
-            len(result) if hasattr(result, "__len__") else "n/a",
-        )
-
-        cloud_timers: list[dict] = self._extract_cloud_timers(result)
-        if not cloud_timers:
-            _LOGGER.info(
-                "fdm5kw cloud sync: no timer entries found in response for %s — raw result keys=%s",
-                device_id,
-                list(result.keys()) if isinstance(result, dict) else None,
-            )
-            return
-
-        _LOGGER.info(
-            "fdm5kw cloud sync: %d cloud timer entry(ies) found for %s",
-            len(cloud_timers),
-            device_id,
-        )
-        populated = wrapper.reconcile_with_cloud(cloud_timers)
-        _LOGGER.info(
-            "fdm5kw cloud sync: registry now has %d populated slot(s) (mirrors cloud) for %s",
-            populated,
-            self.entity_id,
-        )
-        self.async_write_ha_state()
-
-    @staticmethod
-    def _extract_cloud_timers(result: Any) -> list[dict]:
-        """Walk Tuya's response tree and collect timer entries.
-
-        Tuya's /v1.0/devices/{id}/timers can return shapes like:
-          - [{groups:[{timers:[...]}]}]                  (categorised list)
-          - {groups:[{timers:[...]}]}                    (single category dict)
-          - {timers:[...]}                               (flat)
-          - [...]                                        (already a list of timers)
-        """
-        timers: list[dict] = []
-        if isinstance(result, list):
-            for entry in result:
-                if isinstance(entry, dict) and "functions" in entry:
-                    timers.append(entry)
-                else:
-                    timers.extend(Fdm5kwTimerRegistryEntity._extract_cloud_timers(entry))
-        elif isinstance(result, dict):
-            if "functions" in result and "timer_id" in result:
-                timers.append(result)
-                return timers
-            for key in ("groups", "timers", "result"):
-                if key in result:
-                    timers.extend(
-                        Fdm5kwTimerRegistryEntity._extract_cloud_timers(result[key])
-                    )
-        return timers
 
 
 # ---------------------------------------------------------------------------
