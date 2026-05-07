@@ -10,6 +10,45 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.119] — 2026-05-07
+
+API quota cut. The Mavronero Solar Valves Tuya project hit
+`code=28841004 "Your quota of Trial Edition is used up"` because the
+4.4.112 per-second active-run poll plus the 4.4.113 5-minute
+safety-net resync burned through the 1M-call/month Trial cap on a
+21-valve fleet. Reverting both.
+
+### Removed
+- **Per-second active-run poll** (`active_run_poller.py`,
+  `Fdm5kwActiveRunPoller`). It GET'd `/v1.0/devices/{id}/status` at 1Hz
+  while `switch=true` to make `cur_cap` / `cur_time` graphs smooth —
+  but at fleet scale this is ~75K calls/hour during active windows,
+  the single biggest quota burner. Tuya's MQTT push still updates the
+  same DPs every several seconds; per-cycle history graph just
+  staircases instead of curving. Acceptable.
+- **5-minute periodic safety-net resync** in
+  `Fdm5kwTimerRegistryEntity` (`async_track_time_interval` with
+  `RESYNC_PERIODIC_INTERVAL = timedelta(minutes=5)`). 12 GETs/hr/valve
+  → ~181K calls/month for a 21-valve fleet, all unconditional. Removed.
+
+### Kept (no API cost)
+- Event-driven debounced cloud resync on DP push (rare; only fires
+  when device pushes a change).
+- Immediate resync after `xtend_tuya.fdm5kw_set_timer` /
+  `_delete_timer` services (user-initiated, rare).
+- Atomic `switch + one_control` writes in start/stop watering.
+- Frontend dashboard strategy + lifetime water statistics-graph.
+- DP decoding (`run_task_sta` mapping, `vbat_state` clamp,
+  `malfunction` per-bit auto sensors).
+- `_prefer_device_enabled` schedule reconciliation.
+
+### Trade-off
+Cloud-only edits in SmartLife that don't echo back to a device DP
+(e.g. toggling `enabled` on a timer slot) are no longer picked up
+within 5 minutes — only on next HA boot or next service-triggered
+write. If this becomes a real problem, a config-flag opt-in for the
+safety net is the right shape, not unconditional.
+
 ## [4.4.118] — 2026-05-07
 
 Second hotfix for 4.4.116. The `run_task_sta` ENUM declaration crashed
@@ -222,7 +261,8 @@ auto-generates the multi-valve dashboard.
   so it survives the legacy S 809 vs descriptive S 810/S 812 naming
   split without rename.
 
-[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.118...HEAD
+[Unreleased]: https://github.com/raukaute/xtend_tuya/compare/v4.4.119...HEAD
+[4.4.119]: https://github.com/raukaute/xtend_tuya/compare/v4.4.118...v4.4.119
 [4.4.118]: https://github.com/raukaute/xtend_tuya/compare/v4.4.117...v4.4.118
 [4.4.117]: https://github.com/raukaute/xtend_tuya/compare/v4.4.116...v4.4.117
 [4.4.116]: https://github.com/raukaute/xtend_tuya/compare/v4.4.115...v4.4.116

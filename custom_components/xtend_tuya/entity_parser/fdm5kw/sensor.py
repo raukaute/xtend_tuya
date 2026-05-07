@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 import struct
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import Any, Callable, Mapping
 from tuya_device_handlers.definition.sensor import (
     TuyaSensorDefinition,
@@ -18,7 +17,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.event import async_call_later, async_track_time_interval
+from homeassistant.helpers.event import async_call_later
 from ...sensor import (
     XTSensorEntity,
     XTSensorEntityDescription,
@@ -40,15 +39,11 @@ _LOGGER = logging.getLogger(__name__)
 DP_ONE_CONTROL = "one_control"
 DP_TIME_TASK = "time_task"
 
-# Cloud resync tuning. Cloud is the source of truth; SmartLife edits that
-# don't trigger a device-side time_task DP push (toggling enabled, for
-# example) only become visible to HA via a fresh GET. Debounce coalesces
-# DP-burst-driven resyncs; the periodic interval is a safety net for
-# cloud-only edits during quiet windows.
+# Cloud resync debounce. DP pushes (timer edit echoes, schedule firings,
+# switch flips) trigger a single coalesced GET /timers after this delay.
+# No periodic safety net: it would burn the Tuya Trial Edition quota.
 RESYNC_DEBOUNCE_SECONDS = 3.0
-RESYNC_PERIODIC_INTERVAL = timedelta(minutes=5)
 
-from .active_run_poller import Fdm5kwActiveRunPoller
 from .const import DEVICE_CATEGORY, DAYS_OF_WEEK
 
 
@@ -439,10 +434,8 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         # so device.name alone is "Valve Controller 9" — not what the user
         # sees in the app.
         self._custom_name: str | None = None
-        self._active_run_poller: Fdm5kwActiveRunPoller | None = None
         self._resync_cancel: Callable[[], None] | None = None
         self._dispatcher_unsub: Callable[[], None] | None = None
-        self._periodic_unsub: Callable[[], None] | None = None
         self._resync_in_flight: bool = False
 
     @property
@@ -468,13 +461,6 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         """Restore slot registry from previous HA state, then sync cloud timers."""
         await super().async_added_to_hass()
         Fdm5kwTimerRegistryEntity.INSTANCES[self.device.id] = self
-        # Force-poll device DPs at 1Hz while the valve is open so cur_cap /
-        # cur_time tick smoothly into the recorder; Tuya MQTT only pushes
-        # them every several seconds otherwise.
-        self._active_run_poller = Fdm5kwActiveRunPoller(
-            self.hass, self.device, self.device_manager
-        )
-        self._active_run_poller.start()
         wrapper = self._dpcode_wrapper
         if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
             return
@@ -516,16 +502,13 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         # SmartLife → device echo, schedule fired, switch flipped). We
         # debounce and re-fetch the cloud-side timer state so the registry
         # mirrors SmartLife within seconds rather than at next HA boot.
+        # Cloud-only edits (toggling enabled without altering schedule)
+        # are not picked up here — covered instead by the immediate resync
+        # at the end of the set_timer / delete_timer services.
         self._dispatcher_unsub = async_dispatcher_connect(
             self.hass,
             f"{TUYA_HA_SIGNAL_UPDATE_ENTITY}_{self.device.id}",
             self._on_dp_update,
-        )
-
-        # Step 5: Periodic safety-net resync for cloud-only edits that
-        # never produce any device-side DP traffic.
-        self._periodic_unsub = async_track_time_interval(
-            self.hass, self._async_periodic_resync, RESYNC_PERIODIC_INTERVAL
         )
 
     async def async_will_remove_from_hass(self) -> None:
@@ -536,12 +519,6 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         if self._dispatcher_unsub is not None:
             self._dispatcher_unsub()
             self._dispatcher_unsub = None
-        if self._periodic_unsub is not None:
-            self._periodic_unsub()
-            self._periodic_unsub = None
-        if self._active_run_poller is not None:
-            await self._active_run_poller.stop()
-            self._active_run_poller = None
         await super().async_will_remove_from_hass()
 
     @callback
@@ -559,9 +536,6 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
 
     async def _async_debounced_resync(self, _now: Any = None) -> None:
         self._resync_cancel = None
-        await self._do_resync()
-
-    async def _async_periodic_resync(self, _now: Any) -> None:
         await self._do_resync()
 
     async def _do_resync(self) -> None:
