@@ -1799,6 +1799,10 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             device_class=SensorDeviceClass.WATER,
             native_unit_of_measurement="L",
             suggested_display_precision=0,
+            # cur_cap resets to 0 each cycle; TOTAL_INCREASING lets HA
+            # long-term stats treat each reset as a new accumulator window,
+            # giving an all-time water figure. FDM5KW has no water_total DP.
+            state_class=SensorStateClass.TOTAL_INCREASING,
         ),
         XTSensorEntityDescription(
             key=XTDPCode.CYC_NUM,

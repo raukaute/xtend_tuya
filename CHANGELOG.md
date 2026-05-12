@@ -10,6 +10,16 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.123] — 2026-05-12
+
+Restore `state_class=TOTAL_INCREASING` on the `cur_cap` (watering_volume)
+sensor for `sfkzq` valves. The v4.4.120 hard revert to the v4.4.111
+baseline dropped the attribute, which surfaced as 28 "no longer has a
+state class" repair notifications and broke lifetime-water statistics.
+The FDM5KW spec exposes no `water_total` DP, so `cur_cap` (per-run
+cumulative, resets each cycle) is HA's only path to an all-time figure
+via TOTAL_INCREASING reset semantics.
+
 ## [4.4.122] — 2026-05-07
 
 Strip the Tuya OpenAPI dependency from the fdm5kw irrigation valve path.
