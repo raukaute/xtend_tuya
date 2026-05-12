@@ -164,8 +164,10 @@ async def _post_cloud_timer(
         "capacity": value if mode == MODE_VOLUME else 0,
     }
     # Outer `category` is Tuya's timer-group category literal ("timer");
-    # the DP code only lives inside functions[].code. Sending the DP code
-    # as the outer category returns 1109 "param is illegal".
+    # the DP code only lives inside instruct[].code. Sending the DP code
+    # as the outer category returned 1109 "param is illegal".
+    # The POST schema uses `instruct` (write-side); GET responses return
+    # the same data under `functions` (read-side). Asymmetric on purpose.
     body = json.dumps(
         {
             "time": time_str,
@@ -173,7 +175,7 @@ async def _post_cloud_timer(
             "category": "timer",
             "is_app_push": False,
             "status": 1 if enabled else 0,
-            "functions": [{"code": TIME_TASK_CODE, "value": func_value}],
+            "instruct": [{"code": TIME_TASK_CODE, "value": func_value}],
         }
     )
     url = f"/v1.0/devices/{device_id}/timers"

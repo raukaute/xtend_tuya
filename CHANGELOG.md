@@ -10,6 +10,13 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.131] — 2026-05-12
+
+POST body uses `instruct` instead of `functions` for the action array.
+Tuya's create-timer endpoint is asymmetric: the GET response renders
+the same data under `functions`, but the POST input expects `instruct`.
+v4.4.130 still returned `1109 "param is illegal"` for this reason.
+
 ## [4.4.130] — 2026-05-12
 
 Fix two cloud-timer write bugs identified by the v4.4.129 diagnostic
