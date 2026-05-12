@@ -142,7 +142,30 @@ async def _write_time_task(
     return True
 
 
+def _ha_timezone(hass) -> tuple[str, str]:
+    """Return (timezone_id, '+H:MM' utc offset) for HA's configured TZ."""
+    from datetime import datetime
+    try:
+        import zoneinfo
+    except ImportError:  # pragma: no cover
+        from backports import zoneinfo  # type: ignore
+
+    tz_name = getattr(hass.config, "time_zone", None) or "UTC"
+    try:
+        tz = zoneinfo.ZoneInfo(tz_name)
+    except Exception:
+        tz = zoneinfo.ZoneInfo("UTC")
+    offset = datetime.now(tz).utcoffset()
+    if offset is None:
+        return tz_name, "+0:00"
+    total_minutes = int(offset.total_seconds() // 60)
+    sign = "+" if total_minutes >= 0 else "-"
+    total_minutes = abs(total_minutes)
+    return tz_name, f"{sign}{total_minutes // 60}:{total_minutes % 60:02d}"
+
+
 async def _post_cloud_timer(
+    hass,
     account,
     device_id: str,
     hour: int,
@@ -152,9 +175,13 @@ async def _post_cloud_timer(
     value: int,
     enabled: bool,
 ) -> None:
-    """Best-effort cloud timer create so the cloud doesn't roll back our DP
-    write. Schema inferred from Tuya's read response — undocumented for
-    this device category."""
+    """Cloud timer create so the cloud doesn't roll back our DP write.
+    Schema (verified 2026-05-12 against Mavronero fleet, fdm5kw category):
+    - top-level: category, loops, timezone_id, time_zone, instruct
+    - each instruct[]: time (HH:mm), functions [{code, value}]
+    The GET response renders the same data with a different layout
+    (timer rows nested under groups). Do NOT mirror the GET shape on POST.
+    """
     time_str = f"{hour:02d}:{minute:02d}"
     loops = _mask_to_loops(days_mask)
     func_value = {
@@ -163,19 +190,19 @@ async def _post_cloud_timer(
         "duration": value if mode == MODE_DURATION else 0,
         "capacity": value if mode == MODE_VOLUME else 0,
     }
-    # Outer `category` is Tuya's timer-group category literal ("timer");
-    # the DP code only lives inside instruct[].code. Sending the DP code
-    # as the outer category returned 1109 "param is illegal".
-    # The POST schema uses `instruct` (write-side); GET responses return
-    # the same data under `functions` (read-side). Asymmetric on purpose.
+    timezone_id, time_zone = _ha_timezone(hass)
     body = json.dumps(
         {
-            "time": time_str,
-            "loops": loops,
             "category": "timer",
-            "is_app_push": False,
-            "status": 1 if enabled else 0,
-            "instruct": [{"code": TIME_TASK_CODE, "value": func_value}],
+            "loops": loops,
+            "timezone_id": timezone_id,
+            "time_zone": time_zone,
+            "instruct": [
+                {
+                    "time": time_str,
+                    "functions": [{"code": TIME_TASK_CODE, "value": func_value}],
+                }
+            ],
         }
     )
     url = f"/v1.0/devices/{device_id}/timers"
@@ -318,7 +345,7 @@ async def set_timer(hass, data: dict) -> bool:
             int(prior.get("days_mask", days_mask)),
         )
     await _post_cloud_timer(
-        account, device_id, hour, minute, days_mask, mode, value, enabled
+        hass, account, device_id, hour, minute, days_mask, mode, value, enabled
     )
     return True
 

@@ -10,6 +10,23 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.132] — 2026-05-12
+
+Fix cloud timer POST body layout to match Tuya's create-timer schema
+([Tuya docs](https://developer.tuya.com/en/docs/cloud/timing-management?id=K95zu050h5m53)):
+
+- `time` belongs inside each `instruct[]` element, not at the top level.
+- `timezone_id` (IANA, e.g. `Asia/Nicosia`) and `time_zone` (UTC offset,
+  e.g. `+3:00` during EEST) are required top-level fields. Derived from
+  HA's configured `time_zone` so the timer fires when the operator
+  expects.
+- `instruct[].functions[]` carries `{code, value}` — same key the GET
+  response uses for the read shape, but nested one level deeper on the
+  write side.
+- Dropped non-input fields `time`, `is_app_push`, `status` from the
+  top level; they were responsible for the `1109 "param is illegal"`
+  responses observed on v4.4.130 / v4.4.131.
+
 ## [4.4.131] — 2026-05-12
 
 POST body uses `instruct` instead of `functions` for the action array.
