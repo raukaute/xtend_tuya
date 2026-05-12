@@ -170,7 +170,21 @@ function discoverValves(hass: HomeAssistantLike): ValveEntities[] {
     const regEntry = hass.entities[regId];
     if (!regState || !regEntry || !regEntry.device_id) continue;
 
-    const valve = collectValveEntities(hass, regId, regEntry.device_id, regState);
+    // HA's device-registry id is used to discover sibling entities;
+    // Tuya's own device id (exposed by the registry sensor as the
+    // `device_id` attribute) is what the fdm5kw timer services expect.
+    // Manual YAML dashboards always passed the Tuya id; the strategy
+    // previously fed the HA UUID, breaking set/delete service lookups.
+    const tuyaDeviceId =
+      (regState.attributes.device_id as string | undefined) ??
+      regEntry.device_id;
+    const valve = collectValveEntities(
+      hass,
+      regId,
+      regEntry.device_id,
+      tuyaDeviceId,
+      regState
+    );
     if (valve) valves.push(valve);
   }
 
@@ -182,21 +196,22 @@ function discoverValves(hass: HomeAssistantLike): ValveEntities[] {
 function collectValveEntities(
   hass: HomeAssistantLike,
   registryEntityId: string,
-  deviceId: string,
+  haDeviceId: string,
+  tuyaDeviceId: string,
   registryState: HassState
 ): ValveEntities | null {
   const valve_name =
     (registryState.attributes.valve_name as string | undefined) ??
     (registryState.attributes.valve_factory_name as string | undefined) ??
-    deviceId;
+    tuyaDeviceId;
   const factory_name =
     (registryState.attributes.valve_factory_name as string | undefined) ??
     valve_name;
 
-  const view_path = makeViewPath(deviceId, valve_name);
+  const view_path = makeViewPath(tuyaDeviceId, valve_name);
 
   const v: ValveEntities = {
-    device_id: deviceId,
+    device_id: tuyaDeviceId,
     registry_entity: registryEntityId,
     valve_name,
     factory_name,
@@ -204,7 +219,7 @@ function collectValveEntities(
   };
 
   for (const e of Object.values(hass.entities)) {
-    if (e.device_id !== deviceId) continue;
+    if (e.device_id !== haDeviceId) continue;
 
     // The valve switch entity has no translation_key in this
     // integration's switch platform — pick it up by entity_id pattern.

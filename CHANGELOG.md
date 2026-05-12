@@ -10,6 +10,20 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.127] — 2026-05-12
+
+Strategy dashboard now passes the Tuya device id (read from the
+registry sensor's `device_id` attribute) to per-valve cards instead of
+HA's entity-registry device UUID. The fdm5kw timer services look up
+multi-managers by Tuya id; the v4.4.126 dual-write release silently
+no-op'd from strategy-built dashboards because `_find_multi_manager`
+got the HA UUID and returned None (log line: "No multi_manager found
+for device c0d0d4ba..."). Hand-written YAML dashboards still worked
+because they hard-coded Tuya ids.
+
+The entity-discovery loop inside the strategy keeps using HA's
+device-registry id; only the value handed to cards changed.
+
 ## [4.4.126] — 2026-05-12
 
 Dual-write timer mutations to the device DP **and** the Tuya cloud
