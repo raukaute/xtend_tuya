@@ -10,6 +10,22 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.130] — 2026-05-12
+
+Fix two cloud-timer write bugs identified by the v4.4.129 diagnostic
+logs against the Mavronero fleet:
+
+- **POST body**: outer `category` must be the literal `"timer"` (Tuya's
+  timer-group container), not the DP code `"time_task"`. Sending the
+  DP code returned `1109 "param is illegal"` and the cloud refused to
+  persist HA edits, allowing the device-side rollback path to win
+  ~10 s later.
+- **DELETE URL**: Tuya's delete works on the timer-**group** id (the
+  container holding one or more timers), not the inner `timer_id`.
+  Sending the timer id returned `1108 "uri path invalid"` and left
+  stale cloud entries behind, producing duplicated SmartLife schedule
+  entries after a time/day edit.
+
 ## [4.4.129] — 2026-05-12
 
 Diagnostic-only release: bump every step of the fdm5kw cloud-timer

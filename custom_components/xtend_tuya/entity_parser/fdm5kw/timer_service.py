@@ -163,11 +163,14 @@ async def _post_cloud_timer(
         "duration": value if mode == MODE_DURATION else 0,
         "capacity": value if mode == MODE_VOLUME else 0,
     }
+    # Outer `category` is Tuya's timer-group category literal ("timer");
+    # the DP code only lives inside functions[].code. Sending the DP code
+    # as the outer category returns 1109 "param is illegal".
     body = json.dumps(
         {
             "time": time_str,
             "loops": loops,
-            "category": TIME_TASK_CODE,
+            "category": "timer",
             "is_app_push": False,
             "status": 1 if enabled else 0,
             "functions": [{"code": TIME_TASK_CODE, "value": func_value}],
@@ -232,11 +235,14 @@ async def _delete_cloud_timer_by_match(
                 funcs = timer.get("functions") or []
                 v = funcs[0].get("value", {}) if funcs else {}
                 if v.get("startTimeStr") == time_str and v.get("loops") == loops:
-                    timer_id = timer.get("timer_id")
-                    if not timer_id:
+                    # Tuya's DELETE works on the timer-group id (the
+                    # container), not the inner timer_id. Sending the
+                    # timer_id returns 1108 "uri path invalid".
+                    group_id = group.get("id")
+                    if not group_id:
                         continue
                     matched = True
-                    del_url = f"/v1.0/devices/{device_id}/timers/{timer_id}"
+                    del_url = f"/v1.0/devices/{device_id}/timers/{group_id}"
                     _LOGGER.warning("Cloud timer DELETE -> %s", del_url)
                     try:
                         del_resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
