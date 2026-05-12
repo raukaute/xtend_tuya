@@ -219,7 +219,11 @@ export class IrrigationTimerCard extends LitElement {
     const timeStr = `${timer.hour.toString().padStart(2, "0")}:${timer.minute.toString().padStart(2, "0")}`;
     const valueStr =
       timer.mode === TimerMode.Duration
-        ? `${Math.floor(timer.value / 60)}min`
+        ? timer.value < 60
+          ? `${timer.value}s`
+          : timer.value % 60 === 0
+            ? `${timer.value / 60}min`
+            : `${Math.floor(timer.value / 60)}min ${timer.value % 60}s`
         : `${timer.value}L`;
     const daysStr = DAYS.filter((_, i) => timer.daysMask & (1 << i)).join(", ");
 

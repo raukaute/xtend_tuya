@@ -10,6 +10,16 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.128] — 2026-05-12
+
+Apply the v4.4.124 sub-minute timer-duration fix to the xtend_tuya
+in-tree copy of `irrigation-timer-card.ts`. The original v4.4.124 fix
+patched the standalone `raukaute/irrigation-timer-card` repo, but
+xtend_tuya carries its own copy under `frontend/src/`; the next
+rebuild (v4.4.127) regenerated the bundled card from the unpatched
+in-tree copy and brought the `0min` display bug back. Both source
+trees now match.
+
 ## [4.4.127] — 2026-05-12
 
 Strategy dashboard now passes the Tuya device id (read from the
