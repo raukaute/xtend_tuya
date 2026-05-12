@@ -10,6 +10,17 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.138] — 2026-05-12
+
+Add an "Hourly water (past 7 days)" statistics-graph card to the
+per-valve view in the dashboard strategy. Uses the `change` long-term
+statistic over hourly buckets on `cur_cap`, which HA aggregates from
+recorder state history regardless of whether the new live flow_rate
+sensor existed at the time — so historic runs render immediately
+after this upgrade. Complements the forward-only `Watering History`
+card by giving Simon's team a "how much water came out, hour by hour"
+view that goes back as far as the recorder retention allows.
+
 ## [4.4.137] — 2026-05-12
 
 Two corrections to the v4.4.136 watering-flow sensor:

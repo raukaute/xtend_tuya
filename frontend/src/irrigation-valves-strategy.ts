@@ -360,6 +360,7 @@ function buildValveView(v: ValveEntities, hours: number): DashboardView {
       buildWateringHistoryCard(v, hours),
       buildLastWateringCard(v),
       buildLifetimeVolumeCard(v),
+      buildHourlyVolumeCard(v),
     ].filter(Boolean),
   });
 
@@ -459,6 +460,25 @@ function buildLifetimeVolumeCard(v: ValveEntities): unknown | null {
     period: "day",
     days_to_show: 30,
     chart_type: "line",
+    layout_options: { grid_columns: 4, grid_rows: "auto" },
+  };
+}
+
+function buildHourlyVolumeCard(v: ValveEntities): unknown | null {
+  // The `change` stat over hourly buckets gives liters per hour for
+  // every hour we have recorder data — past runs included. This is the
+  // best "historical flow rate" view available without backfilling
+  // synthetic states; the live flow_rate sensor only covers data
+  // recorded after its first appearance.
+  if (!v.volume_sensor) return null;
+  return {
+    type: "statistics-graph",
+    title: "Hourly water (past 7 days)",
+    entities: [v.volume_sensor],
+    stat_types: ["change"],
+    period: "hour",
+    days_to_show: 7,
+    chart_type: "bar",
     layout_options: { grid_columns: 4, grid_rows: "auto" },
   };
 }
