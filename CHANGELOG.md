@@ -10,6 +10,15 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.141] — 2026-05-12
+
+Move the Watering History and Hourly water cards into their own
+sections so the sections-grid layout (`max_columns: 3`) doesn't
+sandwich them into 1/3 viewport. v4.4.140 set `grid_columns: 12` but
+that only stretched the card to fill its parent section; HA's sections
+view still gave each section 1/3 of the row when three sections fit
+side-by-side. Each big graph now occupies its own full-width section.
+
 ## [4.4.140] — 2026-05-12
 
 Widen "Watering History" and "Hourly water (past 7 days)" cards in the

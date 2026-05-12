@@ -353,16 +353,24 @@ function buildValveView(v: ValveEntities, hours: number): DashboardView {
     ].filter(Boolean),
   });
 
-  // Section 2: watering history graph + last watering entities + lifetime sum
+  // Section 2: full-row watering history graph. Its own section so the
+  // sections-grid layout (max_columns above) doesn't sandwich it into
+  // 1/3 viewport — the 10 s flow samples need horizontal room.
+  const watering = buildWateringHistoryCard(v, hours);
+  if (watering) sections.push({ type: "grid", cards: [watering] });
+
+  // Section 3: last-watering + lifetime sum (smaller cards, fine at 1/3)
   sections.push({
     type: "grid",
     cards: [
-      buildWateringHistoryCard(v, hours),
       buildLastWateringCard(v),
       buildLifetimeVolumeCard(v),
-      buildHourlyVolumeCard(v),
     ].filter(Boolean),
   });
+
+  // Section 4: full-row hourly water graph for the same reason as Section 2.
+  const hourly = buildHourlyVolumeCard(v);
+  if (hourly) sections.push({ type: "grid", cards: [hourly] });
 
   // Section 3: battery tile + battery history
   if (v.battery_level) {
