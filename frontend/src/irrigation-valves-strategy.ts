@@ -131,7 +131,7 @@ class IrrigationValvesStrategy extends HTMLElement {
     }
 
     const views: DashboardView[] = [
-      buildOverviewView(overviewTitle, valves),
+      buildOverviewView(overviewTitle, valves, hours),
       ...valves.map((v) => buildValveView(v, hours)),
     ];
 
@@ -284,7 +284,8 @@ function emptyOverviewView(title: string): DashboardView {
 
 function buildOverviewView(
   title: string,
-  valves: ValveEntities[]
+  valves: ValveEntities[],
+  hours: number
 ): DashboardView {
   const tiles = valves.map((v) => ({
     type: "tile",
@@ -305,9 +306,6 @@ function buildOverviewView(
       : undefined,
   }));
 
-  // A second row of compact battery indicators so the overview gives
-  // the at-a-glance "which valves need solar attention" answer Simon
-  // asked for in the DM.
   const batteryEntities = valves
     .filter((v) => v.battery_level)
     .map((v) => ({
@@ -315,71 +313,122 @@ function buildOverviewView(
       name: v.valve_name,
     }));
 
-  const cards: unknown[] = [
-    {
-      type: "grid",
-      columns: 2,
-      square: false,
-      cards: tiles,
-    },
-  ];
+  // Combined flow-rate history across every valve — the > arrow on the
+  // card opens HA's built-in range/date selector so the overview gets
+  // the same range filter as the per-valve detail view.
+  const flowEntities = valves
+    .filter((v) => v.flow_rate_sensor)
+    .map((v) => ({ entity: v.flow_rate_sensor as string, name: v.valve_name }));
 
-  if (batteryEntities.length > 0) {
-    cards.push({
-      type: "entities",
-      title: "Battery levels",
-      show_header_toggle: false,
-      entities: batteryEntities,
-    });
-  }
+  const valveStateEntities = valves.map((v) => ({
+    entity: v.switch ?? v.registry_entity,
+    name: v.valve_name,
+  }));
 
   return {
     title,
     path: "overview",
-    cards,
+    type: "sections",
+    max_columns: 3,
+    sections: [
+      {
+        type: "grid",
+        column_span: 3,
+        cards: [
+          {
+            type: "grid",
+            columns: 4,
+            square: false,
+            cards: tiles,
+          },
+        ],
+      },
+      {
+        type: "grid",
+        column_span: 3,
+        cards: [
+          {
+            type: "history-graph",
+            title: "Watering History (all valves)",
+            hours_to_show: hours,
+            entities: valveStateEntities,
+          },
+        ],
+      },
+      ...(flowEntities.length > 0
+        ? [
+            {
+              type: "grid",
+              column_span: 3,
+              cards: [
+                {
+                  type: "history-graph",
+                  title: "Flow rate (all valves)",
+                  hours_to_show: hours,
+                  entities: flowEntities,
+                },
+              ],
+            },
+          ]
+        : []),
+      ...(batteryEntities.length > 0
+        ? [
+            {
+              type: "grid",
+              column_span: 3,
+              cards: [
+                {
+                  type: "entities",
+                  title: "Battery levels",
+                  show_header_toggle: false,
+                  entities: batteryEntities,
+                },
+              ],
+            },
+          ]
+        : []),
+    ],
   };
 }
 
 function buildValveView(v: ValveEntities, hours: number): DashboardView {
   const sections: unknown[] = [];
 
-  // Section 1: control card + other settings + timer card
-  sections.push({
-    type: "grid",
-    cards: [
-      buildControlCard(v),
-      buildOtherSettingsCard(v),
-      buildTimerCard(v),
-    ].filter(Boolean),
-  });
+  // Row 1: control + other settings + timer card — each in its own
+  // section so HA distributes them across the 3 layout columns instead
+  // of stacking vertically inside a single column.
+  const control = buildControlCard(v);
+  if (control) sections.push({ type: "grid", cards: [control] });
+  const other = buildOtherSettingsCard(v);
+  if (other) sections.push({ type: "grid", cards: [other] });
+  sections.push({ type: "grid", cards: [buildTimerCard(v)] });
 
-  // Section 2: full-row watering history graph. column_span=3 makes the
-  // section itself span all 3 layout columns (sections are 1 column
-  // wide by default, regardless of grid_columns on cards inside) so
-  // the 10 s flow samples get horizontal room to breathe.
+  // Row 2: full-row watering history graph. column_span=3 spans all
+  // 3 layout columns so the 10 s flow samples have horizontal room.
   const watering = buildWateringHistoryCard(v, hours);
   if (watering)
     sections.push({ type: "grid", column_span: 3, cards: [watering] });
 
-  // Section 3: last-watering + lifetime sum (smaller cards, fine at 1/3)
-  sections.push({
-    type: "grid",
-    cards: [
-      buildLastWateringCard(v),
-      buildLifetimeVolumeCard(v),
-    ].filter(Boolean),
-  });
+  // Row 3: last-watering + lifetime sum — separate sections so the
+  // two small cards land side by side instead of stacking.
+  const last = buildLastWateringCard(v);
+  if (last) sections.push({ type: "grid", cards: [last] });
+  const lifetime = buildLifetimeVolumeCard(v);
+  if (lifetime) sections.push({ type: "grid", cards: [lifetime] });
 
-  // Section 4: full-row hourly water graph for the same reason as Section 2.
+  // Row 4: full-row hourly water graph for the same reason as Row 2.
   const hourly = buildHourlyVolumeCard(v);
   if (hourly)
     sections.push({ type: "grid", column_span: 3, cards: [hourly] });
 
-  // Section 3: battery tile + battery history
+  // Row 5: battery tile + battery history (in its own column_span=3 row
+  // so the long history graph gets the full width).
   if (v.battery_level) {
+    sections.push({ type: "grid", cards: [buildBatteryTile(v)] });
     sections.push({
       type: "grid",
-      cards: [buildBatteryTile(v), buildBatteryHistoryCard(v, hours)],
+      column_span: 2,
+      cards: [buildBatteryHistoryCard(v, hours)],
     });
   }
 

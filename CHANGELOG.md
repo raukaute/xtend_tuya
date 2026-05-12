@@ -10,6 +10,22 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.143] — 2026-05-12
+
+Detail-view layout: split the control / other-settings / timers row
+into three sections instead of one so HA's sections grid distributes
+them across the 3 layout columns (one section = one column).
+Previously all three landed in a single section and stacked vertically,
+leaving the right two columns empty. Same fix for the last-watering +
+lifetime row.
+
+Overview: add a combined "Watering History (all valves)" and
+"Flow rate (all valves)" history-graph, plus widen the tile grid to
+4 columns and put the battery list in its own full-row section. The
+history-graph cards' built-in `>` arrow opens HA's date-range picker,
+so the overview now has the same range filter as the per-valve detail
+view.
+
 ## [4.4.142] — 2026-05-12
 
 Set `column_span: 3` on the Watering History and Hourly water
