@@ -10,7 +10,7 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
-## [4.4.133] — 2026-05-12
+## [4.4.134] — 2026-05-12
 
 Two fixes verified against the Mavronero account by direct API probing
 on 2026-05-12:
@@ -27,6 +27,11 @@ on 2026-05-12:
   `/timer/groups/{id}`, …) returns `1108 "uri path invalid"`.
   v4.4.132 left stale cloud entries because the path-style DELETE in
   `_delete_cloud_timer_by_match` silently failed every time.
+
+## [4.4.133] — 2026-05-12
+
+(skipped — tag created against a partial fix during a tooling hiccup;
+content is rolled forward into 4.4.134.)
 
 ## [4.4.132] — 2026-05-12
 
