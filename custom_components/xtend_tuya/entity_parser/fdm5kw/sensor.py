@@ -348,7 +348,6 @@ class Fdm5kwFlowRateEntity(XTSensorEntity):
     will read 0 even with water flowing — a hardware limit, not a bug.
     """
 
-    _attr_native_unit_of_measurement = UnitOfVolumeFlowRate.LITERS_PER_MINUTE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 2
 
@@ -359,6 +358,21 @@ class Fdm5kwFlowRateEntity(XTSensorEntity):
         self._last_cur_cap: int | None = None
         self._last_ts: datetime | None = None
         self._current_flow: float = 0.0
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        # Hard-coded as a property to defeat the base XTSensorEntity's
+        # unit inheritance from the `cur_cap` Tuya DP data-model, which
+        # carries a Chinese-localized "升 (L)" unit string. This sensor
+        # is a derived rate; force "L/min" regardless of what the upstream
+        # DP definition says.
+        return str(UnitOfVolumeFlowRate.LITERS_PER_MINUTE)
+
+    @property
+    def device_class(self) -> str | None:
+        # Same reason: prevent the base class from injecting
+        # SensorDeviceClass.WATER which forces a volume unit.
+        return None
 
     @property
     def native_value(self) -> float:
@@ -542,6 +556,12 @@ class Fdm5kwSensor:
                 wrapper_class=(DPCodeTimeTaskRegistryWrapper,),
             ),
             # --- Derived flow rate (l/min) for watering-history graph ---
+            # ignore_other_dp_code_handler keeps the upstream cur_cap
+            # `watering_volume` entity registering even though both
+            # descriptors share dpcode=cur_cap. Without it, the first
+            # descriptor to register claims the DP and the other entity
+            # never spawns -> "Volume Unavailable" in the Last Watering
+            # card after the v4.4.136 upgrade.
             Fdm5kwFlowRateDescription(
                 key=f"{DP_CUR_CAP}_flow_rate",
                 dpcode=DP_CUR_CAP,
@@ -549,6 +569,7 @@ class Fdm5kwSensor:
                 name="Watering flow rate",
                 icon="mdi:water-percent",
                 entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
             ),
         ]
 

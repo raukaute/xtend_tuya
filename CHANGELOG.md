@@ -10,6 +10,21 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.139] — 2026-05-12
+
+Two fixes on the new flow_rate sensor:
+
+- **Unit**: hard-code `L/min` via a property override. Base
+  `XTSensorEntity` was inheriting the `cur_cap` DP's Chinese unit
+  (`升 (L)`) from the device data-model. Also force
+  `device_class=None` to stop SensorDeviceClass.WATER from injecting a
+  volume unit.
+- **`ignore_other_dp_code_handler=True`** on the flow-rate descriptor
+  so the upstream `cur_cap` `watering_volume` entity still registers.
+  Without it the two descriptors fought over dpcode=`cur_cap`,
+  flow_rate won, and the Last Watering card showed "Volume
+  Unavailable" because watering_volume never spawned.
+
 ## [4.4.138] — 2026-05-12
 
 Add an "Hourly water (past 7 days)" statistics-graph card to the
