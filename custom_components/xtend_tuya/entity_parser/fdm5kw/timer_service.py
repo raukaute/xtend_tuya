@@ -184,11 +184,19 @@ async def _post_cloud_timer(
     """
     time_str = f"{hour:02d}:{minute:02d}"
     loops = _mask_to_loops(days_mask)
+    start_time_sec = hour * 3600 + minute * 60
+    # SmartLife's scheduler UI requires the rich `value` shape — verified
+    # against the Mavronero account on 2026-05-12. A minimal body still
+    # gets stored, but SL renders it as a half-broken "Single watering"
+    # entry and its edit flow hangs.
     func_value = {
         "startTimeStr": time_str,
         "loops": loops,
         "duration": value if mode == MODE_DURATION else 0,
         "capacity": value if mode == MODE_VOLUME else 0,
+        "startTime": start_time_sec,
+        "start": True,
+        "current": 0,
     }
     timezone_id, time_zone = _ha_timezone(hass)
     body = json.dumps(
@@ -200,6 +208,7 @@ async def _post_cloud_timer(
             "instruct": [
                 {
                     "time": time_str,
+                    "date": "00000000",
                     "functions": [{"code": TIME_TASK_CODE, "value": func_value}],
                 }
             ],

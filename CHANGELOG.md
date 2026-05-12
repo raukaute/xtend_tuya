@@ -12,14 +12,21 @@ _Nothing yet._
 
 ## [4.4.133] — 2026-05-12
 
-Selective cloud-timer DELETE now uses the documented query-string form
-`DELETE /v1.0/devices/{id}/timers?group_id={gid}`. Every path-style
-variant (`/timers/{group_id}`, `/timer/group/{id}`, `/timer/groups/{id}`,
-…) returns `1108 "uri path invalid"`. Verified against the Mavronero
-account on 2026-05-12 with a throwaway group: query-string DELETE
-succeeds and only removes the targeted group. v4.4.132 left stale cloud
-entries because the path-style DELETE in `_delete_cloud_timer_by_match`
-silently failed every time.
+Two fixes verified against the Mavronero account by direct API probing
+on 2026-05-12:
+
+- **POST body**: include `date` in each `instruct[]` and `startTime`,
+  `start`, `current` inside `functions[].value`. Tuya accepted the
+  minimal body in v4.4.132 but SmartLife's scheduler UI rendered the
+  result as a half-broken "Single watering" entry and the SL edit flow
+  hung; the rich shape matches what SmartLife itself POSTs and renders
+  cleanly.
+- **Selective DELETE**: use the query-string form
+  `DELETE /v1.0/devices/{id}/timers?group_id={gid}`. Every path-style
+  variant (`/timers/{group_id}`, `/timer/group/{id}`,
+  `/timer/groups/{id}`, …) returns `1108 "uri path invalid"`.
+  v4.4.132 left stale cloud entries because the path-style DELETE in
+  `_delete_cloud_timer_by_match` silently failed every time.
 
 ## [4.4.132] — 2026-05-12
 
