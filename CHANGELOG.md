@@ -10,6 +10,22 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.145] — 2026-05-12
+
+Phase 2 of the irrigation calendar: new `calendar.irrigation_completed`
+entity. Sources historic watering cycles from the recorder by pairing
+`start_time` and `end_time` state changes per device and reading the
+matching `watering_volume` peak as that run's total liters. Window is
+capped at 90 days to keep the recorder query bounded under Google Cal
+pulls.
+
+Both Planned and Completed calendars now display real averages:
+description carries `Last 10 waterings (averages): water per minute,
+per cycle`, and the Planned title's `l/min` slot — previously the
+`?` placeholder — uses the historical average. Per-device average
+results are cached for 30 s so the two calendars share a single
+recorder hit per render pass.
+
 ## [4.4.144] — 2026-05-12
 
 Phase 1 of the irrigation calendar (Trello aag9aw4k): new
