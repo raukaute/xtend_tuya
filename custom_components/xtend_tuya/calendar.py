@@ -27,8 +27,10 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
+
+from aiohttp import web
 
 from homeassistant.components.calendar import (
     CalendarEntity,
@@ -37,6 +39,7 @@ from homeassistant.components.calendar import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.http import HomeAssistantView
 
 from .const import DOMAIN, DOMAIN_ORIG
 
@@ -49,6 +52,10 @@ REGISTRY_SUFFIX = "irrigation_timer_registry"
 WATERING_VOLUME_TRANSLATION_KEY = "watering_volume"
 START_TIME_TRANSLATION_KEY = "start_time"
 END_TIME_TRANSLATION_KEY = "end_time"
+
+ICS_VIEW_REGISTERED_KEY = f"{DOMAIN}_ics_view_registered"
+ICS_DEFAULT_FUTURE_DAYS = 30
+ICS_DEFAULT_PAST_DAYS = 30
 
 # Completed-calendar safety cap on the per-device recorder window so a
 # 90-day Google Cal pull on a 48-valve fleet stays bounded.
@@ -81,6 +88,13 @@ async def async_setup_entry(
             IrrigationCompletedCalendar(hass, averages),
         ]
     )
+
+    # Register the ICS export view once across all xtend_tuya config
+    # entries — the view resolves entities at request time, so a single
+    # registration covers every fdm5kw calendar instance in the hass.
+    if not hass.data.get(ICS_VIEW_REGISTERED_KEY):
+        hass.http.register_view(XtendTuyaCalendarICSView())
+        hass.data[ICS_VIEW_REGISTERED_KEY] = True
 
 
 # ----------------------------------------------------------------------
@@ -640,3 +654,112 @@ class IrrigationCompletedCalendar(CalendarEntity):
         if events:
             self._last_event = max(events, key=lambda e: e.end)
         return events
+
+
+# ----------------------------------------------------------------------
+# ICS export (Phase 3) — Google Calendar subscription endpoint
+# ----------------------------------------------------------------------
+
+
+class XtendTuyaCalendarICSView(HomeAssistantView):
+    """Serve any xtend_tuya calendar entity as an iCalendar feed.
+
+    URL: `/api/xtend_tuya/calendar/{entity_id}.ics`
+
+    Google Calendar can't send Authorization headers when polling a
+    subscribed URL, so this view also accepts a `?token=<bearer>` query
+    parameter validated against HA's auth manager. `requires_auth` is
+    disabled here and we enforce the bearer manually in `get`.
+    """
+
+    url = "/api/xtend_tuya/calendar/{entity_id}.ics"
+    name = f"api:{DOMAIN}:calendar:ics"
+    requires_auth = False
+
+    async def get(self, request: web.Request, entity_id: str) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+
+        token = await _extract_bearer_token(request)
+        if not token or not await _validate_token(hass, token):
+            raise web.HTTPUnauthorized
+
+        component = hass.data.get("calendar")
+        if component is None:
+            raise web.HTTPNotFound
+        entity = component.get_entity(entity_id)
+        if entity is None or not isinstance(entity, CalendarEntity):
+            raise web.HTTPNotFound
+
+        # Window is configurable via query params so Simon can pull a
+        # wider history if needed; defaults stay tight to keep the
+        # recorder query cheap on the 48-valve fleet.
+        try:
+            past = int(
+                request.query.get("past_days", str(ICS_DEFAULT_PAST_DAYS))
+            )
+            future = int(
+                request.query.get("future_days", str(ICS_DEFAULT_FUTURE_DAYS))
+            )
+        except ValueError:
+            raise web.HTTPBadRequest
+
+        now = datetime.now(timezone.utc)
+        start = now - timedelta(days=max(0, past))
+        end = now + timedelta(days=max(0, future))
+
+        events = await entity.async_get_events(hass, start, end)
+        body = _render_ics(entity_id, events)
+        return web.Response(
+            body=body,
+            content_type="text/calendar",
+            charset="utf-8",
+            headers={"Cache-Control": "max-age=300"},
+        )
+
+
+async def _extract_bearer_token(request: web.Request) -> str | None:
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[len("Bearer "):].strip()
+    return request.query.get("token")
+
+
+async def _validate_token(hass: HomeAssistant, token: str) -> bool:
+    # Long-lived access tokens and short-lived ones both validate
+    # through `async_validate_access_token`; if it returns a refresh
+    # token the bearer is valid.
+    try:
+        refresh = await hass.auth.async_validate_access_token(token)
+    except Exception:  # noqa: BLE001 — keep the auth path permissive
+        return False
+    return refresh is not None
+
+
+def _render_ics(entity_id: str, events: list[CalendarEvent]) -> bytes:
+    """Render a list of CalendarEvent into an iCalendar 2.0 byte
+    string. Uses the `icalendar` library, already a transitive HA
+    dependency via the caldav integration; we add it to manifest
+    requirements anyway so a stripped-down install still has it."""
+    from icalendar import Calendar, Event
+
+    cal = Calendar()
+    cal.add("prodid", f"-//raukaute//{DOMAIN}//irrigation-calendar//EN")
+    cal.add("version", "2.0")
+    cal.add("x-wr-calname", entity_id)
+    for ev in events:
+        ie = Event()
+        ie.add("summary", ev.summary or "")
+        if ev.description:
+            ie.add("description", ev.description)
+        ie.add("dtstart", ev.start)
+        ie.add("dtend", ev.end)
+        uid = f"{entity_id}:{_dt_to_uid(ev.start)}@{DOMAIN}"
+        ie.add("uid", uid)
+        cal.add_component(ie)
+    return cal.to_ical()
+
+
+def _dt_to_uid(dt: datetime) -> str:
+    if isinstance(dt, datetime):
+        return dt.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return str(dt)

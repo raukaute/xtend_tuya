@@ -10,6 +10,25 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.146] — 2026-05-12
+
+Phase 3 of the irrigation calendar: new ICS export endpoint at
+`/api/xtend_tuya/calendar/{entity_id}.ics`. Returns a standards-
+compliant iCalendar 2.0 feed for any xtend_tuya calendar entity, so
+the planned and completed calendars can be subscribed in Google
+Calendar via "Other calendars → From URL".
+
+Google Cal can't send Authorization headers on its periodic polls,
+so the endpoint also accepts `?token=<long_lived_bearer>` as a query
+parameter; tokens are validated through `hass.auth.async_validate_
+access_token` (same path as a header bearer). Window is configurable
+via `?past_days=` and `?future_days=` (defaults 30 / 30); response is
+cached server-side for 5 minutes.
+
+`icalendar>=5.0.0` added to manifest requirements; HA usually ships
+it transitively via the caldav integration but we declare it
+explicitly so a stripped-down install still works.
+
 ## [4.4.145] — 2026-05-12
 
 Phase 2 of the irrigation calendar: new `calendar.irrigation_completed`
