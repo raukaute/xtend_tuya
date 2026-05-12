@@ -10,6 +10,18 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.135] — 2026-05-12
+
+HA timer disable now removes the cloud entry instead of POSTing a new
+one with `enabled=False`. Tuya's OpenAPI has no per-timer
+enable/disable toggle (verified 2026-05-12: `PUT
+/timers/groups/{gid}/status` returns `1108 uri path invalid`; `PUT`
+on the group body succeeds but always resets `status` to 1). The
+device DP still carries the disabled bit for offline execution; in
+SmartLife the entry disappears from the schedule tab when disabled
+and reappears on re-enable. SL parity (greyed-out toggle visible) is
+not possible via the OpenAPI surface.
+
 ## [4.4.134] — 2026-05-12
 
 Two fixes verified against the Mavronero account by direct API probing

@@ -357,6 +357,25 @@ async def set_timer(hass, data: dict) -> bool:
             int(prior.get("minute", minute)),
             int(prior.get("days_mask", days_mask)),
         )
+
+    # Tuya's OpenAPI has no per-timer enable/disable toggle (PUT
+    # /timers/groups/{gid}/status is rejected with 1108; PUT on the
+    # group body ignores `status` and resets it to 1). The closest
+    # equivalent: when HA marks the timer disabled, leave it out of
+    # the cloud registry entirely so the cloud can't fire it. The
+    # device DP still carries the disabled bit for offline execution.
+    # Net effect in SmartLife: the entry disappears from the schedule
+    # tab when disabled and reappears on re-enable. Verified
+    # 2026-05-12.
+    if not enabled:
+        _LOGGER.warning(
+            "set_timer: enabled=False for slot %d on %s — skipping cloud POST "
+            "so SmartLife schedule doesn't fire (no API to keep a disabled entry)",
+            slot,
+            device_id,
+        )
+        return True
+
     await _post_cloud_timer(
         hass, account, device_id, hour, minute, days_mask, mode, value, enabled
     )
