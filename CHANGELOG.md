@@ -10,6 +10,12 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.140] — 2026-05-12
+
+Widen "Watering History" and "Hourly water (past 7 days)" cards in the
+per-valve view from 1/3 to full row (`grid_columns: 12`). The 10 s
+flow samples and 168 hourly buckets were unreadable at 1/3 width.
+
 ## [4.4.139] — 2026-05-12
 
 Two fixes on the new flow_rate sensor:

@@ -428,6 +428,11 @@ function buildWateringHistoryCard(v: ValveEntities, hours: number): unknown | nu
   // cur_cap and elapsed-since-start, publishing fresh state every 10 s
   // while a run is active. Fall back to the volume sensor for legacy
   // installs that lack the derived flow entity.
+  //
+  // grid_columns=12: span the full row. The 10 s sample spacing is
+  // narrow, and at 1/3-width on a 24h window the on-pulse rectangle
+  // collapses to a single hairline; full-width gives Simon's team a
+  // legible flow curve.
   const entities: unknown[] = [];
   if (v.switch) entities.push({ entity: v.switch, name: "Valve" });
   if (v.flow_rate_sensor)
@@ -440,7 +445,7 @@ function buildWateringHistoryCard(v: ValveEntities, hours: number): unknown | nu
     title: "Watering History",
     hours_to_show: hours,
     entities,
-    layout_options: { grid_columns: 4, grid_rows: "auto" },
+    layout_options: { grid_columns: 12, grid_rows: "auto" },
   };
 }
 
@@ -470,6 +475,8 @@ function buildHourlyVolumeCard(v: ValveEntities): unknown | null {
   // best "historical flow rate" view available without backfilling
   // synthetic states; the live flow_rate sensor only covers data
   // recorded after its first appearance.
+  // grid_columns=12 to match the Watering History card and give 168
+  // hourly buckets visible breathing room.
   if (!v.volume_sensor) return null;
   return {
     type: "statistics-graph",
@@ -479,7 +486,7 @@ function buildHourlyVolumeCard(v: ValveEntities): unknown | null {
     period: "hour",
     days_to_show: 7,
     chart_type: "bar",
-    layout_options: { grid_columns: 4, grid_rows: "auto" },
+    layout_options: { grid_columns: 12, grid_rows: "auto" },
   };
 }
 
