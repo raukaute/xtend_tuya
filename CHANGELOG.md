@@ -10,6 +10,16 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.125] — 2026-05-12
+
+Force a state write at the end of `Fdm5kwTimerRegistryEntity.async_added_to_hass`
+so the registry sensor's attributes (`valve_name`, `slots`, ...) reach
+the frontend immediately on integration boot. Pre-fix, devices that
+hadn't received a fresh `time_task` DP push since the last restart kept
+the prior boot's attributes; the dashboard strategy then fell back to
+the raw `device_id` for tile/tab names, producing the "raw hex titles +
+Configuration error" overview seen after the OpenAPI credential swap.
+
 ## [4.4.124] — 2026-05-12
 
 Rebundle `irrigation-timer-card.js` with fixed duration display.

@@ -281,6 +281,12 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
                     slots_data,
                 )
 
+        # Force a state write so attributes (valve_name, slots, etc.) reach
+        # the frontend immediately. Without this, devices that haven't seen
+        # a fresh DP push since boot keep the prior boot's attributes — the
+        # dashboard strategy then falls back to device_id for the tile name.
+        self.async_write_ha_state()
+
     async def async_will_remove_from_hass(self) -> None:
         Fdm5kwTimerRegistryEntity.INSTANCES.pop(self.device.id, None)
         await super().async_will_remove_from_hass()
