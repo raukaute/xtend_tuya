@@ -10,6 +10,15 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.124] — 2026-05-12
+
+Rebundle `irrigation-timer-card.js` with fixed duration display.
+Pre-fix: any sub-minute duration rendered as `0min` because the value
+was floored to integer minutes. Sub-minute timers (common for manual
+short-burst tests) looked broken in the card even though the underlying
+DP was correct. Now renders `Ns` for sub-minute, `Nmin` for whole
+minutes, `Nmin Ms` for the mixed case.
+
 ## [4.4.123] — 2026-05-12
 
 Restore `state_class=TOTAL_INCREASING` on the `cur_cap` (watering_volume)
