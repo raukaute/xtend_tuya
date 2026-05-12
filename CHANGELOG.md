@@ -10,6 +10,15 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.129] — 2026-05-12
+
+Diagnostic-only release: bump every step of the fdm5kw cloud-timer
+write path to WARNING so the SL-sync regression on the Mavronero fleet
+shows up at the default log level without needing a debug-logger
+config. Logs every URL, body, response, and matched/unmatched slot for
+set_timer and delete_timer. Once the broken step is identified the
+log levels will drop back to debug.
+
 ## [4.4.128] — 2026-05-12
 
 Apply the v4.4.124 sub-minute timer-duration fix to the xtend_tuya

@@ -174,17 +174,24 @@ async def _post_cloud_timer(
         }
     )
     url = f"/v1.0/devices/{device_id}/timers"
+    _LOGGER.warning(
+        "Cloud timer POST -> %s body=%s account_type=%s",
+        url,
+        body,
+        type(account).__name__,
+    )
     try:
         resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
             account.call_api, "POST", url, body
         )
     except Exception:
         _LOGGER.warning(
-            "Cloud timer POST failed for %s (non-fatal)", device_id, exc_info=True
+            "Cloud timer POST raised for %s (non-fatal)", device_id, exc_info=True
         )
         return
+    _LOGGER.warning("Cloud timer POST response for %s: %s", device_id, resp)
     if not resp or not resp.get("success"):
-        _LOGGER.info(
+        _LOGGER.warning(
             "Cloud timer POST returned no success for %s: %s", device_id, resp
         )
 
@@ -193,19 +200,32 @@ async def _delete_cloud_timer_by_match(
     account, device_id: str, hour: int, minute: int, days_mask: int
 ) -> None:
     """List cloud timers, delete the one matching time+days. Best-effort."""
+    list_url = f"/v1.0/devices/{device_id}/timers"
+    _LOGGER.warning(
+        "Cloud timer GET -> %s (match %02d:%02d mask=%d)",
+        list_url,
+        hour,
+        minute,
+        days_mask,
+    )
     try:
         resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-            account.call_api, "GET", f"/v1.0/devices/{device_id}/timers", None
+            account.call_api, "GET", list_url, None
         )
     except Exception:
         _LOGGER.warning(
-            "Cloud timer list failed for %s (non-fatal)", device_id, exc_info=True
+            "Cloud timer list raised for %s (non-fatal)", device_id, exc_info=True
         )
         return
+    _LOGGER.warning("Cloud timer GET response for %s: %s", device_id, resp)
     if not resp or not resp.get("success"):
+        _LOGGER.warning(
+            "Cloud timer GET non-success for %s, skipping delete", device_id
+        )
         return
     time_str = f"{hour:02d}:{minute:02d}"
     loops = _mask_to_loops(days_mask)
+    matched = False
     for category in resp.get("result", []):
         for group in category.get("groups", []):
             for timer in group.get("timers", []):
@@ -215,19 +235,28 @@ async def _delete_cloud_timer_by_match(
                     timer_id = timer.get("timer_id")
                     if not timer_id:
                         continue
+                    matched = True
+                    del_url = f"/v1.0/devices/{device_id}/timers/{timer_id}"
+                    _LOGGER.warning("Cloud timer DELETE -> %s", del_url)
                     try:
-                        await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-                            account.call_api,
-                            "DELETE",
-                            f"/v1.0/devices/{device_id}/timers/{timer_id}",
-                            None,
+                        del_resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+                            account.call_api, "DELETE", del_url, None
+                        )
+                        _LOGGER.warning(
+                            "Cloud timer DELETE response for %s: %s",
+                            device_id,
+                            del_resp,
                         )
                     except Exception:
                         _LOGGER.warning(
-                            "Cloud timer delete failed for %s (non-fatal)",
+                            "Cloud timer DELETE raised for %s (non-fatal)",
                             device_id,
                             exc_info=True,
                         )
+    if not matched:
+        _LOGGER.warning(
+            "Cloud timer no entries matched %s for %s", time_str, device_id
+        )
 
 
 async def set_timer(hass, data: dict) -> bool:
@@ -256,12 +285,23 @@ async def set_timer(hass, data: dict) -> bool:
     account = _find_iot_account(hass, device_id)
     if account is None:
         _LOGGER.warning(
-            "No tuya_iot account for %s; cloud rollback risk — DP-only write",
+            "set_timer: no tuya_iot account for %s (DP write only, cloud may roll back)",
             device_id,
         )
         return True
+    _LOGGER.warning(
+        "set_timer: tuya_iot account found for %s (type=%s), proceeding to cloud write",
+        device_id,
+        type(account).__name__,
+    )
 
     if prior is not None:
+        _LOGGER.warning(
+            "set_timer: prior slot %d for %s = %s, deleting cloud match first",
+            slot,
+            device_id,
+            prior,
+        )
         await _delete_cloud_timer_by_match(
             account,
             device_id,
@@ -287,13 +327,26 @@ async def delete_timer(hass, data: dict) -> bool:
     # Capture the slot's current time/days BEFORE we wipe the DP so we can
     # match the cloud timer entry on the way out.
     prior = _get_prior_slot(hass, device_id, slot)
+    _LOGGER.warning(
+        "delete_timer: device=%s slot=%d prior=%s", device_id, slot, prior
+    )
 
     b64 = build_delete_payload(slot)
     if not await _write_time_task(multi_manager, device_id, b64):
         return False
 
     account = _find_iot_account(hass, device_id)
-    if account is None or prior is None:
+    if account is None:
+        _LOGGER.warning(
+            "delete_timer: no tuya_iot account for %s (DP-only delete)", device_id
+        )
+        return True
+    if prior is None:
+        _LOGGER.warning(
+            "delete_timer: no prior slot data for %s slot %d — cannot match cloud entry",
+            device_id,
+            slot,
+        )
         return True
 
     await _delete_cloud_timer_by_match(
