@@ -264,14 +264,18 @@ async def _delete_cloud_timer_by_match(
                 funcs = timer.get("functions") or []
                 v = funcs[0].get("value", {}) if funcs else {}
                 if v.get("startTimeStr") == time_str and v.get("loops") == loops:
-                    # Tuya's DELETE works on the timer-group id (the
-                    # container), not the inner timer_id. Sending the
-                    # timer_id returns 1108 "uri path invalid".
+                    # Tuya's selective timer delete takes the timer-group
+                    # id as a *query-string* parameter; both path-style
+                    # variants (/timers/{group_id}, /timer/group/{id}, …)
+                    # return 1108 "uri path invalid". Verified against the
+                    # Mavronero account on 2026-05-12 with a throwaway
+                    # group: DELETE /timers?group_id=<gid> succeeds and
+                    # only removes that group.
                     group_id = group.get("id")
                     if not group_id:
                         continue
                     matched = True
-                    del_url = f"/v1.0/devices/{device_id}/timers/{group_id}"
+                    del_url = f"/v1.0/devices/{device_id}/timers?group_id={group_id}"
                     _LOGGER.warning("Cloud timer DELETE -> %s", del_url)
                     try:
                         del_resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
