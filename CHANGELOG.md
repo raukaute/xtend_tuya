@@ -10,6 +10,28 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.126] — 2026-05-12
+
+Dual-write timer mutations to the device DP **and** the Tuya cloud
+timer registry. v4.4.122 assumed the device DP was authoritative, but
+empirical testing on 2026-05-12 with the Mavronero fleet showed that
+Tuya's cloud rolls the device DP back from the cloud timer registry
+~10s after a direct DP write. The result: HA → SmartLife edits and
+deletes appeared to take, then reverted on the dashboard a few seconds
+later.
+
+`set_timer` / `delete_timer` now:
+1. Look up the slot's prior state from the registry entity so we can
+   delete the cloud entry that's about to be replaced (avoids duplicate
+   SmartLife schedule entries on time/day edits).
+2. Write the DP for immediate local execution (offline-safe, fast).
+3. POST / DELETE the cloud timer registry so the cloud doesn't roll
+   back our DP change.
+
+Cost: 1–2 OpenAPI calls per user-initiated timer mutation. Negligible
+vs the historical periodic-poll regressions — these mutations are
+interactive, not on a timer. Boot-time cloud resync is still removed.
+
 ## [4.4.125] — 2026-05-12
 
 Force a state write at the end of `Fdm5kwTimerRegistryEntity.async_added_to_hass`
