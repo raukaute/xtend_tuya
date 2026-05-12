@@ -330,14 +330,22 @@ def _decode_start_time(raw_b64: Any) -> datetime | None:
 
 
 class Fdm5kwFlowRateEntity(XTSensorEntity):
-    """Derived flow-rate sensor: liters/minute computed from cur_cap and
-    elapsed seconds since the run started.
+    """Derived instantaneous flow-rate sensor (liters/minute).
 
-    During an active run (run_task_sta == 1) the state re-publishes every
-    FLOW_RATE_REFRESH (10 s by default) so the recorder gets dense rows
-    for the watering-history graph; outside a run the state is 0.0. All
-    inputs come from `device.status` (already populated by MQTT push) —
-    no Tuya API calls are issued.
+    Uses a differential method: between two 10 s samples, flow rate is
+    `(cur_cap_now - cur_cap_prev) * 60 / delta_seconds`. The FDM5KW has
+    a real Hall-effect impeller inside the valve body (2–25 L/min range
+    per the QOTO QT-08W spec), so `cur_cap` reflects actual liters and
+    the resulting graph captures real flow variations — pressure dips,
+    partial restrictions, etc.
+
+    The 10 s tick is purely local: it reads `device.status["cur_cap"]`,
+    which is kept fresh by the upstream MQTT push. No Tuya API calls
+    are issued.
+
+    Idle state (run_task_sta != 1) reports 0.0. Below ~2 L/min the
+    impeller doesn't tick and `cur_cap` stalls, so the derived rate
+    will read 0 even with water flowing — a hardware limit, not a bug.
     """
 
     _attr_native_unit_of_measurement = UnitOfVolumeFlowRate.LITERS_PER_MINUTE
@@ -348,27 +356,56 @@ class Fdm5kwFlowRateEntity(XTSensorEntity):
         super().__init__(*args, **kwargs)
         self._refresh_unsub: Callable[[], None] | None = None
         self._was_running: bool = False
+        self._last_cur_cap: int | None = None
+        self._last_ts: datetime | None = None
+        self._current_flow: float = 0.0
 
     @property
-    def native_value(self) -> float | None:
-        run_state = self.device.status.get(DP_RUN_TASK_STA)
-        if run_state != 1:
-            return 0.0
-        cur_cap = self.device.status.get(DP_CUR_CAP) or 0
-        start_raw = self.device.status.get(DP_START_TIME)
-        start_dt = _decode_start_time(start_raw)
-        if start_dt is None or cur_cap <= 0:
-            return 0.0
-        elapsed = (datetime.now() - start_dt).total_seconds()
-        if elapsed <= 0:
-            return 0.0
-        return round(float(cur_cap) * 60.0 / elapsed, 2)
+    def native_value(self) -> float:
+        return self._current_flow
+
+    def _recompute(self) -> bool:
+        """Update self._current_flow. Returns True if a state write
+        should fire (state changed, or run is active and the recorder
+        wants a fresh row)."""
+        running = self.device.status.get(DP_RUN_TASK_STA) == 1
+        cur_cap_raw = self.device.status.get(DP_CUR_CAP) or 0
+        try:
+            cur_cap = int(cur_cap_raw)
+        except (TypeError, ValueError):
+            cur_cap = 0
+        now = datetime.now()
+
+        if not running:
+            changed = self._was_running or self._current_flow != 0.0
+            self._current_flow = 0.0
+            self._last_cur_cap = None
+            self._last_ts = None
+            self._was_running = False
+            return changed
+
+        if not self._was_running or self._last_ts is None or self._last_cur_cap is None:
+            # Run just started: capture baseline, emit 0 once.
+            self._last_cur_cap = cur_cap
+            self._last_ts = now
+            changed = self._current_flow != 0.0 or not self._was_running
+            self._current_flow = 0.0
+            self._was_running = True
+            return changed
+
+        delta_t = (now - self._last_ts).total_seconds()
+        if delta_t <= 0:
+            return False
+        delta_cap = max(0, cur_cap - self._last_cur_cap)
+        self._current_flow = round(delta_cap * 60.0 / delta_t, 2)
+        self._last_cur_cap = cur_cap
+        self._last_ts = now
+        self._was_running = True
+        # Always emit while running so the graph has dense rows.
+        return True
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        # Hook the 10 s refresh tick. Cheap: each tick just recomputes
-        # native_value from in-memory device.status and writes one
-        # recorder row. No HTTP I/O.
         self._refresh_unsub = async_track_time_interval(
             self.hass, self._on_tick, FLOW_RATE_REFRESH
         )
@@ -380,12 +417,8 @@ class Fdm5kwFlowRateEntity(XTSensorEntity):
         await super().async_will_remove_from_hass()
 
     async def _on_tick(self, _now: datetime) -> None:
-        running = self.device.status.get(DP_RUN_TASK_STA) == 1
-        # Only burn recorder rows while running. Edge events (start, end)
-        # write once on the transition; idle ticks are skipped.
-        if running or self._was_running != running:
+        if self._recompute():
             self.async_write_ha_state()
-        self._was_running = running
 
 
 # ---------------------------------------------------------------------------

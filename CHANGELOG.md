@@ -10,6 +10,26 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.137] — 2026-05-12
+
+Two corrections to the v4.4.136 watering-flow sensor:
+
+- **Differential algorithm**: flow_rate is now
+  `(cur_cap_now − cur_cap_prev) × 60 / delta_seconds` between 10 s
+  samples, not `cur_cap / total_elapsed`. The previous "average since
+  start" smoothed out real-world variation; the differential reflects
+  actual flow dips and surges during a run.
+- **Hardware-fact correction**: v4.4.136 changelog claimed FDM5KW has
+  no flow meter and `cur_cap` was firmware-estimated. Wrong. The
+  device is the QOTO QT-08W (private-labeled as Moes / Girier), which
+  contains a real Hall-effect impeller flowmeter (2–25 L/min). So
+  `cur_cap` is a true measurement and the differential flow_rate
+  captures genuine flow variations, not a plateau.
+
+Caveat: below 2 L/min the impeller doesn't tick, so `cur_cap` stalls
+and the derived rate reads 0 — hardware limit, mainly relevant for
+drip-irrigation use cases.
+
 ## [4.4.136] — 2026-05-12
 
 Add derived `Watering flow rate` sensor (l/min) per valve and wire the
