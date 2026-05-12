@@ -10,6 +10,15 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.142] — 2026-05-12
+
+Set `column_span: 3` on the Watering History and Hourly water
+sections. HA's sections view treats each section as one column wide
+regardless of `grid_columns` on the cards inside; column_span lifts
+that section to span all 3 layout columns, finally giving the flow
+graphs full-row width. v4.4.140 / v4.4.141 tried to fix this from the
+card side, which was the wrong layer.
+
 ## [4.4.141] — 2026-05-12
 
 Move the Watering History and Hourly water cards into their own

@@ -353,11 +353,13 @@ function buildValveView(v: ValveEntities, hours: number): DashboardView {
     ].filter(Boolean),
   });
 
-  // Section 2: full-row watering history graph. Its own section so the
-  // sections-grid layout (max_columns above) doesn't sandwich it into
-  // 1/3 viewport — the 10 s flow samples need horizontal room.
+  // Section 2: full-row watering history graph. column_span=3 makes the
+  // section itself span all 3 layout columns (sections are 1 column
+  // wide by default, regardless of grid_columns on cards inside) so
+  // the 10 s flow samples get horizontal room to breathe.
   const watering = buildWateringHistoryCard(v, hours);
-  if (watering) sections.push({ type: "grid", cards: [watering] });
+  if (watering)
+    sections.push({ type: "grid", column_span: 3, cards: [watering] });
 
   // Section 3: last-watering + lifetime sum (smaller cards, fine at 1/3)
   sections.push({
@@ -370,7 +372,8 @@ function buildValveView(v: ValveEntities, hours: number): DashboardView {
 
   // Section 4: full-row hourly water graph for the same reason as Section 2.
   const hourly = buildHourlyVolumeCard(v);
-  if (hourly) sections.push({ type: "grid", cards: [hourly] });
+  if (hourly)
+    sections.push({ type: "grid", column_span: 3, cards: [hourly] });
 
   // Section 3: battery tile + battery history
   if (v.battery_level) {
