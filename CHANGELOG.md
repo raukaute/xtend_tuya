@@ -10,6 +10,23 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.144] — 2026-05-12
+
+Phase 1 of the irrigation calendar (Trello aag9aw4k): new
+`calendar.irrigation_planned` entity merges every enabled timer slot
+across every fdm5kw valve under any xtend_tuya config entry into a
+single calendar. Each slot expands to its weekly recurrence inside
+the window HA queries. Title format follows Simon's spec:
+`{valve} - {duration} m | {l/min} l | {total} l` (l/min placeholder
+until Phase 2 lands the recorder-based averages).
+
+Sibling watering_volume sensor is now resolved through device_registry
+and entity_registry by translation_key, so the lifetime total no longer
+depends on friendly-name heuristics.
+
+Phase 2 (completed calendar) and Phase 3 (ICS export for Google Cal)
+land in follow-up releases per `.claude/plans/irrigation-calendar.md`.
+
 ## [4.4.143] — 2026-05-12
 
 Detail-view layout: split the control / other-settings / timers row
