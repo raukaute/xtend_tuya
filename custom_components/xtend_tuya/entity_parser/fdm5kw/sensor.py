@@ -4,7 +4,12 @@ from __future__ import annotations
 import logging
 import struct
 from dataclasses import dataclass
-from typing import Any, Mapping
+from datetime import datetime, timedelta
+from typing import Any, Callable, Mapping
+
+from homeassistant.const import UnitOfVolumeFlowRate
+from homeassistant.components.sensor import SensorStateClass
+from homeassistant.helpers.event import async_track_time_interval
 from tuya_device_handlers.definition.sensor import (
     TuyaSensorDefinition,
 )
@@ -28,6 +33,15 @@ _LOGGER = logging.getLogger(__name__)
 # DP codes not yet in XTDPCode — use string literals until PR is merged
 DP_ONE_CONTROL = "one_control"
 DP_TIME_TASK = "time_task"
+DP_RUN_TASK_STA = "run_task_sta"
+DP_CUR_CAP = "cur_cap"
+DP_START_TIME = "start_time"
+
+# How often to re-publish the flow-rate sensor state while a run is active.
+# Pure local recomputation (no API call) — cost is one recorder row per tick
+# per running valve. Simon asked for 10s in the 2026-05-12 review.
+FLOW_RATE_REFRESH = timedelta(seconds=10)
+
 from .const import DEVICE_CATEGORY, DAYS_OF_WEEK
 
 
@@ -293,6 +307,88 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
 
 
 # ---------------------------------------------------------------------------
+# Custom Entity for Derived Flow Rate (l/min)
+# ---------------------------------------------------------------------------
+
+
+def _decode_start_time(raw_b64: Any) -> datetime | None:
+    """Decode the 6-byte time_task DP timestamp into a naive local datetime."""
+    try:
+        import base64
+        b = base64.b64decode(raw_b64) if isinstance(raw_b64, str) else bytes(raw_b64)
+    except Exception:
+        return None
+    if len(b) != 6:
+        return None
+    y, mo, d, h, mi, s = b
+    if y == 255 or mo == 0 or mo > 12 or d == 0 or d > 31:
+        return None
+    try:
+        return datetime(2000 + y, mo, d, h, mi, s)
+    except ValueError:
+        return None
+
+
+class Fdm5kwFlowRateEntity(XTSensorEntity):
+    """Derived flow-rate sensor: liters/minute computed from cur_cap and
+    elapsed seconds since the run started.
+
+    During an active run (run_task_sta == 1) the state re-publishes every
+    FLOW_RATE_REFRESH (10 s by default) so the recorder gets dense rows
+    for the watering-history graph; outside a run the state is 0.0. All
+    inputs come from `device.status` (already populated by MQTT push) —
+    no Tuya API calls are issued.
+    """
+
+    _attr_native_unit_of_measurement = UnitOfVolumeFlowRate.LITERS_PER_MINUTE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._refresh_unsub: Callable[[], None] | None = None
+        self._was_running: bool = False
+
+    @property
+    def native_value(self) -> float | None:
+        run_state = self.device.status.get(DP_RUN_TASK_STA)
+        if run_state != 1:
+            return 0.0
+        cur_cap = self.device.status.get(DP_CUR_CAP) or 0
+        start_raw = self.device.status.get(DP_START_TIME)
+        start_dt = _decode_start_time(start_raw)
+        if start_dt is None or cur_cap <= 0:
+            return 0.0
+        elapsed = (datetime.now() - start_dt).total_seconds()
+        if elapsed <= 0:
+            return 0.0
+        return round(float(cur_cap) * 60.0 / elapsed, 2)
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # Hook the 10 s refresh tick. Cheap: each tick just recomputes
+        # native_value from in-memory device.status and writes one
+        # recorder row. No HTTP I/O.
+        self._refresh_unsub = async_track_time_interval(
+            self.hass, self._on_tick, FLOW_RATE_REFRESH
+        )
+
+    async def async_will_remove_from_hass(self) -> None:
+        if self._refresh_unsub is not None:
+            self._refresh_unsub()
+            self._refresh_unsub = None
+        await super().async_will_remove_from_hass()
+
+    async def _on_tick(self, _now: datetime) -> None:
+        running = self.device.status.get(DP_RUN_TASK_STA) == 1
+        # Only burn recorder rows while running. Edge events (start, end)
+        # write once on the transition; idle ticks are skipped.
+        if running or self._was_running != running:
+            self.async_write_ha_state()
+        self._was_running = running
+
+
+# ---------------------------------------------------------------------------
 # Entity Descriptors
 # ---------------------------------------------------------------------------
 
@@ -317,6 +413,27 @@ class Fdm5kwTimerRegistryDescription(Fdm5kwSensorEntityDescription):
         supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
     ) -> Fdm5kwTimerRegistryEntity:
         return Fdm5kwTimerRegistryEntity(
+            device=device,
+            device_manager=device_manager,
+            description=XTSensorEntityDescription(**description.__dict__),
+            definition=definition,
+            supported_descriptors=supported_descriptors,
+        )
+
+
+@dataclass(frozen=True)
+class Fdm5kwFlowRateDescription(Fdm5kwSensorEntityDescription):
+    """Descriptor that returns a Fdm5kwFlowRateEntity (derived l/min)."""
+
+    def get_entity_instance(
+        self,
+        device: XTDevice,
+        device_manager: MultiManager,
+        description: XTSensorEntityDescription,
+        definition: TuyaSensorDefinition,
+        supported_descriptors: dict[str, tuple[XTSensorEntityDescription, ...]],
+    ) -> Fdm5kwFlowRateEntity:
+        return Fdm5kwFlowRateEntity(
             device=device,
             device_manager=device_manager,
             description=XTSensorEntityDescription(**description.__dict__),
@@ -390,6 +507,15 @@ class Fdm5kwSensor:
                 icon="mdi:timer-cog",
                 entity_registry_enabled_default=True,
                 wrapper_class=(DPCodeTimeTaskRegistryWrapper,),
+            ),
+            # --- Derived flow rate (l/min) for watering-history graph ---
+            Fdm5kwFlowRateDescription(
+                key=f"{DP_CUR_CAP}_flow_rate",
+                dpcode=DP_CUR_CAP,
+                translation_key="watering_flow_rate",
+                name="Watering flow rate",
+                icon="mdi:water-percent",
+                entity_registry_enabled_default=True,
             ),
         ]
 

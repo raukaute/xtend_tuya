@@ -10,6 +10,26 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.136] — 2026-05-12
+
+Add derived `Watering flow rate` sensor (l/min) per valve and wire the
+dashboard strategy's "Watering History" card to use it. Per Simon's
+2026-05-12 spec the area under the resulting graph equals the total
+liters of the run.
+
+- The sensor computes `cur_cap × 60 / elapsed-since-start_time` while
+  `run_task_sta == 1`, otherwise reports 0.0.
+- A 10 s in-process timer re-writes the entity state during a run so
+  the recorder gets dense rows; computation reads only `device.status`
+  (already populated by MQTT push) — no Tuya API calls.
+- FDM5KW has no flow meter; the device's own `cur_cap` is firmware-
+  estimated from a calibrated flow constant. The derived sensor will
+  therefore plateau at that constant during a run. Mathematically
+  correct (∫ flow dt = liters) and matches the graph shape Simon
+  asked for; "true" instantaneous flow would need physical metering.
+- Strategy falls back to the prior volume-sensor on installs that
+  haven't picked up the new entity yet.
+
 ## [4.4.135] — 2026-05-12
 
 HA timer disable now removes the cloud entry instead of POSTing a new

@@ -85,6 +85,7 @@ interface ValveEntities {
   switch?: string;
   duration?: string;
   volume_sensor?: string;
+  flow_rate_sensor?: string;
   start_time_sensor?: string;
   end_time_sensor?: string;
   mode_sensor?: string;
@@ -107,6 +108,7 @@ const TRANSLATION_KEY_TO_FIELD: Record<string, keyof ValveEntities> = {
   end_time: "end_time_sensor",
   watering_mode: "mode_sensor",
   watering_volume: "volume_sensor",
+  watering_flow_rate: "flow_rate_sensor",
   battery_level: "battery_level",
   watering_duration: "duration",
   rain_snow_delay: "rain_snow_delay",
@@ -419,13 +421,17 @@ function buildTimerCard(v: ValveEntities): unknown {
 }
 
 function buildWateringHistoryCard(v: ValveEntities, hours: number): unknown | null {
-  // Short-term per-cycle view. The volume sensor is the device's
-  // single-run accumulator — it resets when a new cycle starts. Don't
-  // confuse it with lifetime total; the dedicated lifetime card below
-  // handles that.
+  // Per-Simon spec (2026-05-12): graph should show flow rate while the
+  // valve is open so the area under the curve equals total liters.
+  // FDM5KW has no flow meter; the integration derives l/min from
+  // cur_cap and elapsed-since-start, publishing fresh state every 10 s
+  // while a run is active. Fall back to the volume sensor for legacy
+  // installs that lack the derived flow entity.
   const entities: unknown[] = [];
   if (v.switch) entities.push({ entity: v.switch, name: "Valve" });
-  if (v.volume_sensor)
+  if (v.flow_rate_sensor)
+    entities.push({ entity: v.flow_rate_sensor, name: "Flow rate" });
+  else if (v.volume_sensor)
     entities.push({ entity: v.volume_sensor, name: "Run volume" });
   if (entities.length === 0) return null;
   return {
