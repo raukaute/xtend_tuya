@@ -10,6 +10,26 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.149] — 2026-05-27
+
+Hotfix: integration fails to load on current HA core.
+
+HA core renamed `homeassistant.components.tuya.fan.TUYA_SUPPORT_TYPE`
+→ `FANS` (matching the EVENTS / HUMIDIFIERS / LIGHTS naming used by
+sibling platforms). The xtend_tuya import in
+`ha_tuya_integration/tuya_integration_imports_no_cc.py:43` was still
+using the old name, raising
+
+    ImportError: cannot import name 'TUYA_SUPPORT_TYPE'
+    from 'homeassistant.components.tuya.fan'
+
+at integration setup. Cascade effect: integration never loaded → no
+entities → strategy element `ll-strategy-dashboard-irrigation-valves`
+never registered → Solar Valves dashboard timed out trying to find it.
+
+Fix: try the new `FANS` import first, fall back to `TUYA_SUPPORT_TYPE`
+for older HA installs.
+
 ## [4.4.148] — 2026-05-27
 
 Cloud-quota circuit breaker for fdm5kw timer writes.
