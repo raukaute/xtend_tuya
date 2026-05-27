@@ -10,6 +10,28 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.152] — 2026-05-27
+
+`frontend.py`: cache the Lovelace card bundles in the browser to fix
+the intermittent "Timeout waiting for strategy element
+`ll-strategy-dashboard-irrigation-valves` to be registered" error.
+
+Root cause: HA's frontend injects our card JS via an inline `import()`
+in the index `<script>` block. That import is async; the dashboard
+panel only waits ~5 s for the custom-element registration. A cold
+fetch over the Nabu Casa relay sometimes exceeds that budget, leaving
+the user with the timeout banner until refresh.
+
+Switched the static-paths registration to `cache_headers=True` so the
+browser caches the JS aggressively (one-day max-age). The URL still
+carries `?v=<file-mtime>`, so a HACS update bumps the cache-bust query
+and the next fetch is the fresh file — but every repeat load between
+releases is now served from disk cache.
+
+Also moved the cards-dir `scandir` off the event loop via
+`async_add_executor_job` to silence the loop-detector warning logged
+by `homeassistant.util.loop`.
+
 ## [4.4.151] — 2026-05-27
 
 Overview-page hotfix: every card was rendering squeezed into the left
