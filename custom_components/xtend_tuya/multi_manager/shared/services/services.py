@@ -121,6 +121,9 @@ SERVICE_FDM5KW_STOP_WATERING_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_FDM5KW_CLEAR_QUOTA_LOCKOUT = "fdm5kw_clear_quota_lockout"
+SERVICE_FDM5KW_CLEAR_QUOTA_LOCKOUT_SCHEMA = vol.Schema({})
+
 
 class ServiceManager:
     def __init__(self, multi_manager: mm.MultiManager) -> None:
@@ -205,6 +208,15 @@ class ServiceManager:
             SERVICE_FDM5KW_STOP_WATERING,
             self._handle_fdm5kw_stop_watering,
             SERVICE_FDM5KW_STOP_WATERING_SCHEMA,
+            True,
+            True,
+            False,
+        )
+        self._register_service(
+            DOMAIN,
+            SERVICE_FDM5KW_CLEAR_QUOTA_LOCKOUT,
+            self._handle_fdm5kw_clear_quota_lockout,
+            SERVICE_FDM5KW_CLEAR_QUOTA_LOCKOUT_SCHEMA,
             True,
             True,
             False,
@@ -418,3 +430,11 @@ class ServiceManager:
 
         ok = await stop_watering(self.hass, event.data)
         return {"success": ok}
+
+    async def _handle_fdm5kw_clear_quota_lockout(
+        self, event: XTEventData
+    ) -> dict[str, Any] | None:
+        from ....entity_parser.fdm5kw.timer_service import clear_quota_lockout
+
+        clear_quota_lockout()
+        return {"success": True}

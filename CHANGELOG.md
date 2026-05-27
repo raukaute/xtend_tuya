@@ -10,6 +10,69 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.148] — 2026-05-27
+
+Cloud-quota circuit breaker for fdm5kw timer writes.
+
+Once the Tuya OpenAPI returns `60001001` ("controllable device pool
+quota insufficient"), `entity_parser/fdm5kw/timer_service.py` engages a
+6-hour module-level lockout: subsequent `_post_cloud_timer` and
+`_delete_cloud_timer_by_match` calls short-circuit at entry with a
+warning log, instead of burning calls that would all fail with the
+same code. The on-device DP write path is unaffected, so timers keep
+firing locally.
+
+The lockout is account-wide (not per-device) because the Tuya quota
+itself is account-wide. Resets on HA restart, or on demand via the new
+`xtend_tuya.fdm5kw_clear_quota_lockout` service — call it after
+bumping the IoT-Core plan or freeing devices so the next mutation
+retries the cloud write.
+
+## [4.4.147] — 2026-05-27
+
+Calendar Phase 4 partial + cloud-quota UX.
+
+Phase 4 follow-ups that don't need Simon's validation:
+
+- `IrrigationCompletedCalendar` now emits an "in-progress" event when a
+  device has a `start_time` without a matching `end_time` — title
+  `{valve} — running (X m, Y l so far)`, end estimated from the
+  last-10 averages (`avg_cycle / avg_lpm`). Lets Simon spot a stuck or
+  long-running valve in Google Cal without waiting for the close DP.
+- `IrrigationPlannedCalendar` now estimates duration for `mode=volume`
+  timer slots from the historical avg flow (`target_l / avg_lpm * 60`).
+  Previously volume-mode slots rendered as zero-length markers. The
+  description notes the target liters so Simon's team can tell the
+  modes apart.
+- `_query_recent_runs`: dedupe repeated identical start/end timestamps
+  (DP republish would otherwise count the same cycle twice in
+  averages), and surface orphan starts as open runs when callers ask.
+- Cycle expansion (`cyc_num > 1` sub-events) deferred: the `time_task`
+  DP layout doesn't carry the cycle count, only mode/value/hour/
+  minute/days/enabled. Would need a separate DP discovery pass on the
+  live device to wire up.
+
+Cloud-quota UX (Tuya error `60001001`):
+
+- Define `TUYA_ERR_DEVICE_POOL_QUOTA = 60001001` + actionable message
+  in `entity_parser/fdm5kw/const.py` (empirically validated 2026-05-13,
+  not in Tuya's public docs).
+- POST/GET/DELETE response paths in `entity_parser/fdm5kw/timer_service.py`
+  inspect the response code; when it's the quota error, log a warning
+  and raise a persistent notification ("Tuya quota exceeded") so the
+  user sees *why* SmartLife/cloud sync stopped working. The on-device
+  DP write still succeeded, so timers fire locally regardless.
+
+Single-valve dashboard YAML:
+
+- New `frontend/dashboards/single-valve-dashboard.yaml`. Mirrors the
+  current strategy's per-valve detail view exactly (same 5-row layout,
+  same cards), but as a vanilla editable Lovelace dashboard. Simon
+  drags widgets in HA's visual editor; we mirror the resulting layout
+  back into `irrigation-valves-strategy.ts` so every auto-built detail
+  view inherits the changes. Defaults target S 810 (Verbs line North
+  fence, `bf7d773582eedd85b8tyqv`).
+
 ## [4.4.146] — 2026-05-12
 
 Phase 3 of the irrigation calendar: new ICS export endpoint at

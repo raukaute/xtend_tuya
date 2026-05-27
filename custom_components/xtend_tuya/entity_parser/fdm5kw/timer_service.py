@@ -17,18 +17,97 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import time
 from typing import Any
 
 from ...multi_manager.multi_manager import MultiManager
 from ...multi_manager.shared.threading import XTEventLoopProtector
 from ...util import get_all_multi_managers
-from .const import DAYS_OF_WEEK
+from .const import (
+    DAYS_OF_WEEK,
+    TUYA_ERR_DEVICE_POOL_QUOTA,
+    TUYA_ERR_DEVICE_POOL_QUOTA_MSG,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 TIME_TASK_CODE = "time_task"
 MODE_DURATION = 0
 MODE_VOLUME = 1
+
+_QUOTA_NOTIFICATION_ID = "xtend_tuya_fdm5kw_cloud_quota"
+
+# Circuit breaker — once the Tuya OpenAPI returns 60001001 ("controllable
+# device pool quota insufficient") we stop hitting the cloud for N hours
+# instead of burning calls that will all fail. The DP write path keeps
+# running so timers still fire locally. Cleared on HA process restart or
+# via `xtend_tuya.fdm5kw_clear_quota_lockout`. The quota is account-wide,
+# so the lockout is module-global (one quota hit on any device blocks all
+# cloud writes for every fdm5kw on the account).
+QUOTA_LOCKOUT_SECONDS = 6 * 3600
+_quota_lockout_until: float = 0.0
+
+
+def _is_quota_locked_out() -> bool:
+    return _quota_lockout_until > time.monotonic()
+
+
+def _engage_quota_lockout() -> None:
+    global _quota_lockout_until
+    _quota_lockout_until = time.monotonic() + QUOTA_LOCKOUT_SECONDS
+    _LOGGER.warning(
+        "fdm5kw cloud-timer lockout engaged for %d s after Tuya quota error",
+        QUOTA_LOCKOUT_SECONDS,
+    )
+
+
+def clear_quota_lockout() -> None:
+    """Manual reset hook for the cloud-timer circuit breaker.
+
+    Wired to `xtend_tuya.fdm5kw_clear_quota_lockout` service. Use after
+    bumping the Tuya IoT-Core plan or freeing devices so the next user
+    action retries the cloud write."""
+    global _quota_lockout_until
+    _quota_lockout_until = 0.0
+    _LOGGER.warning("fdm5kw cloud-timer lockout cleared")
+
+
+def _notify_quota_exceeded(hass) -> None:
+    """Surface the controllable-device quota error as a persistent
+    notification once per HA session. The cloud rejected the timer write
+    but the device DP still saved locally, so we want the user to know
+    *why* SmartLife/cloud sync is degraded without spamming the log on
+    every subsequent write."""
+    try:
+        from homeassistant.components import persistent_notification
+
+        persistent_notification.async_create(
+            hass,
+            TUYA_ERR_DEVICE_POOL_QUOTA_MSG,
+            title="Tuya quota exceeded",
+            notification_id=_QUOTA_NOTIFICATION_ID,
+        )
+    except Exception:  # noqa: BLE001
+        _LOGGER.warning("Failed to emit persistent quota notification", exc_info=True)
+
+
+def _handle_cloud_response(hass, op: str, device_id: str, resp: Any) -> None:
+    """Inspect a Tuya OpenAPI response and surface known soft failures.
+    Returns nothing; logging is the contract. Callers continue regardless
+    so the DP write path stays best-effort."""
+    if not isinstance(resp, dict):
+        return
+    code = resp.get("code")
+    if code == TUYA_ERR_DEVICE_POOL_QUOTA:
+        _LOGGER.warning(
+            "Cloud %s for %s hit Tuya quota error %s — %s",
+            op,
+            device_id,
+            code,
+            TUYA_ERR_DEVICE_POOL_QUOTA_MSG,
+        )
+        _engage_quota_lockout()
+        _notify_quota_exceeded(hass)
 
 
 def _days_to_mask(days: list[str] | int | None) -> int:
@@ -182,6 +261,12 @@ async def _post_cloud_timer(
     The GET response renders the same data with a different layout
     (timer rows nested under groups). Do NOT mirror the GET shape on POST.
     """
+    if _is_quota_locked_out():
+        _LOGGER.warning(
+            "Cloud timer POST skipped for %s — quota lockout active (DP-only)",
+            device_id,
+        )
+        return
     time_str = f"{hour:02d}:{minute:02d}"
     loops = _mask_to_loops(days_mask)
     start_time_sec = hour * 3600 + minute * 60
@@ -231,6 +316,7 @@ async def _post_cloud_timer(
         )
         return
     _LOGGER.warning("Cloud timer POST response for %s: %s", device_id, resp)
+    _handle_cloud_response(hass, "POST", device_id, resp)
     if not resp or not resp.get("success"):
         _LOGGER.warning(
             "Cloud timer POST returned no success for %s: %s", device_id, resp
@@ -238,9 +324,15 @@ async def _post_cloud_timer(
 
 
 async def _delete_cloud_timer_by_match(
-    account, device_id: str, hour: int, minute: int, days_mask: int
+    hass, account, device_id: str, hour: int, minute: int, days_mask: int
 ) -> None:
     """List cloud timers, delete the one matching time+days. Best-effort."""
+    if _is_quota_locked_out():
+        _LOGGER.warning(
+            "Cloud timer GET/DELETE skipped for %s — quota lockout active",
+            device_id,
+        )
+        return
     list_url = f"/v1.0/devices/{device_id}/timers"
     _LOGGER.warning(
         "Cloud timer GET -> %s (match %02d:%02d mask=%d)",
@@ -259,6 +351,7 @@ async def _delete_cloud_timer_by_match(
         )
         return
     _LOGGER.warning("Cloud timer GET response for %s: %s", device_id, resp)
+    _handle_cloud_response(hass, "GET", device_id, resp)
     if not resp or not resp.get("success"):
         _LOGGER.warning(
             "Cloud timer GET non-success for %s, skipping delete", device_id
@@ -295,6 +388,7 @@ async def _delete_cloud_timer_by_match(
                             device_id,
                             del_resp,
                         )
+                        _handle_cloud_response(hass, "DELETE", device_id, del_resp)
                     except Exception:
                         _LOGGER.warning(
                             "Cloud timer DELETE raised for %s (non-fatal)",
@@ -351,6 +445,7 @@ async def set_timer(hass, data: dict) -> bool:
             prior,
         )
         await _delete_cloud_timer_by_match(
+            hass,
             account,
             device_id,
             int(prior.get("hour", hour)),
@@ -417,6 +512,7 @@ async def delete_timer(hass, data: dict) -> bool:
         return True
 
     await _delete_cloud_timer_by_match(
+        hass,
         account,
         device_id,
         int(prior.get("hour", 0)),

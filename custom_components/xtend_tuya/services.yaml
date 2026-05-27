@@ -126,3 +126,12 @@ fdm5kw_stop_watering:
     device_id:
       required: true
       example: "bfbc9ae1e1ad6d3135vxmj"
+
+fdm5kw_clear_quota_lockout:
+  name: Clear fdm5kw cloud-timer quota lockout
+  description: >-
+    Reset the circuit breaker that suppresses Tuya cloud-timer writes
+    after a 60001001 "controllable device pool quota insufficient"
+    error. Call after upgrading the IoT-Core plan or removing devices
+    so the next timer mutation retries the cloud write. DP-only writes
+    were not affected by the lockout.

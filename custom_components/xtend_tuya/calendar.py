@@ -215,6 +215,58 @@ def _lifetime_liters(hass: HomeAssistant, volume_entity: str | None) -> int | No
         return None
 
 
+def _build_in_progress_event(
+    run: dict[str, Any],
+    *,
+    valve_name: str,
+    registry_entity_id: str,
+    lifetime_l: int | None,
+    avg_lpm: float | None,
+    avg_cycle: float | None,
+    now: datetime,
+) -> CalendarEvent:
+    """Render an open (currently-running) cycle as a calendar event.
+    End is estimated from the historical avg duration so the event has
+    a non-zero span in the calendar UI; description marks it as
+    in-progress and shows the running liters so Simon's team can spot
+    a stuck valve."""
+    elapsed_seconds = max((now - run["start"]).total_seconds(), 60.0)
+    # Estimate remaining run length from historical avg per-cycle
+    # liters minus the current cur_cap, divided by avg flow. Fall back
+    # to "now + elapsed" so the event always has a bounded end.
+    estimated_end = now + timedelta(seconds=60)
+    if avg_cycle and avg_lpm and avg_lpm > 0 and run.get("total_l") is not None:
+        remaining_l = max(0.0, avg_cycle - float(run["total_l"]))
+        remaining_seconds = (remaining_l / avg_lpm) * 60.0
+        estimated_end = now + timedelta(seconds=max(60.0, remaining_seconds))
+    elif avg_cycle and avg_lpm and avg_lpm > 0:
+        # No cur_cap reading yet — use the average total duration.
+        estimated_end = run["start"] + timedelta(
+            seconds=(avg_cycle / avg_lpm) * 60.0
+        )
+
+    current_l = run.get("total_l")
+    current_str = f"{current_l:.1f}" if isinstance(current_l, (int, float)) else "?"
+    elapsed_min = int(elapsed_seconds // 60)
+    title = f"{valve_name} — running ({elapsed_min} m, {current_str} l so far)"
+    description = (
+        f"Valve: {valve_name} ({registry_entity_id})\n"
+        f"Running since: {run['start'].isoformat()}\n"
+        f"Elapsed: {elapsed_min} minutes\n"
+        f"Liters so far: {current_str}\n"
+        f"Estimated end (from last-10 averages): {estimated_end.isoformat()}\n"
+        f"Lifetime total: {lifetime_l if lifetime_l is not None else '?'} l\n"
+        f"\n"
+        f"Type: In progress"
+    )
+    return CalendarEvent(
+        start=run["start"],
+        end=estimated_end,
+        summary=title,
+        description=description,
+    )
+
+
 def _parse_dt(raw: Any) -> datetime | None:
     """Parse a recorder/state value that should be an ISO timestamp."""
     if isinstance(raw, datetime):
@@ -298,14 +350,24 @@ async def _query_recent_runs(
     limit: int | None = None,
     window_start: datetime | None = None,
     window_end: datetime | None = None,
+    include_open: bool = False,
 ) -> list[dict[str, Any]]:
     """Recorder query — pair start_time and end_time state changes for
     a device and compute the watering_volume peak between each pair.
 
-    `limit` truncates to the most recent N runs (used by the averages
-    helper). If `window_start`/`window_end` are given, only runs whose
-    end falls inside that window are returned (used by the Completed
-    calendar)."""
+    `limit` truncates to the most recent N closed runs (used by the
+    averages helper). If `window_start`/`window_end` are given, only
+    runs whose end falls inside that window are returned (used by the
+    Completed calendar).
+
+    Edge cases handled:
+      - Repeated identical start timestamps (DP redeliver) are deduped
+        so a single cycle isn't counted twice.
+      - Interrupted cycles (start without a later matching end) are
+        either dropped (default) or surfaced as open runs with
+        `end=None` and `open=True` when `include_open=True`. The
+        Completed calendar uses this to render the "running now" event.
+    """
     from homeassistant.components.recorder import get_instance
     from homeassistant.components.recorder.history import get_significant_states
 
@@ -338,16 +400,22 @@ async def _query_recent_runs(
     # Build sorted lists of (last_updated, parsed-state-value) for the
     # two timestamp entities. Skip rows where the state isn't a parseable
     # ISO datetime (HA may have "unknown"/"unavailable" placeholders).
-    start_events = sorted(
-        (s.last_updated, _parse_dt(s.state))
-        for s in start_states
-        if _parse_dt(s.state)
-    )
-    end_events = sorted(
-        (s.last_updated, _parse_dt(s.state))
-        for s in end_states
-        if _parse_dt(s.state)
-    )
+    # Dedupe by parsed value: when the DP republishes the same timestamp
+    # the recorder stores another row, but it's the same logical event.
+    def _dedupe(states) -> list[tuple[datetime, datetime]]:
+        seen: set[datetime] = set()
+        rows: list[tuple[datetime, datetime]] = []
+        for s in states:
+            parsed = _parse_dt(s.state)
+            if parsed is None or parsed in seen:
+                continue
+            seen.add(parsed)
+            rows.append((s.last_updated, parsed))
+        rows.sort()
+        return rows
+
+    start_events = _dedupe(start_states)
+    end_events = _dedupe(end_states)
 
     vol_series = []
     for s in vol_states:
@@ -365,6 +433,26 @@ async def _query_recent_runs(
         while j < len(end_events) and end_events[j][0] <= s_last_updated:
             j += 1
         if j >= len(end_events):
+            # Orphan start — no end after it. If this is the most recent
+            # start and the caller wants in-progress events, surface it.
+            if include_open:
+                run_start = s_value or s_last_updated
+                # Volume peak so far for the running cycle.
+                total_l: float | None = None
+                for ts, v in vol_series:
+                    if ts < s_last_updated:
+                        continue
+                    if total_l is None or v > total_l:
+                        total_l = v
+                runs.append(
+                    {
+                        "start": run_start,
+                        "end": None,
+                        "duration_seconds": 0,
+                        "total_l": total_l,
+                        "open": True,
+                    }
+                )
             break
         e_last_updated, e_value = end_events[j]
         j += 1
@@ -382,7 +470,7 @@ async def _query_recent_runs(
         # Volume peak between the two recorder timestamps; cur_cap
         # resets to 0 on cycle start and accumulates, so max(...) in
         # the window is the total liters delivered.
-        total_l: float | None = None
+        total_l = None
         for ts, v in vol_series:
             if ts < s_last_updated:
                 continue
@@ -397,14 +485,21 @@ async def _query_recent_runs(
                 "end": run_end,
                 "duration_seconds": duration_seconds,
                 "total_l": total_l,
+                "open": False,
             }
         )
 
     if window_start is not None and window_end is not None:
-        runs = [r for r in runs if window_start <= r["end"] <= window_end]
+        runs = [
+            r
+            for r in runs
+            if r.get("open") or (r["end"] and window_start <= r["end"] <= window_end)
+        ]
 
     if limit is not None and len(runs) > limit:
-        runs = sorted(runs, key=lambda r: r["end"], reverse=True)[:limit]
+        # Closed runs only when limiting (averages don't use open runs).
+        closed = [r for r in runs if not r.get("open")]
+        runs = sorted(closed, key=lambda r: r["end"], reverse=True)[:limit]
 
     return runs
 
@@ -509,12 +604,23 @@ class IrrigationPlannedCalendar(CalendarEntity):
         days_mask = int(slot.get("days_mask", 0))
         mode = slot.get("mode", "duration")
         value = int(slot.get("value", 0))
+        volume_target_l: int | None = None
         if mode == "duration":
             duration_min = max(1, value // 60) if value < 60 else value // 60
             duration_seconds = value
         else:
-            duration_min = 0
-            duration_seconds = 0
+            # Volume-mode: `value` is the target liters. The actual run
+            # length depends on flow, which we can only know historically.
+            # Use the last-10 avg l/min to estimate; if no history exists
+            # yet (first run on a fresh valve), leave the event as a
+            # zero-length marker at the start time.
+            volume_target_l = value
+            if avg_lpm and avg_lpm > 0:
+                duration_seconds = int((value / avg_lpm) * 60)
+                duration_min = max(1, duration_seconds // 60)
+            else:
+                duration_seconds = 0
+                duration_min = 0
         # For planned events the l/min comes from the historical average,
         # since we don't know the upcoming run's flow yet.
         l_per_min: float | str = avg_lpm if avg_lpm is not None else "?"
@@ -530,6 +636,11 @@ class IrrigationPlannedCalendar(CalendarEntity):
             avg_lpm=avg_lpm,
             avg_per_cycle=avg_cycle,
         )
+        if volume_target_l is not None:
+            description += (
+                f"\n\nVolume-mode timer: target {volume_target_l} l "
+                "(duration estimated from last-10 average flow)."
+            )
 
         events: list[CalendarEvent] = []
         day = window_start.date()
@@ -598,6 +709,7 @@ class IrrigationCompletedCalendar(CalendarEntity):
             return []
 
         events: list[CalendarEvent] = []
+        now = datetime.now().astimezone()
         for d in _iter_fdm5kw_devices(self.hass):
             if not (d["start_entity"] and d["end_entity"] and d["volume_entity"]):
                 continue
@@ -608,6 +720,7 @@ class IrrigationCompletedCalendar(CalendarEntity):
                 d["volume_entity"],
                 window_start=effective_start,
                 window_end=effective_end,
+                include_open=True,
             )
             if not runs:
                 continue
@@ -619,6 +732,19 @@ class IrrigationCompletedCalendar(CalendarEntity):
                 d["volume_entity"],
             )
             for r in runs:
+                if r.get("open"):
+                    events.append(
+                        _build_in_progress_event(
+                            r,
+                            valve_name=d["valve_name"],
+                            registry_entity_id=d["registry_entity_id"],
+                            lifetime_l=lifetime_l,
+                            avg_lpm=avg_lpm,
+                            avg_cycle=avg_cycle,
+                            now=now,
+                        )
+                    )
+                    continue
                 duration_min = int(r["duration_seconds"] // 60)
                 if r["total_l"] is not None and r["duration_seconds"] > 0:
                     l_per_min: float | str = r["total_l"] / (

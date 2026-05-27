@@ -1,0 +1,171 @@
+# Editable single-valve dashboard — mirror of the auto-generated detail
+# view from the `custom:irrigation-valves` strategy.
+#
+# Purpose: the strategy view is auto-built and read-only, so Simon can't
+# drag widgets around in the HA UI. This file is a vanilla Lovelace YAML
+# dashboard for a single valve. Simon edits it (HA → Settings →
+# Dashboards → this dashboard → ⋮ → Edit dashboard → Raw config editor,
+# or drag widgets in the visual editor), and we mirror the resulting
+# layout back into `frontend/src/irrigation-valves-strategy.ts` so every
+# auto-generated detail view inherits the changes.
+#
+# Setup:
+#   1. HA → Settings → Dashboards → Add Dashboard → "From YAML file" or
+#      paste this into a new dashboard's raw config.
+#   2. Choose the right valve by swapping the entity ids below — defaults
+#      target S 810 (Verbs line North fence), device id bf7d773582eedd85b8tyqv.
+#   3. Open the dashboard, click ⋮ → Edit dashboard, drag freely.
+#   4. When done, paste the raw config diff back to us and we'll port it
+#      to the strategy.
+#
+# Layout convention (must match strategy's `buildValveView`):
+#   - max_columns: 3
+#   - Row 1: control + other settings + timer card (one section each)
+#   - Row 2: Watering History (full row via column_span 3)
+#   - Row 3: Last Watering + Lifetime water (one section each)
+#   - Row 4: Hourly water past 7 days (full row via column_span 3)
+#   - Row 5: Battery tile + Battery History (column_span 2 on history)
+
+title: Single Valve (editable)
+views:
+  - title: S 810 (Verbs line North fence)
+    path: s-810
+    type: sections
+    max_columns: 3
+    sections:
+      # ---- Row 1: control + settings + timer (3 cells across the row) ----
+      - type: grid
+        cards:
+          - type: custom:irrigation-control-card
+            valve: switch.s_810_valve
+            duration: number.s_810_watering_duration
+            volume_sensor: sensor.s_810_watering_volume
+            start_time_sensor: sensor.s_810_last_watering_start
+            end_time_sensor: sensor.s_810_last_watering_end
+            mode_sensor: sensor.s_810_watering_mode
+            registry_entity: sensor.s_810_verbs_line_north_fence_irrigation_timer_registry
+            device_id: bf7d773582eedd85b8tyqv
+            layout_options:
+              grid_columns: 4
+              grid_rows: auto
+
+      - type: grid
+        cards:
+          - type: entities
+            title: Other settings
+            show_header_toggle: false
+            entities:
+              - entity: switch.s_810_sleep_mode
+                name: Sleep Mode
+              - entity: number.s_810_rain_snow_delay
+                name: Rain/Snow Delay
+            layout_options:
+              grid_columns: 4
+              grid_rows: auto
+
+      - type: grid
+        cards:
+          - type: custom:irrigation-timer-card
+            entity: sensor.s_810_verbs_line_north_fence_irrigation_timer_registry
+            device_id: bf7d773582eedd85b8tyqv
+            layout_options:
+              grid_columns: 4
+              grid_rows: auto
+
+      # ---- Row 2: Watering History (full row) ----
+      - type: grid
+        column_span: 3
+        cards:
+          - type: history-graph
+            title: Watering History
+            hours_to_show: 24
+            entities:
+              - entity: switch.s_810_valve
+                name: Valve
+              - entity: sensor.s_810_watering_flow_rate
+                name: Flow rate
+            layout_options:
+              grid_columns: 12
+              grid_rows: auto
+
+      # ---- Row 3: Last Watering + Lifetime water (2 cells) ----
+      - type: grid
+        cards:
+          - type: entities
+            title: Last Watering
+            show_header_toggle: false
+            entities:
+              - entity: sensor.s_810_last_watering_start
+                name: Start
+              - entity: sensor.s_810_last_watering_end
+                name: End
+              - entity: sensor.s_810_watering_volume
+                name: Volume
+              - entity: sensor.s_810_watering_mode
+                name: Mode
+            layout_options:
+              grid_columns: 4
+              grid_rows: auto
+
+      - type: grid
+        cards:
+          - type: statistics-graph
+            title: Lifetime water
+            entities:
+              - sensor.s_810_watering_volume
+            stat_types:
+              - sum
+            period: day
+            days_to_show: 30
+            chart_type: line
+            layout_options:
+              grid_columns: 4
+              grid_rows: auto
+
+      # ---- Row 4: Hourly water (full row) ----
+      - type: grid
+        column_span: 3
+        cards:
+          - type: statistics-graph
+            title: Hourly water (past 7 days)
+            entities:
+              - sensor.s_810_watering_volume
+            stat_types:
+              - change
+            period: hour
+            days_to_show: 7
+            chart_type: bar
+            layout_options:
+              grid_columns: 12
+              grid_rows: auto
+
+      # ---- Row 5: Battery tile + Battery History ----
+      - type: grid
+        cards:
+          - type: tile
+            grid_options:
+              columns: 12
+              rows: 3
+            entity: sensor.s_810_battery_level
+            name:
+              type: entity
+            state_content: state
+            vertical: false
+            features:
+              - type: bar-gauge
+              - type: trend-graph
+            features_position: bottom
+
+      - type: grid
+        column_span: 2
+        cards:
+          - type: history-graph
+            title: Battery History
+            entities:
+              - entity: sensor.s_810_battery_level
+                name: Battery
+            grid_options:
+              rows: auto
+              columns: 12
+            max_y_axis: 100
+            hours_to_show: 24
