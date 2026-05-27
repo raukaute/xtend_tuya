@@ -10,6 +10,24 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.151] — 2026-05-27
+
+Overview-page hotfix: every card was rendering squeezed into the left
+third of the screen.
+
+`buildOverviewView` puts the tiles grid, "Watering History (all
+valves)", "Flow rate (all valves)" and "Battery levels" cards inside
+sections with `column_span: 3`. The section spans the full width, but
+HA's sections-view defaults a child card's `grid_columns` to 4 (≈1/3
+width), so the cards stayed narrow.
+
+Added `layout_options: { grid_columns: 12, grid_rows: "auto" }` to
+each of those cards so they fill their section. Per-valve detail view
+already had this — only the overview was affected.
+
+Tiles also got `grid_columns: 3, grid_rows: "auto"` so they tile 4-up
+inside the inner 4-column grid instead of stacking one-per-row.
+
 ## [4.4.150] — 2026-05-27
 
 Dashboard + calendar audit fixes (live-traced on Simon's fleet).

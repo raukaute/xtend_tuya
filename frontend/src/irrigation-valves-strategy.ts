@@ -327,6 +327,8 @@ function buildOverviewView(
   valves: ValveEntities[],
   hours: number
 ): DashboardView {
+  // Tiles take a fraction of the row inside the inner 4-column grid; the
+  // grid card itself spans the full row via layout_options below.
   const tiles = valves.map((v) => ({
     type: "tile",
     entity: v.switch ?? v.registry_entity,
@@ -337,6 +339,7 @@ function buildOverviewView(
       action: "navigate",
       navigation_path: `/${v.view_path}`,
     },
+    layout_options: { grid_columns: 3, grid_rows: "auto" },
   }));
 
   const batteryEntities = valves
@@ -364,6 +367,10 @@ function buildOverviewView(
     type: "sections",
     max_columns: 3,
     sections: [
+      // Cards inside a `column_span: 3` section default to grid_columns=4
+      // (≈1/3 width), so each card declares grid_columns=12 to fill the
+      // full row. Without this every card on the overview renders
+      // squeezed into the left third of the screen.
       {
         type: "grid",
         column_span: 3,
@@ -373,6 +380,7 @@ function buildOverviewView(
             columns: 4,
             square: false,
             cards: tiles,
+            layout_options: { grid_columns: 12, grid_rows: "auto" },
           },
         ],
       },
@@ -385,6 +393,7 @@ function buildOverviewView(
             title: "Watering History (all valves)",
             hours_to_show: hours,
             entities: valveStateEntities,
+            layout_options: { grid_columns: 12, grid_rows: "auto" },
           },
         ],
       },
@@ -399,6 +408,7 @@ function buildOverviewView(
                   title: "Flow rate (all valves)",
                   hours_to_show: hours,
                   entities: flowEntities,
+                  layout_options: { grid_columns: 12, grid_rows: "auto" },
                 },
               ],
             },
@@ -415,6 +425,7 @@ function buildOverviewView(
                   title: "Battery levels",
                   show_header_toggle: false,
                   entities: batteryEntities,
+                  layout_options: { grid_columns: 12, grid_rows: "auto" },
                 },
               ],
             },
