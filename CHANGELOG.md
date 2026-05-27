@@ -10,6 +10,56 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.150] — 2026-05-27
+
+Dashboard + calendar audit fixes (live-traced on Simon's fleet).
+
+**Last Watering card was missing Start/End/Mode on every valve** —
+`entity_parser/fdm5kw/sensor.py` declared the START_TIME / CLOSE_TIME /
+ONE_CONTROL_MODE / TIME_TASK_* sensors without a `translation_key`, so
+the strategy's `TRANSLATION_KEY_TO_FIELD` map couldn't resolve them.
+Added `translation_key="start_time"` / `"close_time"` /
+`"watering_mode"` / `"watering_value"` / `"timer_slot"` /
+`"timer_schedule"` / `"irrigation_timer_registry"`.
+
+Same root cause **zeroed the Completed calendar** (its
+`_iter_fdm5kw_devices` couldn't resolve sibling entities → guard
+short-circuited every device). Fixed alongside.
+
+Existing entities created before this release have null
+`translation_key` in the entity registry (HA writes it only at first
+registration), so both the dashboard strategy and the calendar now
+**fall back to entity-id suffix matching**
+(`_last_watering_start`, `_last_watering_end`, `_watering_volume`, …)
+for legacy installs.
+
+**"Configuration error" badge on every overview tile** — strategy
+emitted `features: [{ type: "tile-tap-area" }]` which isn't a valid
+HA tile feature. Dropped the `features` block entirely; the existing
+`tap_action` already handles navigation.
+
+**21 valves rendering as 32-char hex UUIDs** instead of their
+friendly names — happens when the registry sensor is `unavailable`
+and HA strips the `valve_name` attribute. Both the strategy and the
+calendar now fall back to `hass.devices[id].name_by_user || .name`
+before the raw Tuya/HA UUID.
+
+**Lifetime water was reading the wrong field** — `_lifetime_liters`
+returned `state.state`, but `cur_cap` resets to 0 each cycle, so the
+live state is per-cycle accumulator, not lifetime. Switched to a
+`recorder.statistics_during_period` query for the long-term `sum`
+stat (cur_cap's `state_class=TOTAL_INCREASING` means HA already
+treats each per-cycle reset as a new accumulator window — we just
+weren't reading the right place).
+
+**Naive-datetime crash latent in `_query_recent_runs`** — sensors
+like `sensor.s_809_last_watering_start` emit ISO strings without a
+TZ (`"2026-05-27 10:00:00"`); comparing them with the tz-aware
+window bounds would raise `TypeError`. `_parse_dt` now attaches the
+local TZ when the parsed value is naive.
+
+No new cloud-API traffic; all changes are read-side.
+
 ## [4.4.149] — 2026-05-27
 
 Hotfix: integration fails to load on current HA core.

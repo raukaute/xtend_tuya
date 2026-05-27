@@ -52,6 +52,17 @@ REGISTRY_SUFFIX = "irrigation_timer_registry"
 WATERING_VOLUME_TRANSLATION_KEY = "watering_volume"
 START_TIME_TRANSLATION_KEY = "start_time"
 END_TIME_TRANSLATION_KEY = "end_time"
+CLOSE_TIME_TRANSLATION_KEY = "close_time"
+
+# Entity-id suffix fallbacks for installs whose entities pre-date the
+# translation_key bump in 4.4.150 (registry stores translation_key only
+# at first registration). Mirrors the same pattern in the dashboard
+# strategy so calendar + dashboard agree on which sibling is which.
+_ENTITY_SUFFIX_TO_ROLE: tuple[tuple[str, str], ...] = (
+    ("_last_watering_start", "start_entity"),
+    ("_last_watering_end", "end_entity"),
+    ("_watering_volume", "volume_entity"),
+)
 
 ICS_VIEW_REGISTERED_KEY = f"{DOMAIN}_ics_view_registered"
 ICS_DEFAULT_FUTURE_DAYS = 30
@@ -174,18 +185,29 @@ def _iter_fdm5kw_devices(
         if ha_device is None:
             continue
 
-        sibling: dict[str, str] = {}
+        roles: dict[str, str] = {}
         for ent in er.async_entries_for_device(ent_reg, ha_device.id):
             tk = ent.translation_key
-            if tk in (
-                WATERING_VOLUME_TRANSLATION_KEY,
-                START_TIME_TRANSLATION_KEY,
-                END_TIME_TRANSLATION_KEY,
-            ):
-                sibling[tk] = ent.entity_id
+            if tk == START_TIME_TRANSLATION_KEY:
+                roles.setdefault("start_entity", ent.entity_id)
+            elif tk in (END_TIME_TRANSLATION_KEY, CLOSE_TIME_TRANSLATION_KEY):
+                roles.setdefault("end_entity", ent.entity_id)
+            elif tk == WATERING_VOLUME_TRANSLATION_KEY:
+                roles.setdefault("volume_entity", ent.entity_id)
+        # Fallback for legacy installs whose entities have no
+        # translation_key — match by entity-id suffix.
+        for ent in er.async_entries_for_device(ent_reg, ha_device.id):
+            for suffix, role in _ENTITY_SUFFIX_TO_ROLE:
+                if ent.entity_id.endswith(suffix):
+                    roles.setdefault(role, ent.entity_id)
+                    break
 
+        # When the registry sensor is unavailable HA strips its custom
+        # attributes, so fall back to the device-registry name.
         valve_name = (
             state.attributes.get("valve_name")
+            or ha_device.name_by_user
+            or ha_device.name
             or state.attributes.get("friendly_name")
             or state.entity_id
         )
@@ -195,22 +217,66 @@ def _iter_fdm5kw_devices(
                 "registry_entity_id": state.entity_id,
                 "registry_state": state,
                 "valve_name": str(valve_name),
-                "volume_entity": sibling.get(WATERING_VOLUME_TRANSLATION_KEY),
-                "start_entity": sibling.get(START_TIME_TRANSLATION_KEY),
-                "end_entity": sibling.get(END_TIME_TRANSLATION_KEY),
+                "volume_entity": roles.get("volume_entity"),
+                "start_entity": roles.get("start_entity"),
+                "end_entity": roles.get("end_entity"),
             }
         )
     return out
 
 
-def _lifetime_liters(hass: HomeAssistant, volume_entity: str | None) -> int | None:
+async def _lifetime_liters(
+    hass: HomeAssistant, volume_entity: str | None
+) -> int | None:
+    """Return the all-time cumulative liters through this valve.
+
+    The watering_volume sensor (cur_cap DP) resets to 0 each cycle and
+    accumulates during the run, so its live state is *not* a lifetime
+    figure — it's the current run's accumulator. The lifetime number
+    lives in the recorder's long-term `sum` statistic (cur_cap declares
+    `state_class=TOTAL_INCREASING`, so HA treats each per-cycle reset
+    as a new accumulator window and the running `sum` is the lifetime
+    total).
+    """
     if not volume_entity:
         return None
-    state = hass.states.get(volume_entity)
-    if state is None:
+    from homeassistant.components.recorder import get_instance
+    from homeassistant.components.recorder.statistics import (
+        statistics_during_period,
+    )
+
+    instance = get_instance(hass)
+    # Pull a single month-period bucket from the dawn of recording — the
+    # last row's `sum` is the lifetime cumulative. Month period keeps the
+    # query cheap regardless of recorder retention.
+    very_old = datetime(2020, 1, 1, tzinfo=timezone.utc)
+
+    def _query():
+        return statistics_during_period(
+            hass,
+            very_old,
+            None,
+            {volume_entity},
+            "month",
+            None,
+            {"sum"},
+        )
+
+    try:
+        stats = await instance.async_add_executor_job(_query)
+    except Exception:  # noqa: BLE001
+        _LOGGER.debug(
+            "Lifetime stats query failed for %s", volume_entity, exc_info=True
+        )
+        return None
+    rows = stats.get(volume_entity) or []
+    if not rows:
+        return None
+    last_sum = rows[-1].get("sum")
+    if last_sum is None:
         return None
     try:
-        return int(float(state.state))
+        return int(last_sum)
     except (TypeError, ValueError):
         return None
 
@@ -268,15 +334,26 @@ def _build_in_progress_event(
 
 
 def _parse_dt(raw: Any) -> datetime | None:
-    """Parse a recorder/state value that should be an ISO timestamp."""
+    """Parse a recorder/state value that should be an ISO timestamp.
+
+    Some xtend_tuya sensors emit naive ISO strings (e.g.
+    `"2026-05-27 10:00:00"` without a TZ offset). Comparing those with
+    the tz-aware window bounds used by `_query_recent_runs` raises
+    `TypeError: can't compare offset-naive and offset-aware datetimes`,
+    so attach the local TZ when the parsed value is naive.
+    """
     if isinstance(raw, datetime):
-        return raw
+        return raw if raw.tzinfo else raw.astimezone()
     if not isinstance(raw, str):
         return None
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        # `astimezone()` on a naive datetime treats it as local time.
+        parsed = parsed.astimezone()
+    return parsed
 
 
 # ----------------------------------------------------------------------
@@ -534,9 +611,10 @@ class IrrigationPlannedCalendar(CalendarEntity):
         start_date: datetime,
         end_date: datetime,
     ) -> list[CalendarEvent]:
-        # Pull averages for every device first so _expand_slot can use
-        # them in description text without async calls.
+        # Pull averages + lifetime for every device first so _build_events
+        # stays sync (it's also called from the `event` property).
         averages_by_device: dict[str, tuple[float | None, float | None]] = {}
+        lifetime_by_device: dict[str, int | None] = {}
         devices = _iter_fdm5kw_devices(self.hass)
         for d in devices:
             averages_by_device[d["tuya_device_id"]] = await self._averages.get(
@@ -545,7 +623,12 @@ class IrrigationPlannedCalendar(CalendarEntity):
                 d["end_entity"],
                 d["volume_entity"],
             )
-        return self._build_events(start_date, end_date, averages_by_device)
+            lifetime_by_device[d["tuya_device_id"]] = await _lifetime_liters(
+                self.hass, d["volume_entity"]
+            )
+        return self._build_events(
+            start_date, end_date, averages_by_device, lifetime_by_device
+        )
 
     def _build_events(
         self,
@@ -553,6 +636,7 @@ class IrrigationPlannedCalendar(CalendarEntity):
         end: datetime,
         averages_by_device: dict[str, tuple[float | None, float | None]]
         | None = None,
+        lifetime_by_device: dict[str, int | None] | None = None,
     ) -> list[CalendarEvent]:
         events: list[CalendarEvent] = []
         tzinfo = start.tzinfo or datetime.now().astimezone().tzinfo
@@ -561,7 +645,11 @@ class IrrigationPlannedCalendar(CalendarEntity):
             slots = d["registry_state"].attributes.get("slots")
             if not isinstance(slots, dict):
                 continue
-            lifetime_l = _lifetime_liters(self.hass, d["volume_entity"])
+            lifetime_l = (
+                lifetime_by_device.get(d["tuya_device_id"])
+                if lifetime_by_device
+                else None
+            )
             avg_lpm, avg_cycle = (
                 averages_by_device.get(d["tuya_device_id"], (None, None))
                 if averages_by_device
@@ -724,7 +812,7 @@ class IrrigationCompletedCalendar(CalendarEntity):
             )
             if not runs:
                 continue
-            lifetime_l = _lifetime_liters(self.hass, d["volume_entity"])
+            lifetime_l = await _lifetime_liters(self.hass, d["volume_entity"])
             avg_lpm, avg_cycle = await self._averages.get(
                 d["tuya_device_id"],
                 d["start_entity"],

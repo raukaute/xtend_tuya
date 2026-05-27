@@ -496,9 +496,15 @@ class Fdm5kwSensor:
     def initialize_sensor() -> None:
         sensors: list[Fdm5kwSensorEntityDescription] = [
             # --- Timestamps ---
+            # translation_key is what the strategy + calendar use to map a
+            # sibling entity to its role (start/end/mode/registry). Existing
+            # entities created before 4.4.150 have null translation_key in
+            # the entity registry; the strategy + calendar fall back to
+            # entity-id suffix matching for those.
             Fdm5kwSensorEntityDescription(
                 key=f"{XTDPCode.START_TIME}_timestamp",
                 dpcode=XTDPCode.START_TIME,
+                translation_key="start_time",
                 name="Last watering start",
                 icon="mdi:clock-start",
                 entity_registry_enabled_default=True,
@@ -507,6 +513,7 @@ class Fdm5kwSensor:
             Fdm5kwSensorEntityDescription(
                 key=f"{XTDPCode.CLOSE_TIME}_timestamp",
                 dpcode=XTDPCode.CLOSE_TIME,
+                translation_key="close_time",
                 name="Last watering end",
                 icon="mdi:clock-end",
                 entity_registry_enabled_default=True,
@@ -516,6 +523,7 @@ class Fdm5kwSensor:
             Fdm5kwSensorEntityDescription(
                 key=f"{DP_ONE_CONTROL}_mode",
                 dpcode=DP_ONE_CONTROL,
+                translation_key="watering_mode",
                 name="Watering mode",
                 icon="mdi:water-pump",
                 entity_registry_enabled_default=True,
@@ -524,6 +532,7 @@ class Fdm5kwSensor:
             Fdm5kwSensorEntityDescription(
                 key=f"{DP_ONE_CONTROL}_value",
                 dpcode=DP_ONE_CONTROL,
+                translation_key="watering_value",
                 name="Watering value",
                 icon="mdi:water",
                 entity_registry_enabled_default=True,
@@ -533,6 +542,7 @@ class Fdm5kwSensor:
             Fdm5kwSensorEntityDescription(
                 key=f"{DP_TIME_TASK}_slot",
                 dpcode=DP_TIME_TASK,
+                translation_key="timer_slot",
                 name="Timer slot",
                 icon="mdi:timer-outline",
                 entity_registry_enabled_default=True,
@@ -541,6 +551,7 @@ class Fdm5kwSensor:
             Fdm5kwSensorEntityDescription(
                 key=f"{DP_TIME_TASK}_summary",
                 dpcode=DP_TIME_TASK,
+                translation_key="timer_schedule",
                 name="Timer schedule",
                 icon="mdi:calendar-clock",
                 entity_registry_enabled_default=True,
@@ -550,6 +561,7 @@ class Fdm5kwSensor:
             Fdm5kwTimerRegistryDescription(
                 key=f"{DP_TIME_TASK}_registry",
                 dpcode=DP_TIME_TASK,
+                translation_key="irrigation_timer_registry",
                 name="Irrigation timer registry",
                 icon="mdi:timer-cog",
                 entity_registry_enabled_default=True,

@@ -114,6 +114,23 @@ const TRANSLATION_KEY_TO_FIELD: Record<string, keyof ValveEntities> = {
   rain_snow_delay: "rain_snow_delay",
 };
 
+// Existing entities created before 4.4.150 have null `translation_key`
+// in the entity registry (HA only writes translation_key on first
+// registration). The strategy must fall back to entity-id suffix
+// matching for those installs. Suffix patterns are checked AFTER the
+// translation_key map so newly-registered entities take precedence.
+// Order matters: longer / more specific suffixes first.
+const ENTITY_ID_SUFFIX_TO_FIELD: Array<[RegExp, keyof ValveEntities]> = [
+  [/_last_watering_start$/, "start_time_sensor"],
+  [/_last_watering_end$/, "end_time_sensor"],
+  [/_watering_flow_rate$/, "flow_rate_sensor"],
+  [/_watering_volume$/, "volume_sensor"],
+  [/_watering_duration$/, "duration"],
+  [/_watering_mode$/, "mode_sensor"],
+  [/_rain_snow_delay$/, "rain_snow_delay"],
+  [/_battery_level$/, "battery_level"],
+];
+
 class IrrigationValvesStrategy extends HTMLElement {
   static async generate(
     config: StrategyConfig,
@@ -202,12 +219,20 @@ function collectValveEntities(
   tuyaDeviceId: string,
   registryState: HassState
 ): ValveEntities | null {
+  // When the registry sensor is unavailable HA strips its custom
+  // attributes (valve_name, valve_factory_name, device_id), so fall back
+  // to the device-registry name before the raw Tuya id. Without this
+  // every offline valve renders as a 32-char HA device UUID.
+  const device = hass.devices[haDeviceId];
   const valve_name =
     (registryState.attributes.valve_name as string | undefined) ??
     (registryState.attributes.valve_factory_name as string | undefined) ??
+    device?.name_by_user ??
+    device?.name ??
     tuyaDeviceId;
   const factory_name =
     (registryState.attributes.valve_factory_name as string | undefined) ??
+    device?.name ??
     valve_name;
 
   const view_path = makeViewPath(tuyaDeviceId, valve_name);
@@ -218,6 +243,12 @@ function collectValveEntities(
     valve_name,
     factory_name,
     view_path,
+  };
+
+  const setField = (field: keyof ValveEntities, entity_id: string) => {
+    if (!v[field]) {
+      (v as unknown as Record<string, string | undefined>)[field] = entity_id;
+    }
   };
 
   for (const e of Object.values(hass.entities)) {
@@ -238,13 +269,22 @@ function collectValveEntities(
     }
 
     const tk = e.translation_key;
-    if (!tk) continue;
-    const field = TRANSLATION_KEY_TO_FIELD[tk];
-    if (!field) continue;
-    // Don't overwrite an already-set entity (defensive — translation_keys
-    // are unique per device for this integration).
-    if (!v[field]) {
-      (v as unknown as Record<string, string | undefined>)[field] = e.entity_id;
+    if (tk) {
+      const field = TRANSLATION_KEY_TO_FIELD[tk];
+      if (field) {
+        setField(field, e.entity_id);
+        continue;
+      }
+    }
+
+    // Legacy entities (created before 4.4.150) have no translation_key.
+    // Match the entity-id suffix instead so the dashboard still finds
+    // start/end/mode/etc. for older installs.
+    for (const [pattern, field] of ENTITY_ID_SUFFIX_TO_FIELD) {
+      if (pattern.test(e.entity_id)) {
+        setField(field, e.entity_id);
+        break;
+      }
     }
   }
 
@@ -297,13 +337,6 @@ function buildOverviewView(
       action: "navigate",
       navigation_path: `/${v.view_path}`,
     },
-    features: v.battery_level
-      ? [
-          {
-            type: "tile-tap-area",
-          },
-        ]
-      : undefined,
   }));
 
   const batteryEntities = valves
