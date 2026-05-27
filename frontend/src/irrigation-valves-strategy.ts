@@ -329,6 +329,11 @@ function buildOverviewView(
 ): DashboardView {
   // Tiles take a fraction of the row inside the inner 4-column grid; the
   // grid card itself spans the full row via layout_options below.
+  // navigation_path is relative to the current dashboard (no leading
+  // slash) — an absolute "/s-810-…" would jump off this dashboard and
+  // land on whichever dashboard owns the root URL (usually the default
+  // "Overview"), instead of opening the per-valve view in this same
+  // dashboard.
   const tiles = valves.map((v) => ({
     type: "tile",
     entity: v.switch ?? v.registry_entity,
@@ -337,7 +342,7 @@ function buildOverviewView(
     state_content: ["state", "last-changed"],
     tap_action: {
       action: "navigate",
-      navigation_path: `/${v.view_path}`,
+      navigation_path: v.view_path,
     },
     layout_options: { grid_columns: 3, grid_rows: "auto" },
   }));

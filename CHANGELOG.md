@@ -10,6 +10,18 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.153] — 2026-05-27
+
+Overview tile clicks routed to the home dashboard instead of the
+per-valve detail view.
+
+`irrigation-valves-strategy.ts` emitted
+`navigation_path: \`/${view_path}\``. The leading slash makes the
+path absolute, so HA jumps off the current Solar Valves dashboard and
+opens whichever dashboard owns `/<view_path>` — usually nothing,
+which falls back to the default Overview dashboard. Dropped the slash
+so navigation stays within this dashboard.
+
 ## [4.4.152] — 2026-05-27
 
 `frontend.py`: cache the Lovelace card bundles in the browser to fix
