@@ -77,5 +77,12 @@ async def async_register_cards(hass: HomeAssistant) -> None:
         await hass.http.async_register_static_paths(static_paths)
 
     for url_path, mtime in new_urls:
-        add_extra_js_url(hass, f"{url_path}?v={mtime}")
-        _LOGGER.info("xtend_tuya: registered Lovelace card %s", url_path)
+        # The strategy bundle is built as a classic IIFE so it can load
+        # via a blocking `<script>` tag and register its custom element
+        # synchronously during page parse. The Lit-based control + timer
+        # cards stay as ES modules.
+        es5 = url_path.endswith("irrigation-valves-strategy.js")
+        add_extra_js_url(hass, f"{url_path}?v={mtime}", es5=es5)
+        _LOGGER.info(
+            "xtend_tuya: registered Lovelace card %s (es5=%s)", url_path, es5
+        )
