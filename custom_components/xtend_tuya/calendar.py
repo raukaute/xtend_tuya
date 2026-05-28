@@ -320,16 +320,17 @@ def _build_in_progress_event(
         )
 
     current_l = run.get("total_l")
-    current_str = f"{current_l:.1f}" if isinstance(current_l, (int, float)) else "?"
+    current_str = f"{current_l:.1f}" if isinstance(current_l, (int, float)) else "—"
     elapsed_min = int(elapsed_seconds // 60)
-    title = f"{valve_name} — running ({elapsed_min} m, {current_str} l so far)"
+    current_part = f"{current_str} L" if current_str != "—" else "—"
+    title = f"{valve_name} · running · {elapsed_min} min · {current_part} so far"
     description = (
         f"Valve: {valve_name} ({registry_entity_id})\n"
         f"Running since: {run['start'].isoformat()}\n"
-        f"Elapsed: {elapsed_min} minutes\n"
-        f"Liters so far: {current_str}\n"
+        f"Elapsed: {elapsed_min} min\n"
+        f"Liters so far: {current_str} L\n"
         f"Estimated end (from last-10 averages): {estimated_end.isoformat()}\n"
-        f"Lifetime total: {lifetime_l if lifetime_l is not None else '?'} l\n"
+        f"Lifetime total: {lifetime_l if lifetime_l is not None else '?'} L\n"
         f"\n"
         f"Type: In progress"
     )
@@ -841,6 +842,15 @@ class IrrigationCompletedCalendar(CalendarEntity):
             )
             for r in runs:
                 if r.get("open"):
+                    # Skip stale opens: the start_time DP is far enough in
+                    # the past that an in-progress event would be obvious
+                    # garbage (the valve isn't actually running for hours).
+                    if (now - r["start"]).total_seconds() > MAX_SANE_RUN_SECONDS:
+                        _LOGGER.debug(
+                            "skipping stale open run for %s: started %s",
+                            d["valve_name"], r["start"],
+                        )
+                        continue
                     events.append(
                         _build_in_progress_event(
                             r,
