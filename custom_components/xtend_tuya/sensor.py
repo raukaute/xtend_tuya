@@ -1803,6 +1803,14 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             # long-term stats treat each reset as a new accumulator window,
             # giving an all-time water figure. FDM5KW has no water_total DP.
             state_class=SensorStateClass.TOTAL_INCREASING,
+            # The fdm5kw module also registers a Fdm5kwFlowRateDescription on
+            # the same cur_cap DP. Whichever descriptor reaches the platform
+            # setup first registers the handler; without this flag the other
+            # one fails XTEntity.supports_description's "dpcode already
+            # handled" gate, never spawns, and HA marks the entity as a
+            # state-restored orphan (state=unavailable, restored=True). Set
+            # on both descriptors so iteration order doesn't matter.
+            ignore_other_dp_code_handler=True,
         ),
         XTSensorEntityDescription(
             key=XTDPCode.CYC_NUM,
