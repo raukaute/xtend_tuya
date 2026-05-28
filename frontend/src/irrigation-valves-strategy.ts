@@ -591,11 +591,13 @@ function buildLastWateringCard(v: ValveEntities): unknown | null {
 }
 
 function buildBatteryTile(v: ValveEntities): unknown {
-  // grid_options.columns uses the 12-unit section-internal grid; 12 = full
-  // section width so the tile sits above (not beside) the history graph.
+  // Inside HA sections layout the inner grid is 4 columns wide and only
+  // `layout_options.grid_columns` is honoured — tile-level `grid_options`
+  // gets dropped, which let the tile collapse to its 1-col default and
+  // sit beside the history graph instead of stacking on top.
   return {
     type: "tile",
-    grid_options: { columns: 12, rows: 3 },
+    layout_options: { grid_columns: 4, grid_rows: 3 },
     entity: v.battery_level,
     name: { type: "entity" },
     state_content: "state",
@@ -610,7 +612,7 @@ function buildBatteryHistoryCard(v: ValveEntities, hours: number): unknown {
     type: "history-graph",
     title: "Battery History",
     entities: [{ entity: v.battery_level, name: "Battery" }],
-    grid_options: { rows: "auto", columns: 12 },
+    layout_options: { grid_columns: 4, grid_rows: "auto" },
     max_y_axis: 100,
     hours_to_show: hours,
   };
