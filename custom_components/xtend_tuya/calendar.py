@@ -76,6 +76,11 @@ LAST_N_FOR_AVERAGES = 10
 # Cache TTL for the averages helper; both calendars hit it on the same
 # render pass so 30 s deduplicates the recorder hammer.
 AVERAGES_CACHE_TTL_SEC = 30.0
+# Cap on a single watering cycle. FDM5KW battery / typical tank means a
+# real cycle never runs more than a few hours; anything longer is
+# either a stale registry slot or a broken start/end recorder pairing
+# and must not bleed into the calendar UI.
+MAX_SANE_RUN_SECONDS = 6 * 3600
 
 
 async def async_setup_entry(
@@ -119,13 +124,16 @@ def _format_title(
     l_per_min: float | int | str,
     lifetime_l: int | None,
 ) -> str:
-    lifetime_str = str(lifetime_l) if lifetime_l is not None else "?"
+    # Units spelled out ("min", "L/min", "L total") because the previous
+    # short "m | l | l" form read as cubic-metre to some users.
+    lifetime_str = f"{lifetime_l} L total" if lifetime_l is not None else "—"
     lpm_str = (
         f"{l_per_min:.1f}".rstrip("0").rstrip(".")
         if isinstance(l_per_min, float)
         else str(l_per_min)
     )
-    return f"{valve_name} - {duration_min} m | {lpm_str} l | {lifetime_str} l"
+    lpm_part = f"{lpm_str} L/min" if lpm_str != "?" else "—"
+    return f"{valve_name} · {duration_min} min · {lpm_part} · {lifetime_str}"
 
 
 def _format_description(
@@ -148,13 +156,13 @@ def _format_description(
     avg_cycle_str = f"{avg_per_cycle:.1f}" if avg_per_cycle is not None else "?"
     return (
         f"Valve: {valve_name} ({registry_entity_id})\n"
-        f"Duration: {duration_min} minutes\n"
-        f"Water per minute: {lpm_str} l\n"
-        f"Total watering: {lifetime_str} l\n"
+        f"Duration: {duration_min} min\n"
+        f"Water rate: {lpm_str} L/min\n"
+        f"Lifetime total: {lifetime_str} L\n"
         f"\n"
         f"Last {LAST_N_FOR_AVERAGES} waterings (averages):\n"
-        f"  Water per minute: {avg_lpm_str} l\n"
-        f"  Per cycle: {avg_cycle_str} l\n"
+        f"  Water rate: {avg_lpm_str} L/min\n"
+        f"  Per cycle: {avg_cycle_str} L\n"
         f"\n"
         f"Type: {event_type}"
     )
@@ -543,6 +551,12 @@ async def _query_recent_runs(
             continue
 
         duration_seconds = (run_end - run_start).total_seconds()
+        if duration_seconds > MAX_SANE_RUN_SECONDS:
+            _LOGGER.debug(
+                "skipping run %s→%s (%.0fs): exceeds sane cap %ds",
+                run_start, run_end, duration_seconds, MAX_SANE_RUN_SECONDS,
+            )
+            continue
 
         # Volume peak between the two recorder timestamps; cur_cap
         # resets to 0 on cycle start and accumulates, so max(...) in
@@ -694,6 +708,12 @@ class IrrigationPlannedCalendar(CalendarEntity):
         value = int(slot.get("value", 0))
         volume_target_l: int | None = None
         if mode == "duration":
+            if value > MAX_SANE_RUN_SECONDS:
+                _LOGGER.debug(
+                    "skipping planned slot for %s: duration %ds exceeds cap",
+                    valve_name, value,
+                )
+                return []
             duration_min = max(1, value // 60) if value < 60 else value // 60
             duration_seconds = value
         else:

@@ -441,45 +441,37 @@ function buildOverviewView(
 }
 
 function buildValveView(v: ValveEntities, hours: number): DashboardView {
-  const sections: unknown[] = [];
+  // 3 fixed columns. LEFT = primary controls (switch + timer);
+  // MIDDLE = history/usage graphs; RIGHT = battery monitoring,
+  // last watering, and danger settings (sleep/rain delay) deprioritised
+  // at the bottom. Lifetime water card dropped — duplicates the
+  // statistics already visible in Hourly water + Watering History.
+  const leftCards: unknown[] = [];
+  const middleCards: unknown[] = [];
+  const rightCards: unknown[] = [];
 
-  // Row 1: control + other settings + timer card — each in its own
-  // section so HA distributes them across the 3 layout columns instead
-  // of stacking vertically inside a single column.
   const control = buildControlCard(v);
-  if (control) sections.push({ type: "grid", cards: [control] });
-  const other = buildOtherSettingsCard(v);
-  if (other) sections.push({ type: "grid", cards: [other] });
-  sections.push({ type: "grid", cards: [buildTimerCard(v)] });
+  if (control) leftCards.push(control);
+  leftCards.push(buildTimerCard(v));
 
-  // Row 2: full-row watering history graph. column_span=3 spans all
-  // 3 layout columns so the 10 s flow samples have horizontal room.
   const watering = buildWateringHistoryCard(v, hours);
-  if (watering)
-    sections.push({ type: "grid", column_span: 3, cards: [watering] });
-
-  // Row 3: last-watering + lifetime sum — separate sections so the
-  // two small cards land side by side instead of stacking.
-  const last = buildLastWateringCard(v);
-  if (last) sections.push({ type: "grid", cards: [last] });
-  const lifetime = buildLifetimeVolumeCard(v);
-  if (lifetime) sections.push({ type: "grid", cards: [lifetime] });
-
-  // Row 4: full-row hourly water graph for the same reason as Row 2.
+  if (watering) middleCards.push(watering);
   const hourly = buildHourlyVolumeCard(v);
-  if (hourly)
-    sections.push({ type: "grid", column_span: 3, cards: [hourly] });
+  if (hourly) middleCards.push(hourly);
 
-  // Row 5: battery tile + battery history (in its own column_span=3 row
-  // so the long history graph gets the full width).
   if (v.battery_level) {
-    sections.push({ type: "grid", cards: [buildBatteryTile(v)] });
-    sections.push({
-      type: "grid",
-      column_span: 2,
-      cards: [buildBatteryHistoryCard(v, hours)],
-    });
+    rightCards.push(buildBatteryTile(v));
+    rightCards.push(buildBatteryHistoryCard(v, hours));
   }
+  const last = buildLastWateringCard(v);
+  if (last) rightCards.push(last);
+  const other = buildOtherSettingsCard(v);
+  if (other) rightCards.push(other);
+
+  const sections: unknown[] = [];
+  if (leftCards.length) sections.push({ type: "grid", cards: leftCards });
+  if (middleCards.length) sections.push({ type: "grid", cards: middleCards });
+  if (rightCards.length) sections.push({ type: "grid", cards: rightCards });
 
   return {
     title: v.valve_name,
@@ -554,26 +546,6 @@ function buildWateringHistoryCard(v: ValveEntities, hours: number): unknown | nu
     title: "Watering History",
     hours_to_show: hours,
     entities,
-    layout_options: { grid_columns: 12, grid_rows: "auto" },
-  };
-}
-
-function buildLifetimeVolumeCard(v: ValveEntities): unknown | null {
-  // The cur_cap sensor declares state_class=TOTAL_INCREASING (4.4.112+),
-  // so HA's long-term statistics treat each per-cycle reset as a new
-  // accumulator window and the `sum` stat is the lifetime cumulative.
-  // Plotting it as a daily bucket gives a monotonic "total water through
-  // this valve" curve — answers "how much water has flowed at any point
-  // in time" without a real flow meter.
-  if (!v.volume_sensor) return null;
-  return {
-    type: "statistics-graph",
-    title: "Lifetime water",
-    entities: [v.volume_sensor],
-    stat_types: ["sum"],
-    period: "day",
-    days_to_show: 30,
-    chart_type: "line",
     layout_options: { grid_columns: 4, grid_rows: "auto" },
   };
 }
@@ -595,7 +567,7 @@ function buildHourlyVolumeCard(v: ValveEntities): unknown | null {
     period: "hour",
     days_to_show: 7,
     chart_type: "bar",
-    layout_options: { grid_columns: 12, grid_rows: "auto" },
+    layout_options: { grid_columns: 4, grid_rows: "auto" },
   };
 }
 
@@ -621,7 +593,7 @@ function buildLastWateringCard(v: ValveEntities): unknown | null {
 function buildBatteryTile(v: ValveEntities): unknown {
   return {
     type: "tile",
-    grid_options: { columns: 12, rows: 3 },
+    grid_options: { columns: 4, rows: 3 },
     entity: v.battery_level,
     name: { type: "entity" },
     state_content: "state",
@@ -636,7 +608,7 @@ function buildBatteryHistoryCard(v: ValveEntities, hours: number): unknown {
     type: "history-graph",
     title: "Battery History",
     entities: [{ entity: v.battery_level, name: "Battery" }],
-    grid_options: { rows: "auto", columns: 12 },
+    grid_options: { rows: "auto", columns: 4 },
     max_y_axis: 100,
     hours_to_show: hours,
   };
