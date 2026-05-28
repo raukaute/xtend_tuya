@@ -118,22 +118,50 @@ async def async_setup_entry(
 # ----------------------------------------------------------------------
 
 
-def _format_title(
+def _format_lpm(l_per_min: float | int | str | None) -> str:
+    if l_per_min is None or l_per_min == "?" or l_per_min == "—":
+        return "—"
+    if isinstance(l_per_min, float):
+        return f"{l_per_min:.1f}".rstrip("0").rstrip(".") + " L/min"
+    return f"{l_per_min} L/min"
+
+
+def _format_volume(volume_l: float | int | None) -> str:
+    if volume_l is None:
+        return "—"
+    if isinstance(volume_l, float):
+        return f"{volume_l:.1f}".rstrip("0").rstrip(".") + " L"
+    return f"{volume_l} L"
+
+
+def _format_completed_title(
     valve_name: str,
     duration_min: int,
-    l_per_min: float | int | str,
-    lifetime_l: int | None,
+    l_per_min: float | int | None,
+    cycle_l: float | int | None,
 ) -> str:
-    # Units spelled out ("min", "L/min", "L total") because the previous
-    # short "m | l | l" form read as cubic-metre to some users.
-    lifetime_str = f"{lifetime_l} L total" if lifetime_l is not None else "—"
-    lpm_str = (
-        f"{l_per_min:.1f}".rstrip("0").rstrip(".")
-        if isinstance(l_per_min, float)
-        else str(l_per_min)
+    """Title for completed runs. cycle_l is delivered volume that run."""
+    return (
+        f"{valve_name} · {duration_min} min · "
+        f"{_format_lpm(l_per_min)} · {_format_volume(cycle_l)}"
     )
-    lpm_part = f"{lpm_str} L/min" if lpm_str != "?" else "—"
-    return f"{valve_name} · {duration_min} min · {lpm_part} · {lifetime_str}"
+
+
+def _format_planned_title(
+    valve_name: str,
+    duration_min: int,
+    avg_lpm: float | None,
+    estimated_l: float | None,
+) -> str:
+    """Title for planned slots. Values prefixed with ~ to mark them as
+    estimates from historical averages, not committed values."""
+    lpm_part = (
+        f"~{_format_lpm(avg_lpm)}" if avg_lpm is not None else "—"
+    )
+    vol_part = (
+        f"~{_format_volume(estimated_l)}" if estimated_l is not None else "—"
+    )
+    return f"{valve_name} · {duration_min} min · {lpm_part} · {vol_part}"
 
 
 def _format_description(
@@ -730,16 +758,22 @@ class IrrigationPlannedCalendar(CalendarEntity):
             else:
                 duration_seconds = 0
                 duration_min = 0
-        # For planned events the l/min comes from the historical average,
-        # since we don't know the upcoming run's flow yet.
-        l_per_min: float | str = avg_lpm if avg_lpm is not None else "?"
+        # Estimated cycle volume for the title: prefer the historical
+        # avg_cycle if we have one, otherwise derive from avg_lpm * duration.
+        estimated_l: float | None = None
+        if avg_cycle is not None:
+            estimated_l = avg_cycle
+        elif avg_lpm is not None and duration_min > 0:
+            estimated_l = avg_lpm * duration_min
 
-        title = _format_title(valve_name, duration_min, l_per_min, lifetime_l)
+        title = _format_planned_title(
+            valve_name, duration_min, avg_lpm, estimated_l
+        )
         description = _format_description(
             valve_name=valve_name,
             registry_entity_id=registry_entity_id,
             duration_min=duration_min,
-            l_per_min=l_per_min,
+            l_per_min=avg_lpm if avg_lpm is not None else "?",
             lifetime_l=lifetime_l,
             event_type="Planned",
             avg_lpm=avg_lpm,
@@ -865,16 +899,16 @@ class IrrigationCompletedCalendar(CalendarEntity):
                     continue
                 duration_min = int(r["duration_seconds"] // 60)
                 if r["total_l"] is not None and r["duration_seconds"] > 0:
-                    l_per_min: float | str = r["total_l"] / (
+                    l_per_min: float | None = r["total_l"] / (
                         r["duration_seconds"] / 60.0
                     )
                 else:
-                    l_per_min = "?"
-                title = _format_title(
+                    l_per_min = None
+                title = _format_completed_title(
                     d["valve_name"],
                     duration_min,
                     l_per_min,
-                    int(r["total_l"]) if r["total_l"] is not None else lifetime_l,
+                    r["total_l"],
                 )
                 description = _format_description(
                     valve_name=d["valve_name"],
