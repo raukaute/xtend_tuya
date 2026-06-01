@@ -98,35 +98,52 @@ async def async_setup_entry(
                 if XTCameraEntity.should_entity_be_added(
                     hass, device, hass_data.manager, supported_descriptors
                 ):
-                    entity = XTCameraEntity(
-                        device=device,
-                        device_manager=hass_data.manager,
-                        definition=xt_get_default_definition(device=device),
-                        hass=hass,
-                        webrtc_config=None,
-                        stream_quality=WebRTCStreamQuality.HIGH_QUALITY,
-                    )
-                    await entity.get_webrtc_config()
-                    if entity.webrtc_configuration is None:
-                        entity.disable_webrtc()
-                    if (
-                        entity.supports_webrtc() is False
-                        and await entity.stream_source() is None
-                    ):
-                        # this device doesn't support webrtc or rtsp, skip it...
-                        continue
-                    entities.append(entity)
-                    if entity.has_multiple_streams:
-                        entities.append(
-                            XTCameraEntity(
-                                device=device,
-                                device_manager=hass_data.manager,
-                                definition=xt_get_default_definition(device=device),
-                                hass=hass,
-                                webrtc_config=entity.webrtc_configuration,
-                                stream_quality=WebRTCStreamQuality.LOW_QUALITY,
-                            )
+                    # Building a camera entity must never take down the whole
+                    # config entry. This callback runs inside
+                    # on_loading_finalized, so an exception here propagates to
+                    # async_setup_entry and fails the entire account — and with
+                    # it every other device (valves, sensors, ...). Camera
+                    # construction currently breaks against newer HA-Tuya
+                    # (TuyaCameraEntity now needs a description arg); isolate it
+                    # so the rest of the account still loads. TODO: port the
+                    # camera platform to the upstream description-based model.
+                    try:
+                        entity = XTCameraEntity(
+                            device=device,
+                            device_manager=hass_data.manager,
+                            definition=xt_get_default_definition(device=device),
+                            hass=hass,
+                            webrtc_config=None,
+                            stream_quality=WebRTCStreamQuality.HIGH_QUALITY,
                         )
+                        await entity.get_webrtc_config()
+                        if entity.webrtc_configuration is None:
+                            entity.disable_webrtc()
+                        if (
+                            entity.supports_webrtc() is False
+                            and await entity.stream_source() is None
+                        ):
+                            # this device doesn't support webrtc or rtsp, skip it...
+                            continue
+                        entities.append(entity)
+                        if entity.has_multiple_streams:
+                            entities.append(
+                                XTCameraEntity(
+                                    device=device,
+                                    device_manager=hass_data.manager,
+                                    definition=xt_get_default_definition(device=device),
+                                    hass=hass,
+                                    webrtc_config=entity.webrtc_configuration,
+                                    stream_quality=WebRTCStreamQuality.LOW_QUALITY,
+                                )
+                            )
+                    except Exception:
+                        LOGGER.exception(
+                            "xtend_tuya: failed to build camera entity for %s; "
+                            "skipping it so the rest of the entry still loads",
+                            device_id,
+                        )
+                        continue
 
         async_add_entities(entities)
 

@@ -10,6 +10,32 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.163] — 2026-06-01
+
+Fixed a camera-entity crash taking down an entire account (Simon's prod:
+`<redacted-account-email>` "Failed to set up", which also pulled all 34
+valves offline).
+
+Newer HA-Tuya requires a `description` arg on `TuyaCameraEntity.__init__`
+(the camera platform moved to the description-based descriptor model, the
+same upstream change behind the `alarm_control_panel` "object is not
+iterable" and `fan` "non-matching include/exclude set VS dict" errors).
+xtend's `camera.py` still calls the old signature → `TypeError:
+TuyaCameraEntity.__init__() missing 1 required positional argument:
+'description'`. Camera entities are built inside the `on_loading_finalized`
+post-setup callback, so that exception propagated to `async_setup_entry`
+and failed the whole config entry — every other device on the account
+(valves, sensors) went unavailable with it.
+
+- `camera.py`: wrap per-device camera-entity construction in `add_camera_devices`
+  in try/except — log and skip a device that fails to build instead of
+  letting it abort the entry. Cameras on affected accounts stay
+  non-functional, but the account (and its valves) loads.
+
+Not fixed here: the underlying camera/alarm/fan platforms still need
+porting to the upstream description-based descriptor model. Tracked
+separately.
+
 ## [4.4.162] — 2026-06-01
 
 Fixed valves with no resolved on/off switch rendering "1" in the
