@@ -95,8 +95,19 @@ def get_config_entry_runtime_data(
                 device_listener = runtime_data.listener
     else:
         runtime_data = entry.runtime_data
-        device_manager = entry.runtime_data.manager
-        device_listener = entry.runtime_data.listener
+        # Guard every attribute access: when the overriden integration
+        # (e.g. official Tuya) is still mid-setup, its runtime_data can be a
+        # partially-initialised object (a bare DeviceListener) that lacks
+        # .manager / .listener. Mirror the hasattr-guarded "old way" branch
+        # above so a not-ready shape yields None instead of AttributeError.
+        if hasattr(runtime_data, "device_manager"):
+            device_manager = runtime_data.device_manager
+        if hasattr(runtime_data, "manager"):
+            device_manager = runtime_data.manager
+        if hasattr(runtime_data, "device_listener"):
+            device_listener = runtime_data.device_listener
+        if hasattr(runtime_data, "listener"):
+            device_listener = runtime_data.listener
     if device_manager is not None and device_listener is not None:
         return ConfigEntryRuntimeData(
             device_manager=device_manager,

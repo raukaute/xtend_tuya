@@ -10,6 +10,30 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.160] — 2026-06-01
+
+Fixed entry setup crashing on installs where official Tuya is slow to
+set up (many devices) — the sharing-account override raced ahead and
+read Tuya's `runtime_data` before it was ready.
+
+`util.get_config_entry_runtime_data` accessed `runtime_data.manager` /
+`runtime_data.listener` unguarded in the `entry.runtime_data is not
+None` branch. Mid-setup, official Tuya's `runtime_data` is a bare
+`DeviceListener` lacking those attributes, raising
+`AttributeError: 'DeviceListener' object has no attribute 'listener'`
+and killing the whole xtend_tuya entry setup. Staging never hit it
+(few devices → Tuya sets up fast → no race).
+
+- `util.py`: guard every `runtime_data` attribute access with
+  `hasattr`, mirroring the existing "old way" branch, so a not-ready
+  shape yields `None` instead of crashing.
+- `tuya_sharing/util.py`: when the overriden Tuya entry exists but its
+  runtime_data isn't ready *and* the entry is still in a
+  not-loaded/in-progress/retry state, raise `ConfigEntryNotReady` so HA
+  retries xtend_tuya once Tuya has finished — instead of silently
+  falling back to a degraded standalone setup. A genuinely
+  loaded-but-unsupported shape still returns `None` (no retry loop).
+
 ## [4.4.153] — 2026-05-27
 
 Overview tile clicks routed to the home dashboard instead of the
