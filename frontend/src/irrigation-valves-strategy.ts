@@ -361,10 +361,17 @@ function buildOverviewView(
     .filter((v) => v.flow_rate_sensor)
     .map((v) => ({ entity: v.flow_rate_sensor as string, name: v.valve_name }));
 
-  const valveStateEntities = valves.map((v) => ({
-    entity: v.switch ?? v.registry_entity,
-    name: v.valve_name,
-  }));
+  // Only plot valves whose on/off switch resolved. The registry sensor is
+  // NOT a valid fallback here: its state is the active-timer COUNT, so a
+  // valve with no switch would render "1" in a watering-history graph (see
+  // Simon's 2026-06-01 report). Valves without a switch (unavailable /
+  // limited-DP) still appear as tiles + their own detail view.
+  const valveStateEntities = valves
+    .filter((v) => v.switch)
+    .map((v) => ({
+      entity: v.switch as string,
+      name: v.valve_name,
+    }));
 
   return {
     title,

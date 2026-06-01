@@ -10,6 +10,28 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.162] — 2026-06-01
+
+Fixed valves with no resolved on/off switch rendering "1" in the
+"Watering History (all valves)" overview graph (Simon's report).
+
+The strategy detects the valve switch by entity-id string match
+(`switch.*` ending `_valve`) because xtend's switch platform sets no
+translation_key. When a valve has no matching switch entity (e.g.
+unavailable / limited-DP valve), the overview graph fell back to
+`v.registry_entity` — whose state is the active-timer COUNT, so the bar
+showed "1" instead of On/Off.
+
+- `irrigation-valves-strategy.ts`: the all-valves watering-history graph
+  now filters to valves with a resolved switch and plots only that; no
+  registry-sensor fallback (a timer count is meaningless in a watering
+  graph). Such valves still appear as tiles + their own detail view. The
+  tile/nav fallback is unchanged (it just needs a navigable entity).
+
+Note: a valve showing "1" here also means its switch entity isn't
+resolving — track separately whether that valve is unavailable or just
+named off-pattern.
+
 ## [4.4.161] — 2026-06-01
 
 Fixed "Timeout waiting for strategy element
