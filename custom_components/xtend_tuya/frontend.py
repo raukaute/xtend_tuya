@@ -77,12 +77,15 @@ async def async_register_cards(hass: HomeAssistant) -> None:
         await hass.http.async_register_static_paths(static_paths)
 
     for url_path, mtime in new_urls:
-        # The strategy bundle is built as a classic IIFE so it can load
-        # via a blocking `<script>` tag and register its custom element
-        # synchronously during page parse. The Lit-based control + timer
-        # cards stay as ES modules.
-        es5 = url_path.endswith("irrigation-valves-strategy.js")
-        add_extra_js_url(hass, f"{url_path}?v={mtime}", es5=es5)
-        _LOGGER.info(
-            "xtend_tuya: registered Lovelace card %s (es5=%s)", url_path, es5
-        )
+        # Register every bundle as a module URL (es5=False). HA's
+        # `add_extra_js_url(..., es5=True)` does NOT mean "blocking classic
+        # script" — it routes the URL to the ES5-legacy-only bucket, served
+        # solely to browsers that can't run ES modules. Modern browsers load
+        # only the module bucket, so es5=True would make them never fetch the
+        # file → the strategy custom element never registers → "Timeout
+        # waiting for strategy element". The strategy bundle is an IIFE, which
+        # runs fine inside a `type=module` script (it executes and defines the
+        # element). The `?v=<mtime>` cache-bust keeps warm loads instant to
+        # stay inside the panel's ~5 s element-registration budget.
+        add_extra_js_url(hass, f"{url_path}?v={mtime}")
+        _LOGGER.info("xtend_tuya: registered Lovelace card %s", url_path)

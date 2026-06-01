@@ -10,6 +10,27 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.161] — 2026-06-01
+
+Fixed "Timeout waiting for strategy element
+`ll-strategy-dashboard-irrigation-valves` to be registered" on modern
+browsers — the dashboard strategy never loaded.
+
+4.4.159 registered the strategy bundle with
+`add_extra_js_url(..., es5=True)`, believing it forced a blocking
+classic `<script>`. It does no such thing: `es5=True` routes the URL to
+HA's **ES5-legacy-only** bucket, served solely to browsers that can't
+run ES modules. Modern browsers (Chrome/Firefox/Safari) load only the
+module bucket, so they never fetched `irrigation-valves-strategy.js` at
+all → the custom element was never defined → the panel timed out
+waiting for it. .159 didn't fix the prior flaky race, it broke the
+strategy outright on every current browser.
+
+- `frontend.py`: register every bundle as a module URL (drop the
+  `es5=True` special-case). The IIFE strategy runs fine inside a
+  `type=module` script — it executes and defines the element. The
+  `?v=<mtime>` cache-bust still keeps warm loads instant.
+
 ## [4.4.160] — 2026-06-01
 
 Fixed entry setup crashing on installs where official Tuya is slow to
