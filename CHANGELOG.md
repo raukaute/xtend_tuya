@@ -10,6 +10,15 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.164] — 2026-06-02
+
+Fixed the options/reconfigure flow crashing with `AttributeError: 'ConfigEntry'
+object has no attribute 'runtime_data'` (`config_flow.py:316`). `runtime_data`
+only exists while an entry is loaded, so clicking **Configure** on a hub in an
+error / not-loaded state (or mid-removal) 500'd the flow — which is why
+re-entered OpenAPI credentials never appeared to persist. Now guarded with
+`getattr`, so the options flow opens regardless of entry state.
+
 ## [4.4.163] — 2026-06-01
 
 Fixed a camera-entity crash taking down an entire account (Simon's prod:
