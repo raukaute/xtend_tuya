@@ -18,6 +18,9 @@ from homeassistant.core import HomeAssistant, callback, HassJob, HassJobType
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.components.camera import (
+    CameraEntityDescription,
+)
 from homeassistant.components.camera.const import (
     StreamType,
 )
@@ -181,8 +184,15 @@ class XTCameraEntity(XTEntity, TuyaCameraEntity):
     ) -> None:
         """Init XT Camera."""
         super(XTCameraEntity, self).__init__(device, device_manager)
+        # HA 2026.x rewrote TuyaCameraEntity.__init__ to
+        # (device, device_manager, description, definition). Upstream uses an
+        # empty-key CameraEntityDescription (CAMERAS dict entries are all
+        # `key=""`); the unique_id is derived from device.id, not the key.
         super(XTEntity, self).__init__(
-            device, device_manager, definition=definition  # type: ignore
+            device,
+            device_manager,
+            CameraEntityDescription(key=""),
+            definition,  # type: ignore
         )
         if stream_quality != WebRTCStreamQuality.HIGH_QUALITY:
             self._attr_unique_id = f"tuya.{device.id}_{stream_quality}"

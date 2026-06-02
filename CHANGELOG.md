@@ -8,7 +8,23 @@ when shipping anything user-visible so HACS picks the release up.
 
 ## [Unreleased]
 
-_Nothing yet._
+Alarm-panel platform still needs the py3.14 port: upstream `ALARM` is now
+`dict[category, AlarmControlPanelEntityDescription]` (single, not a tuple) and
+`TuyaAlarmEntity.__init__` takes `(device, device_manager, description,
+definition)`. Needs the descriptor-merge to tolerate single values + the
+constructor to pass a `TuyaAlarmControlPanelDefinition` (mirror the camera
+fix). Deferred — alarm devices are non-irrigation and the platform error is
+isolated (non-fatal).
+
+## [4.4.168] — 2026-06-02
+
+Ported the camera platform to the rewritten py3.14 built-in Tuya. Upstream
+`TuyaCameraEntity.__init__` is now `(device, device_manager, description,
+definition)`; the fork only passed `definition`, so every camera raised
+`TypeError: ... missing 1 required positional argument: 'description'` (caught
+since 4.4.163, so cameras silently dropped). Now passes an empty-key
+`CameraEntityDescription(key="")` (matching upstream's CAMERAS entries; the
+unique_id derives from device.id, not the key) followed by the definition.
 
 ## [4.4.167] — 2026-06-02
 
