@@ -10,6 +10,25 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.167] — 2026-06-02
+
+Dashboard: fixed the missing on/off control widget on valves that also exist
+in the official Tuya integration (most of the second account's valves). Their
+switch unique_id collides with the built-in Tuya entity, so HA renames the
+xtend switch (e.g. `switch.east_02_902_switch_2`) — the strategy's
+`endsWith("_valve")` match missed it and the control card rendered empty. The
+discovery now matches the stable `translation_key === "valve"` first, falling
+back to the `_valve` suffix for legacy entities. Rebuilt `cards/*.js`.
+
+## [4.4.166] — 2026-06-02
+
+Guarded `xt_get_default_definition` (`sensor.py`) so a DP with an incomplete
+type model (an integer DP missing `min`, e.g. valve `countdown`/`delay_task`
+on the rewritten py3.14 built-in Tuya) can't raise `KeyError: 'min'` and fail
+the whole account entry. Same isolation pattern as the 4.4.163 camera fix:
+the malformed DP loses its auto-generated generic sensor (cosmetic) and the
+entry finishes loading. (Shipped earlier in a separate session.)
+
 ## [4.4.165] — 2026-06-02
 
 Fixed multi-device OpenAPI hubs (e.g. Simon's prod: 100 devices — valves,

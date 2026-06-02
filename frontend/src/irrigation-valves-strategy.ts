@@ -254,10 +254,18 @@ function collectValveEntities(
   for (const e of Object.values(hass.entities)) {
     if (e.device_id !== haDeviceId) continue;
 
-    // The valve switch entity has no translation_key in this
-    // integration's switch platform — pick it up by entity_id pattern.
-    if (e.entity_id.startsWith("switch.") && e.entity_id.endsWith("_valve")) {
-      v.switch = e.entity_id;
+    // The valve on/off switch carries translation_key "valve". Its
+    // entity_id is normally <slug>_valve, but when the unique_id collides
+    // with the official Tuya integration HA renames it (e.g.
+    // <slug>_switch_2), so the old endsWith("_valve") check missed every
+    // valve that also lives in the official integration — leaving the
+    // control widget empty. Match the stable translation_key first, fall
+    // back to the suffix for legacy entities with no translation_key.
+    if (
+      e.entity_id.startsWith("switch.") &&
+      (e.translation_key === "valve" || e.entity_id.endsWith("_valve"))
+    ) {
+      if (!v.switch) v.switch = e.entity_id;
       continue;
     }
     if (
