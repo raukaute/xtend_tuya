@@ -10,6 +10,21 @@ when shipping anything user-visible so HACS picks the release up.
 
 _Nothing yet._
 
+## [4.4.165] — 2026-06-02
+
+Fixed multi-device OpenAPI hubs (e.g. Simon's prod: 100 devices — valves,
+sockets, cameras) failing to set up with `asyncio.CancelledError` in
+`on_loading_finalized`. The lock / camera / IR / energy-statistic
+subscription probes ran an unbounded blocking OpenAPI call each; under load
+(many devices over the Nabu Casa relay) one would hang long enough for HA to
+cancel the whole setup task — taking the entry down. Hubs with no such
+devices (the solar valve-only hub) were unaffected, which is why solar loaded
+and simon did not. Each probe now runs through `_safe_subscription_test`:
+bounded to 15s and best-effort (any error/timeout is swallowed, returning
+"assume subscribed" so no spurious warning and setup always continues). A
+genuine task cancellation still propagates (CancelledError is a
+BaseException, not caught).
+
 ## [4.4.164] — 2026-06-02
 
 Fixed the options/reconfigure flow crashing with `AttributeError: 'ConfigEntry'
