@@ -137,9 +137,21 @@ def xt_get_default_definition(
                 function_code=dpcode,
                 scale_threshold=description.recalculate_scale_for_percentage_threshold,
             )
-    return get_default_definition(
-        device=device, dpcode=dpcode, wrapper_class=description.wrapper_class
-    )
+    try:
+        return get_default_definition(
+            device=device, dpcode=dpcode, wrapper_class=description.wrapper_class
+        )
+    except (KeyError, TypeError, ValueError) as err:
+        # Upstream tuya_device_handlers raises on DPs with incomplete type_data
+        # (e.g. integer DP missing "min"). Skip the DP instead of aborting the
+        # whole post-setup callback, which would fail the entire account entry.
+        LOGGER.warning(
+            "Skipping generic sensor for device=%s dpcode=%s — incomplete DP definition (%s)",
+            getattr(device, "id", "?"),
+            dpcode,
+            err,
+        )
+        return None
 
 
 @dataclass(frozen=True)
