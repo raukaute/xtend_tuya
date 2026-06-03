@@ -268,6 +268,12 @@ EVENTS: dict[str, tuple[XTEventEntityDescription, ...]] = {
             device_class=EventDeviceClass.MOTION,
         ),
         XTEventEntityDescription(
+            key=XTDPCode.LOCK_ALARM_KIT,
+            translation_key="doorbell",
+            device_class=EventDeviceClass.DOORBELL,
+            wrapper_class=XTDoorbellStringEventWrapper,
+        ),
+        XTEventEntityDescription(
             key=XTDPCode.PASSWORD_UNLOCK_USER,
             translation_key="unlock_user",
             translation_placeholders={"user_type": "Password"},
