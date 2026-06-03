@@ -441,10 +441,27 @@ function buildOverviewView(
               column_span: 3,
               cards: [
                 {
+                  // Per Simon 2026-06-03: battery % per valve, alongside
+                  // "last seen" so a dying valve is caught before it drops
+                  // off. last-changed on the battery sensor ≈ last report.
                   type: "entities",
-                  title: "Battery levels",
+                  title: "Battery & last seen",
                   show_header_toggle: false,
-                  entities: batteryEntities,
+                  entities: batteryEntities.map((b) => ({
+                    ...b,
+                    secondary_info: "last-changed",
+                  })),
+                  layout_options: { grid_columns: 12, grid_rows: "auto" },
+                },
+                {
+                  // Trend view — spot declining batteries before they die.
+                  type: "history-graph",
+                  title: "Battery trend (all valves)",
+                  hours_to_show: hours,
+                  entities: batteryEntities.map((b) => ({
+                    entity: b.entity,
+                    name: b.name,
+                  })),
                   layout_options: { grid_columns: 12, grid_rows: "auto" },
                 },
               ],

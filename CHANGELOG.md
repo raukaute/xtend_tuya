@@ -16,6 +16,17 @@ constructor to pass a `TuyaAlarmControlPanelDefinition` (mirror the camera
 fix). Deferred — alarm devices are non-irrigation and the platform error is
 isolated (non-fatal).
 
+## [4.4.170] — 2026-06-03
+
+Overview battery monitoring (per Simon): the "Battery levels" card is now
+"Battery & last seen" — each valve shows battery % plus last-changed (≈ last
+cloud report), so a valve whose battery is dying is caught before it drops
+off. Added a "Battery trend (all valves)" history-graph to spot declines
+early. (Validated via Tuya online/offline logs that these solar valves stay
+continuously connected when powered — they don't nap; offline = dead battery
+or a real outage. Battery % is the early-warning signal.) Rebuilt cards;
+regenerate static dashboards.
+
 ## [4.4.169] — 2026-06-03
 
 Valve detail view (per Simon/Uli): removed the "Hourly water (past 7 days)"
