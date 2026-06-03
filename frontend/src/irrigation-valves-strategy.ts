@@ -471,8 +471,8 @@ function buildValveView(v: ValveEntities, hours: number): DashboardView {
 
   const watering = buildWateringHistoryCard(v, hours);
   if (watering) middleCards.push(watering);
-  const hourly = buildHourlyVolumeCard(v);
-  if (hourly) middleCards.push(hourly);
+  // Hourly water (statistics-graph) removed per Simon/Uli 2026-06-03 —
+  // redundant with the Watering History flow curve + footer totals.
 
   if (v.battery_level) {
     rightCards.push(buildBatteryTile(v));
@@ -549,12 +549,18 @@ function buildWateringHistoryCard(v: ValveEntities, hours: number): unknown | nu
   // narrow, and at 1/3-width on a 24h window the on-pulse rectangle
   // collapses to a single hairline; full-width gives Simon's team a
   // legible flow curve.
+  // Footer (the history-graph legend) shows each entity's current value.
+  // Per Simon/Uli 2026-06-03 it should carry BOTH the live flow rate and
+  // the volume watered so far in the current cycle. `volume_sensor`
+  // (cur_cap) resets to 0 between runs, so it reads as the running total
+  // for the active cycle; on the graph it ramps up during a run,
+  // complementing the flow curve.
   const entities: unknown[] = [];
   if (v.switch) entities.push({ entity: v.switch, name: "Valve" });
   if (v.flow_rate_sensor)
     entities.push({ entity: v.flow_rate_sensor, name: "Flow rate" });
-  else if (v.volume_sensor)
-    entities.push({ entity: v.volume_sensor, name: "Run volume" });
+  if (v.volume_sensor)
+    entities.push({ entity: v.volume_sensor, name: "Watered (cycle)" });
   if (entities.length === 0) return null;
   return {
     type: "history-graph",

@@ -16,6 +16,16 @@ constructor to pass a `TuyaAlarmControlPanelDefinition` (mirror the camera
 fix). Deferred — alarm devices are non-irrigation and the platform error is
 isolated (non-fatal).
 
+## [4.4.169] — 2026-06-03
+
+Valve detail view (per Simon/Uli): removed the "Hourly water (past 7 days)"
+statistics-graph card — redundant with the Watering History flow curve. The
+**Watering History** footer now shows both the live **Flow rate** and
+**Watered (cycle)** — `volume_sensor` (cur_cap) resets between runs, so it
+reads as the running total for the active watering cycle. Rebuilt `cards/*.js`.
+Static dashboards must be regenerated (strategy generate → lovelace save) to
+pick this up.
+
 ## [4.4.168] — 2026-06-02
 
 Ported the camera platform to the rewritten py3.14 built-in Tuya. Upstream
