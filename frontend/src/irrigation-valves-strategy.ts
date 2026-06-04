@@ -1000,10 +1000,11 @@ class IrrigationValveMatrix extends HTMLElement {
         .row.clickable { cursor: pointer; }
         .row.clickable:hover { background: var(--secondary-background-color); }
         .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
-        /* Track = no-data / unreachable gap (light). Fills are only drawn
-           for reported on/off states, so an offline valve shows an empty
-           lane instead of a solid bar. */
-        .bar { position: relative; height: 18px; border-radius: 3px; background: var(--divider-color, #e0e0e0); overflow: hidden; }
+        /* Track is EMPTY (no fill) — a no-data / unreachable period renders
+           as bare background so a gap is unmistakable. Only reported states
+           draw colour: off = gray, on = amber. A faint outline keeps the
+           lane locatable when a row is all-gap. */
+        .bar { position: relative; height: 18px; border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1px var(--divider-color, #e0e0e0); overflow: hidden; }
         .seg { position: absolute; top: 0; bottom: 0; }
         .seg.off { background: var(--disabled-color, #9e9e9e); }
         .seg.on { background: var(--state-switch-active-color, #f9a825); }
