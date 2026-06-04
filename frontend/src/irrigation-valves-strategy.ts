@@ -755,6 +755,266 @@ if (!customElements.get("irrigation-refresh-button")) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Valve matrix card                                                   *
+ * ------------------------------------------------------------------ */
+
+// One fixed-height row per valve — name | watering on/off timeline |
+// battery % — so the watering-history and battery columns line up exactly
+// (two separate stock cards never align row-for-row). Lives INSIDE the
+// strategy bundle (vanilla, no Lit) rather than its own file: HACS does
+// not reliably deploy a newly-added bundle file, but this existing bundle
+// always updates, and add_extra_js_url already loads it.
+
+interface MatrixRow {
+  name: string;
+  switch?: string;
+  battery?: string;
+  path?: string;
+}
+interface MatrixConfig {
+  type: string;
+  title?: string;
+  hours?: number;
+  valves: MatrixRow[];
+}
+interface MatrixSegment {
+  left: number;
+  width: number;
+  on: boolean;
+}
+interface HistoryPoint {
+  s: string;
+  lu: number;
+}
+
+const MATRIX_REFRESH_MS = 60_000;
+
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"]/g,
+    (c) =>
+      (({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }) as Record<
+        string,
+        string
+      >)[c]
+  );
+}
+
+class IrrigationValveMatrix extends HTMLElement {
+  private _hass: HomeAssistantLike | null = null;
+  private _config: MatrixConfig | null = null;
+  private _segments: Record<string, MatrixSegment[]> = {};
+  private _root: ShadowRoot;
+  private _refreshHandle: number | null = null;
+  private _fetching = false;
+
+  constructor() {
+    super();
+    this._root = this.attachShadow({ mode: "open" });
+  }
+
+  setConfig(config: MatrixConfig): void {
+    if (!config.valves || !Array.isArray(config.valves)) {
+      throw new Error("irrigation-valve-matrix: `valves` list is required");
+    }
+    this._config = config;
+    this._segments = {};
+    this._render();
+  }
+
+  set hass(value: HomeAssistantLike) {
+    this._hass = value;
+    if (Object.keys(this._segments).length === 0) {
+      void this._fetchHistory();
+    } else {
+      this._updateBattery();
+    }
+  }
+
+  getCardSize(): number {
+    return Math.max(3, Math.ceil((this._config?.valves?.length ?? 0) / 2));
+  }
+
+  connectedCallback(): void {
+    this._refreshHandle = window.setInterval(
+      () => void this._fetchHistory(),
+      MATRIX_REFRESH_MS
+    );
+  }
+
+  disconnectedCallback(): void {
+    if (this._refreshHandle !== null) {
+      window.clearInterval(this._refreshHandle);
+      this._refreshHandle = null;
+    }
+  }
+
+  private _hours(): number {
+    return this._config?.hours ?? 24;
+  }
+
+  private async _fetchHistory(): Promise<void> {
+    if (!this._hass || !this._config || this._fetching) return;
+    const entities = this._config.valves
+      .map((v) => v.switch)
+      .filter((e): e is string => !!e);
+    if (entities.length === 0) return;
+    this._fetching = true;
+    const now = Date.now();
+    const start = now - this._hours() * 3_600_000;
+    try {
+      const raw = await (
+        this._hass as unknown as {
+          callWS: (msg: Record<string, unknown>) => Promise<
+            Record<string, HistoryPoint[]>
+          >;
+        }
+      ).callWS({
+        type: "history/history_during_period",
+        start_time: new Date(start).toISOString(),
+        end_time: new Date(now).toISOString(),
+        entity_ids: entities,
+        minimal_response: true,
+        no_attributes: true,
+      });
+      const next: Record<string, MatrixSegment[]> = {};
+      for (const entity of entities) {
+        next[entity] = this._buildSegments(raw[entity] ?? [], start, now);
+      }
+      this._segments = next;
+      this._render();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("irrigation-valve-matrix: history fetch failed", err);
+    } finally {
+      this._fetching = false;
+    }
+  }
+
+  private _buildSegments(
+    points: HistoryPoint[],
+    startMs: number,
+    endMs: number
+  ): MatrixSegment[] {
+    const span = endMs - startMs;
+    if (span <= 0 || points.length === 0) return [];
+    const segs: MatrixSegment[] = [];
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const tStart = Math.max(p.lu * 1000, startMs);
+      const tEnd =
+        i + 1 < points.length ? Math.min(points[i + 1].lu * 1000, endMs) : endMs;
+      if (tEnd <= tStart) continue;
+      segs.push({
+        left: (tStart - startMs) / span,
+        width: (tEnd - tStart) / span,
+        on: p.s === "on",
+      });
+    }
+    return segs;
+  }
+
+  private _batteryText(entity?: string): string {
+    if (!entity || !this._hass) return "—";
+    const e = this._hass.states[entity];
+    if (!e || e.state === "unavailable" || e.state === "unknown") {
+      return "Unavailable";
+    }
+    const n = parseFloat(e.state);
+    if (!Number.isFinite(n)) return e.state;
+    const unit = (e.attributes.unit_of_measurement as string) ?? "%";
+    return `${Math.round(n)}${unit}`;
+  }
+
+  private _batteryClass(entity?: string): string {
+    if (!entity || !this._hass) return "muted";
+    const e = this._hass.states[entity];
+    if (!e || e.state === "unavailable" || e.state === "unknown") return "muted";
+    const n = parseFloat(e.state);
+    if (Number.isFinite(n) && n <= 20) return "low";
+    return "";
+  }
+
+  private _updateBattery(): void {
+    if (!this._config) return;
+    const cells = this._root.querySelectorAll<HTMLElement>(".battery");
+    this._config.valves.forEach((v, i) => {
+      const cell = cells[i];
+      if (!cell) return;
+      cell.textContent = this._batteryText(v.battery);
+      cell.className = `battery ${this._batteryClass(v.battery)}`;
+    });
+  }
+
+  private _navigate(path?: string): void {
+    if (!path) return;
+    const base = window.location.pathname.split("/")[1] || "lovelace";
+    const url = path.startsWith("/") ? path : `/${base}/${path}`;
+    window.history.pushState(null, "", url);
+    this.dispatchEvent(
+      new Event("location-changed", { bubbles: true, composed: true })
+    );
+  }
+
+  private _render(): void {
+    if (!this._config) return;
+    const c = this._config;
+    const rows = c.valves
+      .map((v) => {
+        const segs = v.switch ? this._segments[v.switch] ?? [] : [];
+        const bars = segs
+          .map(
+            (s) =>
+              `<span class="seg ${s.on ? "on" : "off"}" style="left:${(
+                s.left * 100
+              ).toFixed(3)}%;width:${(s.width * 100).toFixed(3)}%"></span>`
+          )
+          .join("");
+        return `<div class="row ${
+          v.path ? "clickable" : ""
+        }" data-path="${escapeHtml(v.path || "")}">
+          <div class="name" title="${escapeHtml(v.name)}">${escapeHtml(
+            v.name
+          )}</div>
+          <div class="bar">${bars}</div>
+          <div class="battery ${this._batteryClass(
+            v.battery
+          )}">${escapeHtml(this._batteryText(v.battery))}</div>
+        </div>`;
+      })
+      .join("");
+    this._root.innerHTML = `
+      <style>
+        ha-card { padding-bottom: 8px; }
+        .card-header { font-size: 1.4rem; font-weight: 400; padding: 16px 16px 8px; margin: 0; }
+        .grid { display: flex; flex-direction: column; }
+        .row { display: grid; grid-template-columns: 150px 1fr 64px; align-items: center; gap: 12px; height: 32px; padding: 0 16px; }
+        .row.clickable { cursor: pointer; }
+        .row.clickable:hover { background: var(--secondary-background-color); }
+        .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
+        .bar { position: relative; height: 18px; border-radius: 3px; background: var(--disabled-color, #bdbdbd); opacity: 0.55; overflow: hidden; }
+        .seg { position: absolute; top: 0; bottom: 0; }
+        .seg.off { background: transparent; }
+        .seg.on { background: var(--state-switch-active-color, #f9a825); }
+        .battery { text-align: right; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+        .battery.muted { color: var(--secondary-text-color); }
+        .battery.low { color: var(--error-color, #db4437); font-weight: 600; }
+      </style>
+      <ha-card>
+        ${c.title ? `<h1 class="card-header">${escapeHtml(c.title)}</h1>` : ""}
+        <div class="grid">${rows}</div>
+      </ha-card>`;
+    this._root.querySelectorAll<HTMLElement>(".row.clickable").forEach((el) => {
+      el.addEventListener("click", () => this._navigate(el.dataset.path));
+    });
+  }
+}
+
+if (!customElements.get("irrigation-valve-matrix")) {
+  customElements.define("irrigation-valve-matrix", IrrigationValveMatrix);
+}
+
+/* ------------------------------------------------------------------ *
  * Registration                                                        *
  * ------------------------------------------------------------------ */
 
