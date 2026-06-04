@@ -372,48 +372,20 @@ function buildOverviewView(
     .filter((v) => v.flow_rate_sensor)
     .map((v) => ({ entity: v.flow_rate_sensor as string, name: v.valve_name }));
 
-  // Only plot valves whose on/off switch resolved. The registry sensor is
-  // NOT a valid fallback here: its state is the active-timer COUNT, so a
-  // valve with no switch would render "1" in a watering-history graph (see
-  // Simon's 2026-06-01 report). Valves without a switch (unavailable /
-  // limited-DP) still appear as tiles + their own detail view.
-  const valveStateEntities = valves
-    .filter((v) => v.switch)
-    .map((v) => ({
-      entity: v.switch as string,
-      name: v.valve_name,
-    }));
-
-  // Watering History (all valves) shares a row with a compact current-
-  // battery snapshot — [history bar | battery now] (Simon 2026-06-04).
-  // Inside a column_span:3 section the inner grid is 12 units wide, so
-  // 8 + 4 puts the graph at ~2/3 and the battery list at ~1/3.
-  const historyRowCards: unknown[] = [
-    {
-      type: "history-graph",
-      title: "Watering History (all valves)",
-      hours_to_show: hours,
-      entities: valveStateEntities,
-      layout_options: {
-        grid_columns: batteryEntities.length > 0 ? 8 : 12,
-        grid_rows: "auto",
-      },
-    },
-  ];
-  if (batteryEntities.length > 0) {
-    historyRowCards.push({
-      // Current battery level per valve, beside the history bar. Rows are
-      // tap-navigable to the valve's detail view (see tap_action above).
-      type: "entities",
-      title: "Battery now",
-      show_header_toggle: false,
-      entities: batteryEntities.map((b) => ({
-        ...b,
-        secondary_info: "last-changed",
-      })),
-      layout_options: { grid_columns: 4, grid_rows: "auto" },
-    });
-  }
+  // Single combined card: one fixed-height row per valve — name |
+  // watering on/off timeline | battery % — so the watering-history and
+  // battery columns line up exactly (Simon 2026-06-04). Two separate stock
+  // cards (history-graph + entities) never align row-for-row because of
+  // differing row heights, headers and axis offsets. The custom
+  // irrigation-valve-matrix card draws both per row instead. Every valve
+  // is included (switchless ones show an empty bar); rows navigate to the
+  // valve's detail view on click.
+  const matrixValves = valves.map((v) => ({
+    name: v.valve_name,
+    switch: v.switch,
+    battery: v.battery_level,
+    path: v.view_path,
+  }));
 
   return {
     title,
@@ -454,7 +426,15 @@ function buildOverviewView(
       {
         type: "grid",
         column_span: 3,
-        cards: historyRowCards,
+        cards: [
+          {
+            type: "custom:irrigation-valve-matrix",
+            title: "Watering history & battery (all valves)",
+            hours,
+            valves: matrixValves,
+            layout_options: { grid_columns: 12, grid_rows: "auto" },
+          },
+        ],
       },
       ...(flowEntities.length > 0
         ? [

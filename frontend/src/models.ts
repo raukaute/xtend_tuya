@@ -34,6 +34,33 @@ export interface IrrigationTimerCardConfig {
   name?: string;
 }
 
+/** One valve entry rendered as a row in the valve-matrix card. */
+export interface ValveMatrixRow {
+  /** Display name (SmartLife custom name). */
+  name: string;
+  /** Valve on/off switch entity — drives the watering timeline bar. */
+  switch?: string;
+  /** Battery level sensor entity — drives the battery % column. */
+  battery?: string;
+  /** Relative dashboard view path for the per-valve detail view. */
+  path?: string;
+}
+
+/** Configuration for the irrigation-valve-matrix card.
+ *
+ * Renders one fixed-height row per valve — name | watering on/off
+ * timeline | battery % — so the watering history and battery columns line
+ * up exactly (two separate stock cards never align row-for-row). */
+export interface IrrigationValveMatrixConfig {
+  type: string;
+  /** Card header. */
+  title?: string;
+  /** Hours of switch history to render in the timeline bars. */
+  hours?: number;
+  /** Per-valve rows, in display order. */
+  valves: ValveMatrixRow[];
+}
+
 /** Configuration for the irrigation-control-card. */
 export interface IrrigationControlCardConfig {
   type: string;
