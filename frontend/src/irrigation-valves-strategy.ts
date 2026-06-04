@@ -500,10 +500,11 @@ function buildOverviewView(
 
 function buildValveView(v: ValveEntities, hours: number): DashboardView {
   // 3 fixed columns organised by domain (Simon 2026-06-04):
-  //   LEFT   = Watering control & timers (switch, timer, sleep/rain delay)
+  //   LEFT   = Watering control & timers (switch + timer)
   //   MIDDLE = Watering history — Last Watering pinned to the TOP, then the
   //            flow-rate history graph below it
-  //   RIGHT  = Battery monitoring only (tile + history)
+  //   RIGHT  = Battery monitoring (tile + history) + Other settings
+  //            (sleep / rain-snow delay) at the bottom
   // Lifetime/Hourly water cards dropped — duplicate the Watering History
   // flow curve + footer totals.
   const leftCards: unknown[] = [];
@@ -513,10 +514,6 @@ function buildValveView(v: ValveEntities, hours: number): DashboardView {
   const control = buildControlCard(v);
   if (control) leftCards.push(control);
   leftCards.push(buildTimerCard(v));
-  // Sleep mode / rain-snow delay are control settings → live with the
-  // control & timer cards in the left column.
-  const other = buildOtherSettingsCard(v);
-  if (other) leftCards.push(other);
 
   // Last Watering at the top of the history column, per Simon 2026-06-04.
   const last = buildLastWateringCard(v);
@@ -528,6 +525,10 @@ function buildValveView(v: ValveEntities, hours: number): DashboardView {
     rightCards.push(buildBatteryTile(v));
     rightCards.push(buildBatteryHistoryCard(v, hours));
   }
+  // Other settings (sleep / rain-snow delay) stays in the right column,
+  // below battery, where it lived before — Simon 2026-06-04.
+  const other = buildOtherSettingsCard(v);
+  if (other) rightCards.push(other);
 
   const sections: unknown[] = [];
   if (leftCards.length) sections.push({ type: "grid", cards: leftCards });
@@ -689,24 +690,79 @@ function buildBatteryHistoryCard(v: ValveEntities, hours: number): unknown {
  * Refresh button                                                      *
  * ------------------------------------------------------------------ */
 
-// Minimal Lovelace custom card: a single button that reloads the page.
-// The strategy result is cached by the frontend, so re-discovering valves
-// after a rename/removal needs a full reload — there is no built-in
-// Lovelace action for that. Self-contained in this bundle (no Lit dep) so
-// it ships and registers alongside the strategy IIFE.
+// Minimal Lovelace custom card: a "Re-sync valves" button.
+//
+// The prod dashboard is saved as STATIC config (running the strategy live
+// reliably hit HA's ~5 s "Timeout waiting for strategy element" over the
+// Nabu Casa relay). Static means it does NOT auto-pick-up valve renames,
+// additions or removals. This button re-runs the strategy on demand,
+// saves the fresh output back over the dashboard config, then reloads —
+// so Simon gets up-to-date valves (names included; valve_name is read
+// fresh from each registry sensor) without ever loading the strategy in
+// the dashboard's timeout-bound load path.
+//
+// Self-contained in this bundle (no Lit dep) so it ships and registers
+// alongside the strategy IIFE.
 class IrrigationRefreshButton extends HTMLElement {
+  private _hass: HomeAssistantLike | null = null;
+  private _btn: HTMLButtonElement | null = null;
+
+  // Lovelace sets `.hass` on every card whenever state changes; keep the
+  // latest so the click handler can regenerate against current entities.
+  set hass(value: HomeAssistantLike) {
+    this._hass = value;
+  }
+
   setConfig(_config: unknown): void {
     if (this.childElementCount) return;
     const card = document.createElement("ha-card");
     const btn = document.createElement("button");
-    btn.textContent = "↻ Refresh";
+    this._btn = btn;
+    btn.textContent = "↻ Re-sync valves";
     btn.style.cssText =
       "width:100%;padding:12px 16px;border:none;background:none;" +
       "color:var(--primary-color);font-size:1rem;font-weight:500;" +
       "cursor:pointer;border-radius:var(--ha-card-border-radius,12px);";
-    btn.addEventListener("click", () => window.location.reload());
+    btn.addEventListener("click", () => void this._resync());
     card.appendChild(btn);
     this.appendChild(card);
+  }
+
+  private async _resync(): Promise<void> {
+    const hass = this._hass;
+    const btn = this._btn;
+    // No hass yet (card not bound) — fall back to a plain reload.
+    if (!hass) {
+      window.location.reload();
+      return;
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Syncing…";
+    }
+    try {
+      // Same bundle defines the strategy class; regenerate against the
+      // live registry, then persist over the current dashboard's config.
+      const config = await IrrigationValvesStrategy.generate({ type: "" }, hass);
+      const urlPath = window.location.pathname.split("/").filter(Boolean)[0];
+      await (
+        hass as unknown as {
+          callWS: (msg: Record<string, unknown>) => Promise<unknown>;
+        }
+      ).callWS({
+        type: "lovelace/config/save",
+        url_path: urlPath,
+        config,
+      });
+      window.location.reload();
+    } catch (err) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "↻ Re-sync failed — retry";
+      }
+      // eslint-disable-next-line no-console
+      console.error("xtend_tuya: valve re-sync failed", err);
+    }
   }
 
   getCardSize(): number {
