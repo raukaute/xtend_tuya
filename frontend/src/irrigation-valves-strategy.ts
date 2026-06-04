@@ -360,6 +360,9 @@ function buildOverviewView(
     .map((v) => ({
       entity: v.battery_level,
       name: v.valve_name,
+      // Tap a valve's battery row to jump straight into its detail view
+      // (Simon 2026-06-04 — every section should reach the detail board).
+      tap_action: { action: "navigate", navigation_path: v.view_path },
     }));
 
   // Combined flow-rate history across every valve — the > arrow on the
@@ -381,12 +384,56 @@ function buildOverviewView(
       name: v.valve_name,
     }));
 
+  // Watering History (all valves) shares a row with a compact current-
+  // battery snapshot — [history bar | battery now] (Simon 2026-06-04).
+  // Inside a column_span:3 section the inner grid is 12 units wide, so
+  // 8 + 4 puts the graph at ~2/3 and the battery list at ~1/3.
+  const historyRowCards: unknown[] = [
+    {
+      type: "history-graph",
+      title: "Watering History (all valves)",
+      hours_to_show: hours,
+      entities: valveStateEntities,
+      layout_options: {
+        grid_columns: batteryEntities.length > 0 ? 8 : 12,
+        grid_rows: "auto",
+      },
+    },
+  ];
+  if (batteryEntities.length > 0) {
+    historyRowCards.push({
+      // Current battery level per valve, beside the history bar. Rows are
+      // tap-navigable to the valve's detail view (see tap_action above).
+      type: "entities",
+      title: "Battery now",
+      show_header_toggle: false,
+      entities: batteryEntities.map((b) => ({
+        ...b,
+        secondary_info: "last-changed",
+      })),
+      layout_options: { grid_columns: 4, grid_rows: "auto" },
+    });
+  }
+
   return {
     title,
     path: "overview",
     type: "sections",
     max_columns: 3,
     sections: [
+      // Refresh button — re-runs the strategy (full page reload) so valve
+      // renames/removals on the Tuya side show up without a manual browser
+      // refresh (Simon 2026-06-04, mid-edit-session convenience).
+      {
+        type: "grid",
+        column_span: 3,
+        cards: [
+          {
+            type: "custom:irrigation-refresh-button",
+            layout_options: { grid_columns: 3, grid_rows: "auto" },
+          },
+        ],
+      },
       // Cards inside a `column_span: 3` section default to grid_columns=4
       // (≈1/3 width), so each card declares grid_columns=12 to fill the
       // full row. Without this every card on the overview renders
@@ -407,15 +454,7 @@ function buildOverviewView(
       {
         type: "grid",
         column_span: 3,
-        cards: [
-          {
-            type: "history-graph",
-            title: "Watering History (all valves)",
-            hours_to_show: hours,
-            entities: valveStateEntities,
-            layout_options: { grid_columns: 12, grid_rows: "auto" },
-          },
-        ],
+        cards: historyRowCards,
       },
       ...(flowEntities.length > 0
         ? [
@@ -441,19 +480,6 @@ function buildOverviewView(
               column_span: 3,
               cards: [
                 {
-                  // Per Simon 2026-06-03: battery % per valve, alongside
-                  // "last seen" so a dying valve is caught before it drops
-                  // off. last-changed on the battery sensor ≈ last report.
-                  type: "entities",
-                  title: "Battery & last seen",
-                  show_header_toggle: false,
-                  entities: batteryEntities.map((b) => ({
-                    ...b,
-                    secondary_info: "last-changed",
-                  })),
-                  layout_options: { grid_columns: 12, grid_rows: "auto" },
-                },
-                {
                   // Trend view — spot declining batteries before they die.
                   type: "history-graph",
                   title: "Battery trend (all valves)",
@@ -473,11 +499,13 @@ function buildOverviewView(
 }
 
 function buildValveView(v: ValveEntities, hours: number): DashboardView {
-  // 3 fixed columns. LEFT = primary controls (switch + timer);
-  // MIDDLE = history/usage graphs; RIGHT = battery monitoring,
-  // last watering, and danger settings (sleep/rain delay) deprioritised
-  // at the bottom. Lifetime water card dropped — duplicates the
-  // statistics already visible in Hourly water + Watering History.
+  // 3 fixed columns organised by domain (Simon 2026-06-04):
+  //   LEFT   = Watering control & timers (switch, timer, sleep/rain delay)
+  //   MIDDLE = Watering history — Last Watering pinned to the TOP, then the
+  //            flow-rate history graph below it
+  //   RIGHT  = Battery monitoring only (tile + history)
+  // Lifetime/Hourly water cards dropped — duplicate the Watering History
+  // flow curve + footer totals.
   const leftCards: unknown[] = [];
   const middleCards: unknown[] = [];
   const rightCards: unknown[] = [];
@@ -485,20 +513,21 @@ function buildValveView(v: ValveEntities, hours: number): DashboardView {
   const control = buildControlCard(v);
   if (control) leftCards.push(control);
   leftCards.push(buildTimerCard(v));
+  // Sleep mode / rain-snow delay are control settings → live with the
+  // control & timer cards in the left column.
+  const other = buildOtherSettingsCard(v);
+  if (other) leftCards.push(other);
 
+  // Last Watering at the top of the history column, per Simon 2026-06-04.
+  const last = buildLastWateringCard(v);
+  if (last) middleCards.push(last);
   const watering = buildWateringHistoryCard(v, hours);
   if (watering) middleCards.push(watering);
-  // Hourly water (statistics-graph) removed per Simon/Uli 2026-06-03 —
-  // redundant with the Watering History flow curve + footer totals.
 
   if (v.battery_level) {
     rightCards.push(buildBatteryTile(v));
     rightCards.push(buildBatteryHistoryCard(v, hours));
   }
-  const last = buildLastWateringCard(v);
-  if (last) rightCards.push(last);
-  const other = buildOtherSettingsCard(v);
-  if (other) rightCards.push(other);
 
   const sections: unknown[] = [];
   if (leftCards.length) sections.push({ type: "grid", cards: leftCards });
@@ -654,6 +683,39 @@ function buildBatteryHistoryCard(v: ValveEntities, hours: number): unknown {
     max_y_axis: 100,
     hours_to_show: hours,
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Refresh button                                                      *
+ * ------------------------------------------------------------------ */
+
+// Minimal Lovelace custom card: a single button that reloads the page.
+// The strategy result is cached by the frontend, so re-discovering valves
+// after a rename/removal needs a full reload — there is no built-in
+// Lovelace action for that. Self-contained in this bundle (no Lit dep) so
+// it ships and registers alongside the strategy IIFE.
+class IrrigationRefreshButton extends HTMLElement {
+  setConfig(_config: unknown): void {
+    if (this.childElementCount) return;
+    const card = document.createElement("ha-card");
+    const btn = document.createElement("button");
+    btn.textContent = "↻ Refresh";
+    btn.style.cssText =
+      "width:100%;padding:12px 16px;border:none;background:none;" +
+      "color:var(--primary-color);font-size:1rem;font-weight:500;" +
+      "cursor:pointer;border-radius:var(--ha-card-border-radius,12px);";
+    btn.addEventListener("click", () => window.location.reload());
+    card.appendChild(btn);
+    this.appendChild(card);
+  }
+
+  getCardSize(): number {
+    return 1;
+  }
+}
+
+if (!customElements.get("irrigation-refresh-button")) {
+  customElements.define("irrigation-refresh-button", IrrigationRefreshButton);
 }
 
 /* ------------------------------------------------------------------ *
