@@ -780,7 +780,11 @@ interface MatrixConfig {
 interface MatrixSegment {
   left: number;
   width: number;
-  on: boolean;
+  // "on" = watering, "off" = reporting-but-closed. Unavailable / unknown
+  // periods produce NO segment — the bare track shows through as a gap, so
+  // a non-reporting valve reads as an empty lane (real-state signal Simon
+  // relied on; a solid track for every valve hid offline valves).
+  kind: "on" | "off";
 }
 interface HistoryPoint {
   s: string;
@@ -905,10 +909,14 @@ class IrrigationValveMatrix extends HTMLElement {
       const tEnd =
         i + 1 < points.length ? Math.min(points[i + 1].lu * 1000, endMs) : endMs;
       if (tEnd <= tStart) continue;
+      // Only "on"/"off" draw a fill. unavailable/unknown (and any window
+      // with no recorder data) leave a gap so offline valves are visible.
+      const kind = p.s === "on" ? "on" : p.s === "off" ? "off" : null;
+      if (!kind) continue;
       segs.push({
         left: (tStart - startMs) / span,
         width: (tEnd - tStart) / span,
-        on: p.s === "on",
+        kind,
       });
     }
     return segs;
@@ -965,9 +973,9 @@ class IrrigationValveMatrix extends HTMLElement {
         const bars = segs
           .map(
             (s) =>
-              `<span class="seg ${s.on ? "on" : "off"}" style="left:${(
-                s.left * 100
-              ).toFixed(3)}%;width:${(s.width * 100).toFixed(3)}%"></span>`
+              `<span class="seg ${s.kind}" style="left:${(s.left * 100).toFixed(
+                3
+              )}%;width:${(s.width * 100).toFixed(3)}%"></span>`
           )
           .join("");
         return `<div class="row ${
@@ -992,9 +1000,12 @@ class IrrigationValveMatrix extends HTMLElement {
         .row.clickable { cursor: pointer; }
         .row.clickable:hover { background: var(--secondary-background-color); }
         .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
-        .bar { position: relative; height: 18px; border-radius: 3px; background: var(--disabled-color, #bdbdbd); opacity: 0.55; overflow: hidden; }
+        /* Track = no-data / unreachable gap (light). Fills are only drawn
+           for reported on/off states, so an offline valve shows an empty
+           lane instead of a solid bar. */
+        .bar { position: relative; height: 18px; border-radius: 3px; background: var(--divider-color, #e0e0e0); overflow: hidden; }
         .seg { position: absolute; top: 0; bottom: 0; }
-        .seg.off { background: transparent; }
+        .seg.off { background: var(--disabled-color, #9e9e9e); }
         .seg.on { background: var(--state-switch-active-color, #f9a825); }
         .battery { text-align: right; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
         .battery.muted { color: var(--secondary-text-color); }
