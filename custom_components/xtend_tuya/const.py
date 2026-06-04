@@ -913,6 +913,7 @@ class XTDPCode(StrEnum):
     LDR = "ldr"
     LED_ONOFF = "led_onoff"
     LEVEL_CAT_LITTER = "level_cat_litter"
+    LOCK_ALARM_KIT = "lock_alarm_kit"
     LOCK_MOTOR_STATE = "lock_motor_state"
     LOCK_RECORD = "lock_record"
     MAGNETNUM = "magnetNum"
