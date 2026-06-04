@@ -909,15 +909,19 @@ class IrrigationValveMatrix extends HTMLElement {
       const tEnd =
         i + 1 < points.length ? Math.min(points[i + 1].lu * 1000, endMs) : endMs;
       if (tEnd <= tStart) continue;
-      // Only WATERING ("on") draws colour. Everything else — closed (off),
-      // unavailable, unknown, no recorder data — leaves the lane empty, so
-      // the bar reads as amber watering marks on an otherwise empty lane
-      // (Simon: gaps = "off / not reachable"; a solid gray bar is wrong).
-      if (p.s !== "on") continue;
+      // Three visual states (Simon 2026-06-04):
+      //   on  = watering        → amber (prominent)
+      //   off = idle + reachable→ light blue (calm "online" tint)
+      //   unavailable/unknown/no-data → NO segment → empty lane = gap
+      // Idle is a LIGHT colour on purpose: a valve closed all day is a
+      // light lane, not a heavy gray block, so amber watering marks pop and
+      // an empty gap (offline) stays clearly distinct.
+      const kind = p.s === "on" ? "on" : p.s === "off" ? "off" : null;
+      if (!kind) continue;
       segs.push({
         left: (tStart - startMs) / span,
         width: (tEnd - tStart) / span,
-        kind: "on",
+        kind,
       });
     }
     return segs;
@@ -1002,12 +1006,12 @@ class IrrigationValveMatrix extends HTMLElement {
         .row.clickable:hover { background: var(--secondary-background-color); }
         .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
         /* Track is EMPTY (no fill) — a no-data / unreachable period renders
-           as bare background so a gap is unmistakable. Only reported states
-           draw colour: off = gray, on = amber. A faint outline keeps the
-           lane locatable when a row is all-gap. */
+           as bare background, so a gap is unmistakable. Reported states draw
+           colour: idle = light blue ("online, closed"), watering = amber.
+           A faint outline keeps the lane locatable when a row is all-gap. */
         .bar { position: relative; height: 18px; border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1px var(--divider-color, #e0e0e0); overflow: hidden; }
         .seg { position: absolute; top: 0; bottom: 0; }
-        .seg.off { background: var(--disabled-color, #9e9e9e); }
+        .seg.off { background: rgba(3, 169, 244, 0.30); }
         .seg.on { background: var(--state-switch-active-color, #f9a825); }
         .battery { text-align: right; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
         .battery.muted { color: var(--secondary-text-color); }
