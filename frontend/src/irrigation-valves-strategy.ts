@@ -909,14 +909,15 @@ class IrrigationValveMatrix extends HTMLElement {
       const tEnd =
         i + 1 < points.length ? Math.min(points[i + 1].lu * 1000, endMs) : endMs;
       if (tEnd <= tStart) continue;
-      // Only "on"/"off" draw a fill. unavailable/unknown (and any window
-      // with no recorder data) leave a gap so offline valves are visible.
-      const kind = p.s === "on" ? "on" : p.s === "off" ? "off" : null;
-      if (!kind) continue;
+      // Only WATERING ("on") draws colour. Everything else — closed (off),
+      // unavailable, unknown, no recorder data — leaves the lane empty, so
+      // the bar reads as amber watering marks on an otherwise empty lane
+      // (Simon: gaps = "off / not reachable"; a solid gray bar is wrong).
+      if (p.s !== "on") continue;
       segs.push({
         left: (tStart - startMs) / span,
         width: (tEnd - tStart) / span,
-        kind,
+        kind: "on",
       });
     }
     return segs;
