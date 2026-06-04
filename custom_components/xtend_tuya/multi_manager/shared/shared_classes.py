@@ -50,7 +50,9 @@ class DeviceWatcher:
             # "eb7390e135cc5cd63213qg": XTDeviceWatcherCategory.MQTT,
             # "vdevo172985271302839": XTDeviceWatcherCategory.PLATFORM_EVENT | XTDeviceWatcherCategory.VIRTUAL_STATE,
             # "bf022344b6e0cfd5dafh8e": XTDeviceWatcherCategory.MQTT,
-            # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.MQTT,
+            # XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE: XTDeviceWatcherCategory.IOT_API,
+            # "vdevo172985271302839": XTDeviceWatcherCategory.PLATFORM_LOCK,
+            # "ebf857472d1a0bd943jqag": XTDeviceWatcherCategory.MQTT | XTDeviceWatcherCategory.IOT_API | XTDeviceWatcherCategory.SHARING_API | XTDeviceWatcherCategory.STATUS_CHANGES
         }
         self.multi_manager = multi_manager
 
@@ -250,7 +252,7 @@ class XTDevice(TuyaDevice):
     class XTDevicePreference(StrEnum):
         IS_A_COVER_DEVICE = "IS_A_COVER_DEVICE"
         CLIMATE_DEVICE_ENTITY = "CLIMATE_DEVICE_ENTITY"
-        COVER_DEVICE_ENTITY = "COVER_DEVICE_ENTITY"
+        COVER_DEVICE_ENTITIES = "COVER_DEVICE_ENTITIES"
         LOCK_DEVICE_ENTITY = "LOCK_DEVICE_ENTITY"
         LOCK_MANUAL_UNLOCK_COMMAND = "LOCK_MANUAL_UNLOCK_COMMAND"
         LOCK_GET_SUPPORTED_UNLOCK_TYPES = "LOCK_GET_SUPPORTED_UNLOCK_TYPES"

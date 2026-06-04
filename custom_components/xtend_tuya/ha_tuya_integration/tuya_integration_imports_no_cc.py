@@ -1,3 +1,4 @@
+import tuya_sharing.strategy_repo  # noqa: F401
 from ..lib.tuya_sharing import strategy_repo  # noqa: F401
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntityDescription as TuyaAlarmControlPanelEntityDescription,  # noqa: F401
@@ -90,6 +91,7 @@ from homeassistant.components.tuya.switch import (
 )
 from homeassistant.components.tuya.vacuum import (
     TuyaVacuumEntity as TuyaVacuumEntity,
+    VACUUMS as VACUUMS_TUYA,  # noqa: F401
 )
 import homeassistant.components.tuya as tuya_integration  # noqa: F401
 import homeassistant.components.tuya.coordinator as tuya_coordinator  # noqa: F401
@@ -134,7 +136,6 @@ from tuya_device_handlers.type_information import (
 )
 
 from tuya_device_handlers.device_wrapper.common import (
-    _should_log_warning as tuya_type_information_should_log_warning,  # noqa: F401
     DPCodeWrapper as TuyaDPCodeWrapper,  # noqa: F401
     DPCodeTypeInformationWrapper as TuyaDPCodeTypeInformationWrapper,  # noqa: F401
     DPCodeBooleanWrapper as TuyaDPCodeBooleanWrapper,  # noqa: F401

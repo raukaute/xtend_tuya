@@ -141,6 +141,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
         auth_type = AuthType(config_entry.options[CONF_AUTH_TYPE])
         token_info = TuyaTokenInfo()
         non_user_api = XTIOTOpenAPI(
+            multi_manager=self.multi_manager,
             endpoint=config_entry.options[CONF_ENDPOINT_OT],
             access_id=config_entry.options[CONF_ACCESS_ID],
             access_secret=config_entry.options[CONF_ACCESS_SECRET],
@@ -149,6 +150,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
             non_user_specific_api=True,
         )
         api = XTIOTOpenAPI(
+            multi_manager=self.multi_manager,
             endpoint=config_entry.options[CONF_ENDPOINT_OT],
             access_id=config_entry.options[CONF_ACCESS_ID],
             access_secret=config_entry.options[CONF_ACCESS_SECRET],
@@ -795,8 +797,7 @@ class XTTuyaIOTDeviceManagerInterface(XTDeviceManagerInterface):
     ) -> None:
         if self.iot_account is None:
             return None
-        XTEventLoopProtector.execute_out_of_event_loop(
-            self.iot_account.device_manager.ipc_manager.webrtc_manager.async_handle_async_webrtc_offer,
+        await self.iot_account.device_manager.ipc_manager.webrtc_manager.async_handle_async_webrtc_offer(
             offer_sdp,
             session_id,
             send_message,
