@@ -145,13 +145,20 @@ def build_time_task_payload(
     days_mask: int,
     enabled: bool,
 ) -> str:
-    """Build base64-encoded 11-byte time_task DP payload."""
+    """Build base64-encoded 11-byte time_task DP payload.
+
+    Byte layout (verified 2026-06-05 against SmartLife app toggles):
+    [slot, enabled, mode, value(4B BE), hour, minute, days_mask, const=1].
+    byte[1] is the enable flag (1=active, 0=disabled) — SmartLife flips
+    exactly this byte on toggle, keeping the rest of the payload. byte[10]
+    is a constant 1 (NOT the enable flag, as the old spec assumed).
+    """
     if not 0 <= slot <= 6:
         raise ValueError(f"slot must be 0–6, got {slot}")
     payload = bytes(
         [
             slot & 0xFF,
-            1,
+            1 if enabled else 0,
             mode & 0xFF,
             (value >> 24) & 0xFF,
             (value >> 16) & 0xFF,
@@ -160,7 +167,7 @@ def build_time_task_payload(
             hour & 0xFF,
             minute & 0xFF,
             days_mask & 0x7F,
-            1 if enabled else 0,
+            1,
         ]
     )
     return base64.b64encode(payload).decode("ascii")

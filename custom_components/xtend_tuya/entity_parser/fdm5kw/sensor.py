@@ -99,11 +99,18 @@ class DPCodeOneControlValueWrapper(DPCodeOneControlWrapper):
 
 
 class DPCodeTimeTaskWrapper(TuyaDPCodeRawWrapper):
-    """Decodes time_task: 2-byte header + 9-byte timer entry.
+    """Decodes time_task: 11 bytes.
 
-    Confirmed layout (validated against S 809 with 3 known timers):
-    Header: [slot_index, count (always 1)]
-    Timer entry (9 bytes): [mode, value(4 bytes uint32 BE), hour, minute, days_bitmask, enabled]
+    Layout (corrected 2026-06-05 against live SmartLife app toggles):
+    [slot_index, enabled, mode, value(4 bytes uint32 BE), hour, minute,
+     days_bitmask, const].
+    - byte[1] = enable flag: 1=active, 0=disabled. SmartLife flips exactly
+      this byte when you toggle a timer off/on; the rest of the payload is
+      retained. (The old spec mislabelled this "count/always 1" — every
+      sample then was active so byte[1] and byte[10] couldn't be told apart.)
+    - byte[10] = constant 1 (NOT "enabled", as previously assumed).
+    A true delete is byte[1]==0 with an all-zero payload; a merely disabled
+    timer is byte[1]==0 with its real payload intact.
 
     The DP acts as a sliding window — only shows the last-written timer slot.
     The device stores all timers internally. Each edit pushes that slot's data.
@@ -122,17 +129,21 @@ class DPCodeTimeTaskWrapper(TuyaDPCodeRawWrapper):
             if len(decoded) < 11:
                 return
             self.slot_index = decoded[0]
-            count = decoded[1]
-            if count == 0:
+            entry = decoded[2:11]
+            # byte[1] is the enable flag (1=active, 0=disabled), NOT a count.
+            # A true delete is byte[1]==0 AND an all-zero payload; a disabled
+            # timer keeps its full payload with byte[1]==0 — keep it (greyed),
+            # don't drop it (that was the "timer vanishes in HA" bug).
+            enabled = decoded[1]
+            if enabled == 0 and not any(entry):
                 self.timer = None
                 return
-            entry = decoded[2:11]
             mode = entry[0]
             value = int.from_bytes(entry[1:5], byteorder="big")
             hour = entry[5]
             minute = entry[6]
             days_mask = entry[7]
-            enabled = entry[8]
+            # entry[8] == decoded[10] is a constant 1, not the enable flag.
             days = [
                 DAYS_OF_WEEK[i] for i in range(7) if days_mask & (1 << i)
             ]
