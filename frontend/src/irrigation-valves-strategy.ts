@@ -833,6 +833,7 @@ class IrrigationValveMatrix extends HTMLElement {
     } else {
       this._updateBattery();
     }
+    this._updateCounts();
   }
 
   getCardSize(): number {
@@ -959,6 +960,30 @@ class IrrigationValveMatrix extends HTMLElement {
     });
   }
 
+  // A valve is "online" when its switch reports a real state (on/off);
+  // unavailable/unknown/missing = offline. Read-only against hass.states,
+  // so this can never affect device behaviour (Simon 2026-06-06: show the
+  // online/offline count so the user always sees how many valves they have).
+  private _counts(): { online: number; offline: number; total: number } {
+    const valves = this._config?.valves ?? [];
+    let online = 0;
+    for (const v of valves) {
+      const e = v.switch && this._hass ? this._hass.states[v.switch] : undefined;
+      if (e && e.state !== "unavailable" && e.state !== "unknown") online++;
+    }
+    return { online, offline: valves.length - online, total: valves.length };
+  }
+
+  private _countsText(): string {
+    const c = this._counts();
+    return `${c.online} online · ${c.offline} offline · ${c.total} total`;
+  }
+
+  private _updateCounts(): void {
+    const el = this._root.querySelector<HTMLElement>("#valve-counts");
+    if (el) el.textContent = this._countsText();
+  }
+
   private _navigate(path?: string): void {
     if (!path) return;
     const base = window.location.pathname.split("/")[1] || "lovelace";
@@ -999,7 +1024,8 @@ class IrrigationValveMatrix extends HTMLElement {
     this._root.innerHTML = `
       <style>
         ha-card { padding-bottom: 8px; }
-        .card-header { font-size: 1.4rem; font-weight: 400; padding: 16px 16px 8px; margin: 0; }
+        .card-header { font-size: 1.4rem; font-weight: 400; padding: 16px 16px 4px; margin: 0; }
+        .card-subtitle { padding: 0 16px 10px; margin: 0; color: var(--secondary-text-color); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
         .grid { display: flex; flex-direction: column; }
         .row { display: grid; grid-template-columns: 150px 1fr 64px; align-items: center; gap: 12px; height: 32px; padding: 0 16px; }
         .row.clickable { cursor: pointer; }
@@ -1019,6 +1045,9 @@ class IrrigationValveMatrix extends HTMLElement {
       </style>
       <ha-card>
         ${c.title ? `<h1 class="card-header">${escapeHtml(c.title)}</h1>` : ""}
+        <div class="card-subtitle" id="valve-counts">${escapeHtml(
+          this._countsText()
+        )}</div>
         <div class="grid">${rows}</div>
       </ha-card>`;
     this._root.querySelectorAll<HTMLElement>(".row.clickable").forEach((el) => {
