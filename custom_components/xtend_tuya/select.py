@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import cast
 from dataclasses import dataclass
 from tuya_device_handlers.definition.select import (
-    TuyaSelectDefinition,
+    SelectDefinition,
     get_default_definition,
 )
 from homeassistant.const import EntityCategory, Platform
@@ -52,7 +52,7 @@ class XTSelectEntityDescription(TuyaSelectEntityDescription):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTSelectEntityDescription,
-        definition: TuyaSelectDefinition,
+        definition: SelectDefinition,
     ) -> XTSelectEntity:
         return XTSelectEntity(
             device=device,
@@ -80,12 +80,6 @@ TEMPERATURE_SELECTS: tuple[XTSelectEntityDescription, ...] = (
 # https://developer.tuya.com/en/docs/iot/standarddescription?id=K9i5ql6waswzq
 SELECTS: dict[str, tuple[XTSelectEntityDescription, ...]] = {
     CROSS_CATEGORY_DEVICE_DESCRIPTOR: (
-        XTSelectEntityDescription(
-            key=XTDPCode.XT_LOCK_UNLOCK_MECHANISM,
-            translation_key="xt_lock_unlock_mechanism",
-            entity_category=EntityCategory.CONFIG,
-            dont_send_to_cloud=True,
-        ),
     ),
     "cz": (
         XTSelectEntityDescription(
@@ -210,18 +204,14 @@ SELECTS: dict[str, tuple[XTSelectEntityDescription, ...]] = {
             entity_category=EntityCategory.CONFIG,
         ),
         XTSelectEntityDescription(
-            key=XTDPCode.CLEAN,
-            translation_key="cat_litter_box_clean",
-            entity_category=EntityCategory.CONFIG,
-        ),
-        XTSelectEntityDescription(
-            key=XTDPCode.EMPTY,
-            translation_key="cat_litter_box_empty",
-            entity_category=EntityCategory.CONFIG,
-        ),
-        XTSelectEntityDescription(
             key=XTDPCode.WORK_MODE,
             translation_key="cat_litter_box_work_mode",
+            entity_category=EntityCategory.CONFIG,
+        ),
+        # Ti+ / DOEL ti+TpCTbt-01: weight unit selector
+        XTSelectEntityDescription(
+            key=XTDPCode.UNIT_SWITCH,
+            translation_key="unit_switch",
             entity_category=EntityCategory.CONFIG,
         ),
     ),
@@ -422,14 +412,14 @@ class XTSelectEntity(XTEntity, TuyaSelectEntity):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTSelectEntityDescription,
-        definition: TuyaSelectDefinition,
+        definition: SelectDefinition,
     ) -> None:
         """Init XT select."""
         super(XTSelectEntity, self).__init__(
             device=device,
             device_manager=device_manager,
             description=description,
-            dpcode_wrapper=definition.select_wrapper,
+            definition=definition,
         )
         super(XTEntity, self).__init__(
             device=device,
@@ -452,7 +442,7 @@ class XTSelectEntity(XTEntity, TuyaSelectEntity):
         description: XTSelectEntityDescription,
         device: XTDevice,
         device_manager: MultiManager,
-        definition: TuyaSelectDefinition,
+        definition: SelectDefinition,
     ) -> XTSelectEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")

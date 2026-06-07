@@ -24,7 +24,6 @@ from paho.mqtt.properties import (
 from paho.mqtt.client import (
     DisconnectFlags as mqtt_DisconnectFlags,
 )
-from requests.exceptions import RequestException
 
 from .openapi import TuyaOpenAPI
 from .openlogging import logger
@@ -64,9 +63,11 @@ class TuyaMQConfig:
         if self.marked_invalid:
             #logger.warning(f"[{self.class_id} MQTT] MQTT config is marked invalid.")
             return False
-        if self.valid_until <= int(time.time() * 1000) + 60 * 1000:
-            #logger.warning(f"[{self.class_id} MQTT] MQTT config is expired or will expire within 60 seconds.")
+        check_time = int(time.time() * 1000) + 5 * 60 * 1000
+        if self.valid_until <= check_time:
+            #logger.debug(f"[{self.class_id} MQTT] MQTT config is expired or will expire within 300 seconds. ({self.valid_until} <= {check_time})")
             return False
+        #logger.debug(f"[{self.class_id} MQTT] MQTT config is not expired. ({self.valid_until} > {check_time})")
         #logger.warning(f"[{self.class_id} MQTT] MQTT config is valid.")
         return True
 
@@ -97,6 +98,7 @@ class TuyaOpenMQ(threading.Thread):
         self.link_id: str = link_id if link_id is not None else f"tuya-iot-app-sdk-python.{uuid.uuid1()}"
         self.class_id: str = class_id
         self.topics: str = topics
+        self._client_lock = threading.Lock()
 
     def _get_mqtt_config(self, first_pass=True) -> TuyaMQConfig:
         path = (
@@ -114,15 +116,13 @@ class TuyaOpenMQ(threading.Thread):
             ),
         }
         response = self.api.post(path, body)
-        if response.get("success", False):
-            pass
-        else:
-            logger.error(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}", stack_info=True)
+        if response.get("success", True) is False:
+            logger.error(f"[{self.class_id} MQTT] _get_mqtt_config response: {response}, request was: POST {path}, body: {body}", stack_info=True)
 
         if response.get("success", False) is False:
             if first_pass:
                 return self._get_mqtt_config(first_pass=False)
-            return TuyaMQConfig()
+            return TuyaMQConfig(mqConfigResponse= {}, class_id=self.class_id)
 
         return TuyaMQConfig(response, self.class_id)
 
@@ -183,20 +183,25 @@ class TuyaOpenMQ(threading.Thread):
     def run(self):
         """Method representing the thread's activity which should not be used directly."""
         backoff_seconds = 1
+        retry_amount = 0
         while not self._stop_event.is_set():
             try:
                 self._run_mqtt()
                 backoff_seconds = 1
+                retry_amount = 0
 
                 ## reconnect every 2 hours required.
                 #time.sleep(self.mq_config.expire_time - 60)
 
                 # run_mqtt will not do anything if already connected
-                time.sleep(30)
-            except RequestException as e:
-                logger.exception(e)
+                time.sleep(1)
+            except Exception as e:
+                retry_amount += 1
+                if retry_amount > 10:
+                    self.stop()
+                logger.exception(e, stack_info=True)
                 logger.error(
-                    f"[{self.class_id} MQTT] failed to refresh mqtt server, retrying in {backoff_seconds} seconds."
+                    f"[{self.class_id} MQTT] failed to refresh MQTT client, retrying in {backoff_seconds} seconds."
                 )
 
                 time.sleep(backoff_seconds)
@@ -205,33 +210,33 @@ class TuyaOpenMQ(threading.Thread):
                 )  # Try at most every 60 seconds to refresh
 
     def _run_mqtt(self, first_pass=True):
-
-        # Don't do anything if already connected
-        if self.client and self.client.is_connected() and self.mq_config.is_valid():
-            return
-        
-        # if we don't have a valid mq_config, get a new one
-        if self.mq_config.is_valid() is False:
-            self.mq_config = self._get_mqtt_config()
-
-            # exit if the new mq_config is not valid
-            if self.mq_config.is_valid() is False:
-                logger.error(f"[{self.class_id} MQTT] Got an invalid mqtt config, please check your system logs", stack_info=True)
-                self.stop()
+        with self._client_lock:
+            # Don't do anything if already connected
+            if self.client and self.client.is_connected() and self.mq_config.is_valid():
                 return
+            
+            # if we don't have a valid mq_config, get a new one
+            if self.mq_config.is_valid() is False:
+                self.mq_config = self._get_mqtt_config()
 
-        # If we have a client, disconnect it first
-        if self.client:
-            self.client.disconnect()
-            self.client = None
+                # exit if the new mq_config is not valid
+                if self.mq_config.is_valid() is False:
+                    raise Exception(f"[{self.class_id} MQTT] Got an invalid mqtt config, please check your system logs")
 
-        # get a new client
-        self.client = self._start()
-        if self.client is None:
-            self.mq_config.mark_invalid()
-            if first_pass:
-                self._run_mqtt(first_pass=False)
-            return
+            # If we have a client, disconnect it first
+            if self.client:
+                self.client.loop_stop()
+                self.client.disconnect()
+                self.client = None
+
+            # get a new client
+            self.client = self._start()
+            if self.client is None:
+                self.mq_config.mark_invalid()
+                if first_pass:
+                    self._run_mqtt(first_pass=False)
+                else:
+                    raise Exception(f"[{self.class_id} MQTT] Could not generate an MQTT client in 2 passes, exiting")
 
     # This block will be useful when we'll use Paho MQTT 3.x or above
     def _on_disconnect(
@@ -248,7 +253,9 @@ class TuyaOpenMQ(threading.Thread):
             self.stop()
         elif rc != "Normal disconnection":
             #Reconnect on other unplanned disconnection
-            self._run_mqtt()
+            #If the client got disconnected unexpectedly, the _run_mqtt thread will detect this and rebuild it, nothing to do here
+            logger.error(f"Got unexpected disconnection: {rc=}, {userdata=} {flags=} {client=}")
+            pass
 
     def _on_connect(
         self,
@@ -326,12 +333,14 @@ class TuyaOpenMQ(threading.Thread):
 
         Stop mqtt thread
         """
-        #logger.warning(f"[{self.class_id} MQTT] stop", stack_info=True)
-        self.message_listeners = set()
-        if self.client is not None:
-            self.client.disconnect()
-        self.client = None
-        self._stop_event.set()
+        with self._client_lock:
+            #logger.warning(f"[{self.class_id} MQTT] stop", stack_info=True)
+            self.message_listeners = set()
+            if self.client is not None:
+                self.client.loop_stop()
+                self.client.disconnect()
+            self.client = None
+            self._stop_event.set()
 
     def add_message_listener(self, listener: Callable[[dict], None]):
         """Add mqtt message listener."""

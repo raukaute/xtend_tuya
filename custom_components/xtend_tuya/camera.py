@@ -10,7 +10,7 @@ from webrtc_models import (
     RTCIceServer,
 )
 from tuya_device_handlers.definition.camera import (
-    TuyaCameraDefinition,
+    CameraDefinition as TuyaCameraDefinition,
     get_default_definition,
 )
 from homeassistant.const import Platform

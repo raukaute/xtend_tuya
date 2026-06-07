@@ -13,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.json import json_loads
 
 from tuya_device_handlers.definition.binary_sensor import (
-    TuyaBinarySensorDefinition,
+    BinarySensorDefinition,
     get_default_definition,
 )
 
@@ -65,7 +65,7 @@ class XTBinarySensorEntityDescription(TuyaBinarySensorEntityDescription):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTBinarySensorEntityDescription,
-        definition: TuyaBinarySensorDefinition,
+        definition: BinarySensorDefinition,
     ) -> XTBinarySensorEntity:
         return XTBinarySensorEntity(
             device=device,
@@ -174,6 +174,20 @@ BINARY_SENSORS: dict[str, tuple[XTBinarySensorEntityDescription, ...]] = {
             translation_key="store_full_notify",
             entity_registry_enabled_default=True,
         ),
+        # Ti+ / DOEL ti+TpCTbt-01: fires true when auto-clean cycle completes
+        XTBinarySensorEntityDescription(
+            key=XTDPCode.IN_CLEAN,
+            translation_key="in_clean",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+        ),
+        # Ti+ / DOEL ti+TpCTbt-01: scheduled clean triggered flag
+        XTBinarySensorEntityDescription(
+            key=XTDPCode.DP_TIME_CLEAR_FLAG,
+            translation_key="dp_time_clear_flag",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+        ),
     ),
     # QT-08W Solar Intelligent Water Valve
     # "sfkzq": (
@@ -264,7 +278,7 @@ BINARY_SENSORS["jtmsbh"] = BINARY_SENSORS["jtmspro"]
 def xt_get_default_definition(
     device: XTDevice,
     description: XTBinarySensorEntityDescription,
-) -> TuyaBinarySensorDefinition | None:
+) -> BinarySensorDefinition | None:
     return get_default_definition(
         device=device,
         dpcode=description.dpcode or description.key,
@@ -483,10 +497,15 @@ class XTBinarySensorEntity(XTEntity, TuyaBinarySensorEntity):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTBinarySensorEntityDescription,
-        definition: TuyaBinarySensorDefinition,
+        definition: BinarySensorDefinition,
     ) -> None:
         """Init Tuya binary sensor."""
-        super(XTBinarySensorEntity, self).__init__(device, device_manager, description)
+        super(XTBinarySensorEntity, self).__init__(
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            description=description,
+            definition=definition,
+        )
         super(XTEntity, self).__init__(
             device=device,
             device_manager=device_manager,  # type: ignore
@@ -516,7 +535,7 @@ class XTBinarySensorEntity(XTEntity, TuyaBinarySensorEntity):
         description: XTBinarySensorEntityDescription,
         device: XTDevice,
         device_manager: MultiManager,
-        definition: TuyaBinarySensorDefinition,
+        definition: BinarySensorDefinition,
     ) -> XTBinarySensorEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")

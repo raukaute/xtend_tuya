@@ -5,5 +5,11 @@
             "envManager": "ms-python.python:venv",
             "packageManager": "ms-python.python:pip"
         }
+    ],
+    "python.analysis.exclude": [
+        "custom_components/xtend_tuya/lib/tuya_sharing",
+        "**/node_modules",
+        "**/__pycache__",
+        "**/.*"
     ]
 }

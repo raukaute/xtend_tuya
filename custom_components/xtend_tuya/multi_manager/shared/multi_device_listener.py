@@ -42,11 +42,12 @@ class MultiDeviceListener:
                 dispatcher_send(
                     self.hass, f"{signal}_{device.id}", updated_status_properties, dp_timestamps
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: F841
                 # Could happen upon restart of HA
-                LOGGER.debug(
-                    f"Could not send {signal}_{device.id} (updated_status_properties = {updated_status_properties}) to dispatch: {e}"
-                )
+                # LOGGER.debug(
+                #     f"Could not send {signal}_{device.id} (updated_status_properties = {updated_status_properties}) to dispatch: {e}"
+                # )
+                pass
 
     def add_device(self, device: sh.XTDevice):
         self.add_device_by_id(device.id)
@@ -58,8 +59,15 @@ class MultiDeviceListener:
             signal_list = util.append_lists(
                 signal_list, account.get_add_device_signal_list(device_id)
             )
+        errors: list[Exception] = []
         for signal in signal_list:
-            dispatcher_send(self.hass, signal, [device_id])
+            try:
+                dispatcher_send(self.hass, signal, [device_id])
+            except Exception as e:
+                LOGGER.exception(e)
+                errors.append(e)
+        if errors:
+            raise ExceptionGroup("add_device_by_id signal dispatch failed", errors)
 
     def remove_device(self, device_id: str):
         device_registry = dr.async_get(self.hass)

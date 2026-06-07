@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import cast
 from tuya_device_handlers.definition.humidifier import (
-    TuyaHumidifierDefinition,
+    HumidifierDefinition,
     get_default_definition,
 )
 from homeassistant.const import Platform
@@ -41,7 +41,7 @@ class XTHumidifierEntityDescription(TuyaHumidifierEntityDescription):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTHumidifierEntityDescription,
-        definition: TuyaHumidifierDefinition,
+        definition: HumidifierDefinition,
     ) -> XTHumidifierEntity:
         return XTHumidifierEntity(
             device=device,
@@ -127,9 +127,14 @@ class XTHumidifierEntity(XTEntity, TuyaHumidifierEntity):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTHumidifierEntityDescription,
-        definition: TuyaHumidifierDefinition,
+        definition: HumidifierDefinition,
     ) -> None:
-        super(XTHumidifierEntity, self).__init__(device, device_manager, description)
+        super(XTHumidifierEntity, self).__init__(
+            device=device,
+            device_manager=device_manager,  # type: ignore
+            description=description,
+            definition=definition,
+        )
         super(XTEntity, self).__init__(
             device=device,
             device_manager=device_manager,  # type: ignore
@@ -145,7 +150,7 @@ class XTHumidifierEntity(XTEntity, TuyaHumidifierEntity):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTHumidifierEntityDescription,
-        definition: TuyaHumidifierDefinition,
+        definition: HumidifierDefinition,
     ) -> XTHumidifierEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")

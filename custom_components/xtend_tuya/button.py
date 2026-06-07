@@ -9,7 +9,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from tuya_device_handlers.definition.button import (
-    TuyaButtonDefinition,
+    ButtonDefinition,
     get_default_definition,
 )
 
@@ -36,6 +36,7 @@ from .const import (
     XTMultiManagerProperties,
     XTDiscoverySource,
     LOGGER,  # noqa: F401
+    IR_HUB_CATEGORY_LIST,
 )
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaButtonEntity,
@@ -229,7 +230,7 @@ class XTButtonEntityDescription(TuyaButtonEntityDescription):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTButtonEntityDescription,
-        definition: TuyaButtonDefinition,
+        definition: ButtonDefinition,
     ) -> XTButtonEntity:
         return XTButtonEntity(
             device=device,
@@ -237,11 +238,6 @@ class XTButtonEntityDescription(TuyaButtonEntityDescription):
             description=XTButtonEntityDescription(**description.__dict__),
             definition=definition,
         )
-
-
-IR_HUB_CATEGORY_LIST: list[str] = [
-    "wnykq",
-]
 
 CONSUMPTION_BUTTONS: tuple[XTButtonEntityDescription, ...] = (
     XTButtonEntityDescription(
@@ -272,40 +268,43 @@ BUTTONS: dict[str, tuple[XTButtonEntityDescription, ...]] = {
     ),
     "kg": (*CONSUMPTION_BUTTONS,),
     "msp": (
-        XTButtonEntityDescription(
-            key=XTDPCode.BAG_CHANGE_MODE,
-            translation_key="change_litter_bag",
-            entity_category=EntityCategory.CONFIG,
-        ),
-        # Poopy Nano 2 uses the DPCode "clean" for starting a manual clean.
-        # We reuse the same translation key.
+        # Poopy Nano 2 / DOEL ti+TpCTbt-01: "clean" triggers a manual clean cycle
         XTButtonEntityDescription(
             key=XTDPCode.CLEAN,
             translation_key="manual_clean",
-            entity_category=EntityCategory.CONFIG,
+        ),
+        # One-click cleanup action (momentary trigger)
+        XTButtonEntityDescription(
+            key=XTDPCode.CLEANING,
+            translation_key="one_click_cleanup",
         ),
         XTButtonEntityDescription(
             key=XTDPCode.EMPTY,
             translation_key="empty_litter",
-            entity_category=EntityCategory.CONFIG,
         ),
+        XTButtonEntityDescription(
+            key=XTDPCode.LEVEL_CAT_LITTER,
+            translation_key="level_cat_litter",
+        ),
+        # ZEDAR K1200 / DOEL: "manual_clean" triggers a manual clean cycle
+        XTButtonEntityDescription(
+            key=XTDPCode.MANUAL_CLEAN,
+            translation_key="manual_clean",
+        ),
+        XTButtonEntityDescription(
+            key=XTDPCode.INDUCTION_CLEAN_2,
+            translation_key="induction_clean",
+        ),
+        XTButtonEntityDescription(
+            key=XTDPCode.BAG_CHANGE_MODE,
+            translation_key="change_litter_bag",
+        ),
+        # ── Diagnostic ─────────────────────────────────────────────────────────────
         XTButtonEntityDescription(
             key=XTDPCode.FACTORY_RESET,
             translation_key="factory_reset",
             entity_category=EntityCategory.DIAGNOSTIC,
             entity_registry_enabled_default=False,
-        ),
-        XTButtonEntityDescription(
-            key=XTDPCode.LEVEL_CAT_LITTER,
-            translation_key="level_cat_litter",
-            entity_category=EntityCategory.CONFIG,
-        ),
-        # ZEDAR K1200 uses the DPCode "manual_clean" for starting a manual clean.
-        # We reuse the same translation key.
-        XTButtonEntityDescription(
-            key=XTDPCode.MANUAL_CLEAN,
-            translation_key="manual_clean",
-            entity_category=EntityCategory.CONFIG,
         ),
     ),
     "qccdz": (
@@ -339,7 +338,7 @@ BUTTONS["jtmsbh"] = BUTTONS["jtmspro"]
 def xt_get_default_definition(
     device: XTDevice,
     description: XTButtonEntityDescription,
-) -> TuyaButtonDefinition | None:
+) -> ButtonDefinition | None:
     return get_default_definition(
         device=device,
         dpcode=description.key,
@@ -413,7 +412,7 @@ async def async_setup_entry(
                             device=hub_device,
                             device_manager=hass_data.manager,
                             description=descriptor,
-                            definition=TuyaButtonDefinition(
+                            definition=ButtonDefinition(
                                 button_wrapper=button_wrapper,
                             ),
                         )
@@ -442,7 +441,7 @@ async def async_setup_entry(
                                     device=remote_device,
                                     device_manager=hass_data.manager,
                                     description=descriptor,
-                                    definition=TuyaButtonDefinition(
+                                    definition=ButtonDefinition(
                                         button_wrapper=button_wrapper,
                                     ),
                                 )
@@ -469,7 +468,7 @@ async def async_setup_entry(
                                         device=remote_device,
                                         device_manager=hass_data.manager,
                                         description=descriptor,
-                                        definition=TuyaButtonDefinition(
+                                        definition=ButtonDefinition(
                                             button_wrapper=button_wrapper,
                                         ),
                                     )
@@ -569,7 +568,7 @@ async def async_setup_entry(
                                                 device=device,
                                                 device_manager=hass_data.manager,
                                                 description=description,
-                                                definition=TuyaButtonDefinition(
+                                                definition=ButtonDefinition(
                                                     button_wrapper=dpcode_wrapper
                                                 ),
                                             )
@@ -594,7 +593,7 @@ async def async_setup_entry(
                                                 device=device,
                                                 device_manager=hass_data.manager,
                                                 description=description,
-                                                definition=TuyaButtonDefinition(
+                                                definition=ButtonDefinition(
                                                     button_wrapper=dpcode_wrapper
                                                 ),
                                             )
@@ -627,7 +626,7 @@ class XTButtonEntity(XTEntity, TuyaButtonEntity):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTButtonEntityDescription,
-        definition: TuyaButtonDefinition,
+        definition: ButtonDefinition,
     ) -> None:
         """Init XT button."""
         super(XTButtonEntity, self).__init__(
@@ -635,7 +634,6 @@ class XTButtonEntity(XTEntity, TuyaButtonEntity):
             device_manager=device_manager,
             description=description,
             definition=definition,
-            dpcode_wrapper=definition.button_wrapper,
         )
         super(XTEntity, self).__init__(
             device=device,
@@ -653,7 +651,7 @@ class XTButtonEntity(XTEntity, TuyaButtonEntity):
         device: XTDevice,
         device_manager: MultiManager,
         description: XTButtonEntityDescription,
-        definition: TuyaButtonDefinition,
+        definition: ButtonDefinition,
     ) -> XTButtonEntity:
         if hasattr(description, "get_entity_instance") and callable(
             getattr(description, "get_entity_instance")
@@ -665,7 +663,7 @@ class XTButtonEntity(XTEntity, TuyaButtonEntity):
                 definition=definition,
             )
         return XTButtonEntity(
-            device == device,
+            device=device,
             device_manager=device_manager,
             description=XTButtonEntityDescription(**description.__dict__),
             definition=definition,

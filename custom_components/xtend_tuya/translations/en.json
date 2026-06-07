@@ -35,7 +35,7 @@
                     "new_ir_device_name": "New device name"
                 }
             },
-            "configure": {
+            "configure_api": {
                 "description": "Add a Tuya OpenAPI credential to improve the compatibility with some Tuya devices. Please follow the guide at the URL by clicking the button below.",
                 "data": {
                     "no_openapi": "Don't ask for OpenAPI credentials",
@@ -85,7 +85,9 @@
             "device_settings": {
                 "title": "Configuration category",
                 "menu_options": {
-                    "select_climate_device": "Climate options"
+                    "select_climate_device": "Climate options",
+                    "select_cover_device": "Cover options",
+                    "select_lock_device": "Lock options"
                 }
             },
             "select_device": {
@@ -114,20 +116,60 @@
                     "device": "Device"
                 }
             },
+            "select_cover_device": {
+                "title": "Select Device",
+                "description": "Select a cover device to configure.",
+                "data": {
+                    "device": "Device"
+                }
+            },
+            "select_lock_device": {
+                "title": "Select Device",
+                "description": "Select a lock device to configure.",
+                "data": {
+                    "device": "Device"
+                }
+            },
             "climate_device_settings": {
                 "title": "Configure {device_name}",
-                "description": "Set the temperature step for this device. The raw Tuya value is 10x the step (e.g. raw value 5 = step 0.5, raw value 1 = step 0.1).",
+                "description": "Set the properties of the device",
                 "data": {
-                    "target_temperature_step": "Target temperature step"
+                    "current_temperature_value_multiplicator": "Current temperature multiplier",
+                    "current_humidity_value_multiplicator": "Current humidity multiplier",
+                    "target_temperature_value_multiplicator": "Target temperature multiplier",
+                    "target_humidity_value_multiplicator": "Target humidity multiplier"
+                }
+            },
+            "cover_device_settings": {
+                "title": "Configure {device_name}",
+                "description": "Set the properties of the device",
+                "data": {
+                    "invert_control": "Invert the control of the device",
+                    "invert_status": "Invert the reported status of the device",
+                    "open_time": "Time from opened to closed (seconds)",
+                    "update_interval": "Status refresh interval",
+                    "force_virtual_position": "Force use of virtual position",
+                    "no_precise_position": "Device doesn't support precise positioning"
+                }
+            },
+            "lock_device_settings": {
+                "title": "Configure {device_name}",
+                "description": "Set the properties of the device",
+                "data": {
+                    "temporary_unlock_time": "Seconds the lock stays opened",
+                    "lock_unlock_mecanism": "Force unlock mecanism",
+                    "lock_status_dpcode": "DPCode that represents the lock open/closed status"
                 }
             }
         },
         "abort": {
+            "climate_entity_not_found": "No climate entity found for the selected device. Please select a device with a climate entity to configure.",
+            "lock_entity_not_found": "No lock entity found for the selected device. Please select a device with a lock entity to configure.",
             "no_devices_found": "No devices found for this configuration category.",
             "device_not_selected": "No device selected. Please select a device to configure.",
             "device_not_found": "Selected device not found. Please select a valid device to configure.",
-            "climate_entity_not_found": "No climate entity found for the selected device. Please select a device with a climate entity to configure.",
-            "no_configurable_properties": "The selected device does not have configurable properties."
+            "no_configurable_properties": "The selected device does not have configurable properties.",
+            "no_multi_manager": "No Multi Manager stored, please contact the developer."
         }
     },
     "services": {
@@ -313,6 +355,12 @@
             "trash_status": {
                 "name": "Garbage is full"
             },
+            "in_clean": {
+                "name": "Auto-clean completed"
+            },
+            "dp_time_clear_flag": {
+                "name": "Scheduled clean triggered"
+            },
             "wakeup": {
                 "name": "Woken up"
             },
@@ -372,6 +420,9 @@
             "clear_energy": {
                 "name": "Clear energy"
             },
+            "deep_clean": {
+                "name": "Deep clean"
+            },
             "empty_litter": {
                 "name": "Empty litter box"
             },
@@ -386,6 +437,9 @@
             },
             "manual_clean": {
                 "name": "Manual clean"
+            },
+            "one_click_cleanup": {
+                "name": "One-click cleanup"
             },
             "manual_lock": {
                 "name": "Manual lock"
@@ -471,6 +525,40 @@
             }
         },
         "event": {
+            "alarm_lock": {
+                "name": "Lock alarm",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "wrong_finger": "Wrong fingerprint",
+                            "wrong_password": "Wrong password",
+                            "wrong_card": "Wrong card",
+                            "wrong_face": "Wrong face",
+                            "tongue_bad": "Latch stuck",
+                            "too_hot": "Too hot",
+                            "unclosed_time": "Not closed after timeout",
+                            "tongue_not_out": "Deadbolt stuck",
+                            "pry": "Anti-pry alarm",
+                            "key_in": "Not calibrated",
+                            "low_battery": "Low battery",
+                            "power_off": "Battery exhausted",
+                            "shock": "Vibration alarm",
+                            "defense": "Arm alarm",
+                            "test": "Test"
+                        }
+                    }
+                }
+            },
+            "ipc_movement_detect": {
+                "name": "Movement detected",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "motion": "Motion detected"
+                        }
+                    }
+                }
+            },
             "numbered_button": {
                 "name": "Button {button_number}",
                 "state_attributes": {
@@ -485,6 +573,9 @@
             },
             "unlock_user": {
                 "name": "Unlock user ({user_type})"
+            },
+            "xt_device_event_notify": {
+                "name": "Device notifications"
             }
         },
         "light": {
@@ -543,6 +634,9 @@
             "bright_value": {
                 "name": "Brightness"
             },
+            "capacity_calibration": {
+                "name": "Capacity calibration"
+            },
             "charge_cur_set": {
                 "name": "Charging current"
             },
@@ -587,6 +681,9 @@
             },
             "detection_distance_min": {
                 "name": "Min detection distance"
+            },
+            "detection_sensitivity": {
+                "name": "Detection sensitivity"
             },
             "hold_sensitivity": {
                 "name": "Hold sensitivity"
@@ -714,6 +811,33 @@
             "sm_sensitivity": {
                 "name": "Micro-motion detection sensitivity"
             },
+            "sensitivity_cz": {
+                "name": "Sensitivity CZ"
+            },
+            "sensitivity_wd": {
+                "name": "Sensitivity WD"
+            },
+            "false_alarm": {
+                "name": "False alarm threshold"
+            },
+            "study_timer": {
+                "name": "Study timer"
+            },
+            "wd_detection": {
+                "name": "WD detection distance"
+            },
+            "mov_min_detection": {
+                "name": "Min movement detection distance"
+            },
+            "micro_min_detection": {
+                "name": "Min micro-motion detection distance (ZG-205Z)"
+            },
+            "bre_min_detection": {
+                "name": "Min breathing detection distance"
+            },
+            "sand_surface_calibration": {
+                "name": "Sand surface calibration"
+            },
             "standby_bright": {
                 "name": "Standby brightness"
             },
@@ -731,6 +855,9 @@
             },
             "tempsc": {
                 "name": "Temperature correction"
+            },
+            "time_clear": {
+                "name": "Scheduled clean time"
             },
             "timer_on": {
                 "name": "Delayed power on"
@@ -1668,6 +1795,9 @@
             "ch9_temperature": {
                 "name": "Channel 9 Temperature"
             },
+            "bag_change_counting": {
+                "name": "Bag change count"
+            },
             "capacity_calibration": {
                 "name": "Capacity calibration"
             },
@@ -1806,6 +1936,9 @@
             "excretion_times_day": {
                 "name": "Number of excretion"
             },
+            "fault": {
+                "name": "Fault"
+            },
             "flow_velocity": {
                 "name": "Flow speed"
             },
@@ -1920,6 +2053,9 @@
             "monitoring": {
                 "name": "Monitoring"
             },
+            "mov_status": {
+                "name": "Movement status"
+            },
             "ms_category_alarm_lock": {
                 "name": "Keypad alarm",
                 "state": {
@@ -2022,6 +2158,9 @@
             },
             "pir_radar": {
                 "name": "PIR Radar"
+            },
+            "ponud": {
+                "name": "Cat weight (lb)"
             },
             "power_a": {
                 "name": "Power A"
@@ -2220,6 +2359,13 @@
             "unit": {
                 "name": "Unit"
             },
+            "unit_switch": {
+                "name": "Weight unit",
+                "state": {
+                    "kg": "Kilograms",
+                    "lb": "Pounds"
+                }
+            },
             "unlock_card": {
                 "name": "Card unlock user"
             },
@@ -2365,6 +2511,12 @@
             },
             "depth": {
                 "name": "Depth"
+            },
+            "detection_near": {
+                "name": "Detection near"
+            },
+            "distance": {
+                "name": "Target distance"
             },
             "duster_cloth_life": {
                 "name": "Duster cloth lifetime"
@@ -2701,11 +2853,17 @@
             "deodorization": {
                 "name": "Deodorization"
             },
+            "developer_mode": {
+                "name": "Developer mode"
+            },
             "empty": {
                 "name": "Empty"
             },
             "factory_reset": {
                 "name": "Factory reset"
+            },
+            "false_breath": {
+                "name": "False breath filter"
             },
             "id_verification_set": {
                 "name": "Set ID verification"
@@ -2985,6 +3143,9 @@
             },
             "sleep": {
                 "name": "Sleep"
+            },
+            "sleep_new": {
+                "name": "Sleep mode"
             },
             "sleep_aid": {
                 "name": "Sleep aid"

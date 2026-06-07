@@ -25,6 +25,7 @@ from tuya_sharing.manager import (
 )
 from .ha_tuya_integration.tuya_integration_imports import (
     TuyaDPType,
+    tuya_coordinator,
 )
 import custom_components.xtend_tuya.multi_manager.multi_manager as mm
 import custom_components.xtend_tuya.multi_manager.shared.shared_classes as shared
@@ -74,9 +75,9 @@ class ConfigEntryRuntimeData(NamedTuple):
 
 
 def get_config_entry_runtime_data(
-    hass: HomeAssistant, entry: ConfigEntry, domain: str
+    hass: HomeAssistant, entry: tuya_coordinator.TuyaConfigEntry | shared.XTConfigEntry, domain: str
 ) -> ConfigEntryRuntimeData | None:
-    if not entry:
+    if not entry or not hasattr(entry, "runtime_data"):
         return None
     runtime_data = None
     device_manager = None
@@ -110,9 +111,9 @@ def get_config_entry_runtime_data(
             device_listener = runtime_data.listener
     if device_manager is not None and device_listener is not None:
         return ConfigEntryRuntimeData(
-            device_manager=device_manager,
+            device_manager=device_manager, # type: ignore
             generic_runtime_data=runtime_data,
-            device_listener=device_listener,
+            device_listener=runtime_data, # type: ignore
         )
     else:
         return None

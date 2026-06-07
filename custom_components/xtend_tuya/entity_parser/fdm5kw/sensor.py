@@ -11,7 +11,7 @@ from homeassistant.const import UnitOfVolumeFlowRate
 from homeassistant.components.sensor import SensorStateClass
 from homeassistant.helpers.event import async_track_time_interval
 from tuya_device_handlers.definition.sensor import (
-    TuyaSensorDefinition,
+    SensorDefinition as TuyaSensorDefinition,
 )
 from ...sensor import (
     XTSensorEntity,
