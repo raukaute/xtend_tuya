@@ -254,6 +254,15 @@ function collectValveEntities(
   for (const e of Object.values(hass.entities)) {
     if (e.device_id !== haDeviceId) continue;
 
+    // Only reference entities that are actually loaded as states. When a hub
+    // fails setup (e.g. expired Tuya auth) its entities stay in the registry
+    // but drop out of hass.states; emitting those entity_ids made HA-core
+    // tile / history-graph / entities cards throw "Cannot read properties of
+    // undefined (reading 'friendly_name')", which errored the whole view.
+    // Skipping them degrades a down valve gracefully (fewer cards) instead of
+    // taking the dashboard down with it.
+    if (!hass.states[e.entity_id]) continue;
+
     // The valve on/off switch carries translation_key "valve". Its
     // entity_id is normally <slug>_valve, but when the unique_id collides
     // with the official Tuya integration HA renames it (e.g.
@@ -936,7 +945,7 @@ class IrrigationValveMatrix extends HTMLElement {
     }
     const n = parseFloat(e.state);
     if (!Number.isFinite(n)) return e.state;
-    const unit = (e.attributes.unit_of_measurement as string) ?? "%";
+    const unit = (e.attributes?.unit_of_measurement as string) ?? "%";
     return `${Math.round(n)}${unit}`;
   }
 
