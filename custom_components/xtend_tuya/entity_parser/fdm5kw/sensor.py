@@ -50,7 +50,54 @@ from .const import DEVICE_CATEGORY, DAYS_OF_WEEK
 # ---------------------------------------------------------------------------
 
 
-class DPCodeTimestampWrapper(TuyaDPCodeRawWrapper):
+class XTDPCodeRawStatusWrapper(TuyaDPCodeRawWrapper):
+    """Raw DP wrapper that also binds on status presence.
+
+    tuya-device-handlers 0.0.22 changed ``DPCodeWrapper.find_dpcode`` to bind
+    only when the DP is declared in the device *spec* (``device.function`` /
+    ``device.status_range``) with ``type == RAW``. fdm5kw valves obtained over
+    the sharing API report ``time_task`` / ``start_time`` / ``close_time`` /
+    ``one_control`` as *status values* only — the sharing spec lists just DPs
+    1 + 11 — so the strict lookup returns ``None`` and the timer/name/last-run
+    entities silently vanish (regressed in the 0.0.22 merge, v4.4.181: ~85 of
+    100 valves dropped to the bare "Valve" entity with no timer).
+
+    Restore the pre-0.0.22 behaviour: try the spec-based lookup first (so
+    OpenAPI-spec devices keep their real type information), and only if that
+    misses, synthesize a ``RawTypeInformation`` from a DP that is present in
+    ``device.status``. ``RawTypeInformation.read_device_value`` reads straight
+    from ``device.status`` and base64-decodes — it never consults ``type_data``
+    — so a synthesized instance decodes identically.
+    """
+
+    @classmethod
+    def find_dpcode(
+        cls,
+        device: TuyaCustomerDevice,
+        dpcodes: str | tuple[str, ...] | None,
+        *,
+        prefer_function: bool = False,
+    ):
+        if wrapper := super().find_dpcode(
+            device, dpcodes, prefer_function=prefer_function
+        ):
+            return wrapper
+        if dpcodes is None:
+            return None
+        if not isinstance(dpcodes, tuple):
+            dpcodes = (dpcodes,)
+        for dpcode in dpcodes:
+            if device.status.get(dpcode) is not None:
+                return cls(
+                    dpcode=dpcode,
+                    type_information=TuyaRawTypeInformation(
+                        dpcode=dpcode, type_data="{}", report_type=None
+                    ),
+                )
+        return None
+
+
+class DPCodeTimestampWrapper(XTDPCodeRawStatusWrapper):
     """Decodes start_time / close_time: 6 bytes [year_offset, month, day, hour, minute, second]."""
 
     def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
@@ -64,7 +111,7 @@ class DPCodeTimestampWrapper(TuyaDPCodeRawWrapper):
         return None
 
 
-class DPCodeOneControlWrapper(TuyaDPCodeRawWrapper):
+class DPCodeOneControlWrapper(XTDPCodeRawStatusWrapper):
     """Decodes one_control: 6 bytes [mode, param_hi, param_mid_hi, param_mid_lo, param_lo, ?]."""
 
     def __init__(self, dpcode: str, type_information: TuyaRawTypeInformation) -> None:
@@ -98,7 +145,7 @@ class DPCodeOneControlValueWrapper(DPCodeOneControlWrapper):
         return self.value
 
 
-class DPCodeTimeTaskWrapper(TuyaDPCodeRawWrapper):
+class DPCodeTimeTaskWrapper(XTDPCodeRawStatusWrapper):
     """Decodes time_task: 11 bytes.
 
     Layout (corrected 2026-06-05 against live SmartLife app toggles):
