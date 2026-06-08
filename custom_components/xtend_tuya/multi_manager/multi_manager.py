@@ -79,6 +79,7 @@ from .shared.storage.storage_manager import (
     XTStorageManager,
 )
 import custom_components.xtend_tuya.multi_manager.shared.data_entry.shared_data_entry as shared_data_entry
+from .shared.quota import ControllableQuotaTracker
 
 
 class MultiManager(TuyaManager):
@@ -95,6 +96,9 @@ class MultiManager(TuyaManager):
         self.device_watcher = DeviceWatcher(self)
         self.storage_manager = XTStorageManager(hass, config_entry, self)
         self.accounts: dict[str, XTDeviceManagerInterface] = {}
+        # Per-hub OpenAPI controllable-device quota tracker (created in
+        # setup_entry only for hubs that have a tuya_iot account).
+        self.controllable_quota: ControllableQuotaTracker | None = None
         self.master_device_map: XTDeviceMap = XTDeviceMap({})
         self.is_ready_for_messages = False
         self.pending_messages: list[tuple[str, dict]] = []
@@ -169,6 +173,22 @@ class MultiManager(TuyaManager):
             await XTEventLoopProtector.execute_out_of_event_loop_and_return(
                 account.on_post_setup
             )
+        # Controllable-device quota tracker — only OpenAPI (tuya_iot) hubs have
+        # the 10-controllable/month cap. "tuya_iot" == MESSAGE_SOURCE_TUYA_IOT,
+        # "access_id" == CONF_ACCESS_ID (the project id, used as the hub key).
+        if self.get_account_by_name("tuya_iot") is not None:
+            try:
+                access_id = self.config_entry.options.get("access_id")
+            except Exception:
+                access_id = None
+            hub_id = access_id or self.config_entry.entry_id
+            self.controllable_quota = ControllableQuotaTracker(self.hass, hub_id)
+            try:
+                await self.controllable_quota.async_load()
+            except Exception:
+                LOGGER.warning(
+                    "Failed to load controllable-quota store for hub %s", hub_id
+                )
 
     async def setup_entity_parsers(self) -> None:
         await XTCustomEntityParser.setup_entity_parsers(self.hass, self)
@@ -534,6 +554,18 @@ class MultiManager(TuyaManager):
             return_list = append_lists(return_list, account.query_scenes())
         return return_list
 
+    def _note_controllable_command(self, account, device_id: str) -> None:
+        """Count a successful command toward this hub's controllable-device cap.
+
+        Only commands issued via the OpenAPI (tuya_iot) account consume the
+        Tuya project's monthly controllable allowance. Thread-safe.
+        """
+        if (
+            self.controllable_quota is not None
+            and account.get_type_name() == "tuya_iot"
+        ):
+            self.controllable_quota.record(device_id)
+
     def send_commands(self, device_id: str, commands: list[dict[str, Any]]) -> bool: # type: ignore
         virtual_function_commands: list[dict[str, Any]] = []
         regular_commands: list[dict[str, Any]] = []
@@ -578,6 +610,7 @@ class MultiManager(TuyaManager):
                     if last_command_result := account.send_command(
                         device_id, regular_command, reverse_filters=False
                     ):
+                        self._note_controllable_command(account, device_id)
                         break
 
                 # If the command failed, try using the other APIs
@@ -586,6 +619,7 @@ class MultiManager(TuyaManager):
                         if last_command_result := account.send_command(
                             device_id, regular_command, reverse_filters=True
                         ):
+                            self._note_controllable_command(account, device_id)
                             break
 
                 # If it still didn't work, try sending the command aliases if they exist
@@ -605,11 +639,13 @@ class MultiManager(TuyaManager):
                             if last_command_result := account.send_command(
                                 device_id, command, reverse_filters=False
                             ):
+                                self._note_controllable_command(account, device_id)
                                 break
                         for account in self.accounts.values():
                             if last_command_result := account.send_command(
                                 device_id, command, reverse_filters=True
                             ):
+                                self._note_controllable_command(account, device_id)
                                 break
                         if last_command_result is True:
                             break
