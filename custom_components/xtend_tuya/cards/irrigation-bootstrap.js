@@ -24,6 +24,7 @@ const PREFIX = "/xtend_tuya_static/cards/";
 // element name -> bundle file that defines it
 const BUNDLES = {
   "irrigation-quota-card": "irrigation-quota-card.js",
+  "irrigation-room-groups": "irrigation-room-groups.js",
   "irrigation-control-card": "irrigation-control-card.js",
   "irrigation-timer-card": "irrigation-timer-card.js",
   "irrigation-valve-matrix": "irrigation-valves-strategy.js",
