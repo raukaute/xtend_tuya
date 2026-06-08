@@ -145,6 +145,18 @@ export class IrrigationControlCard extends LitElement {
     return (e?.attributes?.valve_name as string) ?? null;
   }
 
+  // "Home · Room" to help locate the valve in the SmartLife app. Both come
+  // from the registry sensor's attributes (filled by the backend location
+  // service); render nothing until at least one is known.
+  private _valveLocation(): string | null {
+    if (!this._config.registry_entity) return null;
+    const e = this.hass.states[this._config.registry_entity];
+    const home = e?.attributes?.valve_home as string | undefined;
+    const room = e?.attributes?.valve_room as string | undefined;
+    const parts = [home, room].filter((p) => p && String(p).trim());
+    return parts.length ? parts.join(" · ") : null;
+  }
+
   // ----- Actions -----
 
   private async _toggleManual(): Promise<void> {
@@ -208,6 +220,7 @@ export class IrrigationControlCard extends LitElement {
         | undefined) ??
       "Watering";
 
+    const location = this._valveLocation();
     const running = this._isOn();
     const start = this._startTime();
     const end = this._endTime();
@@ -232,7 +245,12 @@ export class IrrigationControlCard extends LitElement {
       <ha-card>
         <div class="card-header">
           <ha-icon icon="mdi:water-pump"></ha-icon>
-          <span>${name}</span>
+          <div class="title">
+            <span class="name">${name}</span>
+            ${location
+              ? html`<span class="location">${location}</span>`
+              : nothing}
+          </div>
           ${this._renderStatusPill(running, inProgress)}
         </div>
         <div class="card-content">
@@ -396,8 +414,26 @@ export class IrrigationControlCard extends LitElement {
       color: var(--ic-primary);
     }
 
-    .card-header span {
+    .card-header .title {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .card-header .title .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-header .title .location {
+      font-size: 0.7em;
+      font-weight: 400;
+      opacity: 0.6;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .pill {

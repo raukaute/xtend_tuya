@@ -27,6 +27,7 @@ from ...ha_tuya_integration.tuya_integration_imports import (
     TuyaRawTypeInformation,
 )
 from ...const import XTDPCode
+from . import location_service
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -314,10 +315,13 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
             return None
         slots = wrapper.get_slots_dict()
         active = sum(1 for s in slots.values() if s and s.get("enabled"))
+        location = location_service.get_location(self.device.id) or {}
         return {
             "slots": slots,
             "active_count": active,
             "valve_name": self.device.name,
+            "valve_home": location.get("home"),
+            "valve_room": location.get("room"),
             "device_id": self.device.id,
             "product_name": getattr(self.device, "product_name", None),
         }
@@ -326,6 +330,16 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
         """Restore slot registry from previous HA state."""
         await super().async_added_to_hass()
         Fdm5kwTimerRegistryEntity.INSTANCES[self.device.id] = self
+
+        # Populate the valve home/room map (and put the owning hub on a slow
+        # refresh) the first time any timer sensor is added. Fire-and-forget:
+        # a location fetch must never block or break entity setup.
+        multi_manager = self.device.get_multi_manager(self.hass)
+        if multi_manager is not None:
+            self.hass.async_create_task(
+                location_service.async_ensure_scheduled(self.hass, multi_manager)
+            )
+
         wrapper = self._dpcode_wrapper
         if not isinstance(wrapper, DPCodeTimeTaskRegistryWrapper):
             return
@@ -362,6 +376,19 @@ class Fdm5kwTimerRegistryEntity(XTSensorEntity):
     async def async_will_remove_from_hass(self) -> None:
         Fdm5kwTimerRegistryEntity.INSTANCES.pop(self.device.id, None)
         await super().async_will_remove_from_hass()
+
+
+def _republish_valve_location() -> None:
+    """Re-publish timer-registry state so newly-fetched home/room attributes
+    reach the frontend immediately (the map fills async, after the entities'
+    first state write). Runs in the event loop via location_service."""
+    for entity in list(Fdm5kwTimerRegistryEntity.INSTANCES.values()):
+        if entity.hass is not None:
+            entity.async_write_ha_state()
+
+
+if _republish_valve_location not in location_service.REFRESH_LISTENERS:
+    location_service.REFRESH_LISTENERS.append(_republish_valve_location)
 
 
 # ---------------------------------------------------------------------------
