@@ -211,14 +211,22 @@ export class IrrigationControlCard extends LitElement {
     const running = this._isOn();
     const start = this._startTime();
     const end = this._endTime();
-    // A cycle is "in progress" only if the user started it from this card's
-    // Single watering button. Manual ON also opens the valve and updates
-    // start_time, but we don't want the progress/timer view in that case.
+    // A cycle is "in progress" when the valve is open with a fresh start_time
+    // (newer than the last close) AND something is actually driving a timed
+    // run. Two independent signals, so the countdown is durable:
+    //   - _initiatedHere: this card just pressed Single watering — show the
+    //     progress view instantly, before the device echoes its state back.
+    //   - one_control target value > 0: the DEVICE reports an active
+    //     duration/volume run. This survives page reloads (it reads from
+    //     hass.states, not in-memory flags) and also covers cycles started
+    //     from the app or a schedule. Gating on _initiatedHere ALONE made the
+    //     countdown vanish on every reload/navigation (regressed 2026-05-05).
+    // A plain "Manual ON" writes no target (value 0), so it still shows the
+    // controls, not a countdown — preserving the original Manual-ON carve-out.
+    const runningCycle =
+      running && start !== null && (end === null || start > end);
     const inProgress =
-      this._initiatedHere &&
-      running &&
-      start !== null &&
-      (end === null || start > end);
+      runningCycle && (this._initiatedHere || (this._targetValue() ?? 0) > 0);
 
     return html`
       <ha-card>

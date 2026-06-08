@@ -89,6 +89,7 @@ interface ValveEntities {
   start_time_sensor?: string;
   end_time_sensor?: string;
   mode_sensor?: string;
+  value_sensor?: string;
   battery_level?: string;
   sleep_mode?: string;
   rain_snow_delay?: string;
@@ -107,6 +108,7 @@ const TRANSLATION_KEY_TO_FIELD: Record<string, keyof ValveEntities> = {
   // v4.4.111 baseline uses `end_time` for the CLOSE_TIME sensor.
   end_time: "end_time_sensor",
   watering_mode: "mode_sensor",
+  watering_value: "value_sensor",
   watering_volume: "volume_sensor",
   watering_flow_rate: "flow_rate_sensor",
   battery_level: "battery_level",
@@ -124,6 +126,7 @@ const ENTITY_ID_SUFFIX_TO_FIELD: Array<[RegExp, keyof ValveEntities]> = [
   [/_last_watering_start$/, "start_time_sensor"],
   [/_last_watering_end$/, "end_time_sensor"],
   [/_watering_flow_rate$/, "flow_rate_sensor"],
+  [/_watering_value$/, "value_sensor"],
   [/_watering_volume$/, "volume_sensor"],
   [/_watering_duration$/, "duration"],
   [/_watering_mode$/, "mode_sensor"],
@@ -543,6 +546,7 @@ function buildControlCard(v: ValveEntities): unknown | null {
     start_time_sensor: v.start_time_sensor,
     end_time_sensor: v.end_time_sensor,
     mode_sensor: v.mode_sensor,
+    value_sensor: v.value_sensor,
     registry_entity: v.registry_entity,
     device_id: v.device_id,
     layout_options: { grid_columns: 4, grid_rows: "auto" },
