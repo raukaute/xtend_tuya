@@ -72,7 +72,11 @@ export class IrrigationRoomGroups extends LitElement {
       if (!id.endsWith(REGISTRY_SUFFIX)) continue;
       const e = this.hass.states[id];
       const a = e.attributes;
-      const name = (a.valve_name as string) || (a.friendly_name as string) || id;
+      // Offline valves have no valve_name attr; fall back to friendly_name but
+      // strip the " Irrigation timer registry" suffix so the chip reads clean.
+      const raw = (a.valve_name as string) || (a.friendly_name as string) || id;
+      const name =
+        raw.replace(/\s*Irrigation timer registry$/i, "").trim() || raw;
       const home = ((a.valve_home as string) || "").trim() || UNASSIGNED;
       const room = ((a.valve_room as string) || "").trim() || UNASSIGNED;
       const valveEntity = deriveValveEntity(id, this.hass, name);
