@@ -9,6 +9,16 @@ interface HassEntity {
 interface HomeAssistant {
   states: Record<string, HassEntity>;
   callService?: (domain: string, service: string, data: unknown) => void;
+  callWS?: <T = unknown>(msg: Record<string, unknown>) => Promise<T>;
+}
+
+interface LovelaceView {
+  path?: string;
+  cards?: unknown[];
+  sections?: { cards?: unknown[] }[];
+}
+interface LovelaceConfig {
+  views?: LovelaceView[];
 }
 
 interface RoomGroupsConfig {
@@ -20,6 +30,17 @@ interface ValveRow {
   name: string;
   state: string; // open | closed | unavailable | unknown
   entity: string | null; // valve entity for tap
+  path: string | null; // detail-view path for the link (null = no view)
+}
+
+// HA derives each per-valve detail view's path by slugifying its title (the
+// valve name): lowercase, every run of non-alphanumerics -> single hyphen,
+// trimmed. e.g. "FG Green Carpet 01 (809)" -> "fg-green-carpet-01-809".
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 const REGISTRY_SUFFIX = "_irrigation_timer_registry";
@@ -51,9 +72,57 @@ function deriveValveEntity(
 export class IrrigationRoomGroups extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @state() private _config!: RoomGroupsConfig;
+  // registry_entity -> detail view path, learned from the lovelace config so
+  // links survive valve renames (the per-valve view paths are slugs of OLD
+  // titles and don't always match the live valve_name).
+  @state() private _pathMap: Record<string, string> | null = null;
+  private _pathLoadStarted = false;
 
   setConfig(config: RoomGroupsConfig): void {
     this._config = config;
+  }
+
+  // Build registry_entity -> view-path once, from this dashboard's config. Each
+  // per-valve detail view holds an irrigation-control-card whose registry_entity
+  // is the same sensor this card groups on — an exact, rename-proof key.
+  private async _loadPaths(): Promise<void> {
+    if (this._pathLoadStarted || !this.hass?.callWS) return;
+    this._pathLoadStarted = true;
+    const urlPath =
+      window.location.pathname.split("/").filter(Boolean)[0] ?? "lovelace";
+    let cfg: LovelaceConfig;
+    try {
+      cfg = await this.hass.callWS<LovelaceConfig>({
+        type: "lovelace/config",
+        url_path: urlPath,
+      });
+    } catch {
+      return; // leave _pathMap null -> chips fall back to slug links
+    }
+    const map: Record<string, string> = {};
+    const scan = (node: unknown, path: string | undefined): void => {
+      if (Array.isArray(node)) {
+        for (const n of node) scan(n, path);
+        return;
+      }
+      if (node && typeof node === "object") {
+        const o = node as Record<string, unknown>;
+        if (
+          typeof o.type === "string" &&
+          o.type.includes("irrigation-control-card") &&
+          typeof o.registry_entity === "string" &&
+          path
+        ) {
+          map[o.registry_entity] = path;
+        }
+        for (const k of Object.keys(o)) scan(o[k], path);
+      }
+    };
+    for (const v of cfg.views ?? []) {
+      scan(v.cards, v.path);
+      scan(v.sections, v.path);
+    }
+    this._pathMap = map;
   }
 
   getCardSize(): number {
@@ -61,7 +130,11 @@ export class IrrigationRoomGroups extends LitElement {
   }
 
   protected shouldUpdate(changed: PropertyValues): boolean {
-    return changed.has("_config") || changed.has("hass");
+    return (
+      changed.has("_config") ||
+      changed.has("hass") ||
+      changed.has("_pathMap")
+    );
   }
 
   // home -> room -> valves, built fresh from the timer-registry sensors that
@@ -86,7 +159,12 @@ export class IrrigationRoomGroups extends LitElement {
       if (!homes.has(home)) homes.set(home, new Map());
       const rooms = homes.get(home)!;
       if (!rooms.has(room)) rooms.set(room, []);
-      rooms.get(room)!.push({ name, state, entity: valveEntity });
+      rooms.get(room)!.push({
+        name,
+        state,
+        entity: valveEntity,
+        path: this._detailPath(id, name),
+      });
     }
     // sort valves by name within each room
     for (const rooms of homes.values())
@@ -101,19 +179,40 @@ export class IrrigationRoomGroups extends LitElement {
     return "na";
   }
 
-  private _openMoreInfo(entity: string | null): void {
-    if (!entity) return;
+  // The dashboard root, derived from the current URL (e.g. the overview at
+  // /dashboard-valves/overview -> /dashboard-valves), so the chip links point
+  // at this dashboard's per-valve detail views regardless of its url_path.
+  private _dashboardBase(): string {
+    const seg = window.location.pathname.split("/").filter(Boolean);
+    return seg.length ? `/${seg[0]}` : "";
+  }
+
+  // Detail-view path for a valve. Prefer the learned registry_entity -> path
+  // map (authoritative: if loaded and missing, the valve has no detail view, so
+  // no link). Until the map loads, fall back to a name slug as a best effort.
+  private _detailPath(registryId: string, name: string): string | null {
+    const base = this._dashboardBase();
+    if (this._pathMap) {
+      const p = this._pathMap[registryId];
+      return p ? `${base}/${p}` : null;
+    }
+    const slug = slugify(name);
+    return slug ? `${base}/${slug}` : null;
+  }
+
+  // SPA navigation to a detail view (no full reload) — the standard custom-card
+  // pattern: push history + fire location-changed so HA's router picks it up.
+  private _navigate(e: Event, path: string): void {
+    e.preventDefault();
+    window.history.pushState(null, "", path);
     this.dispatchEvent(
-      new CustomEvent("hass-more-info", {
-        detail: { entityId: entity },
-        bubbles: true,
-        composed: true,
-      })
+      new Event("location-changed", { bubbles: true, composed: true })
     );
   }
 
   protected render() {
     if (!this._config || !this.hass) return nothing;
+    void this._loadPaths(); // one-shot, guarded
     const homes = this._groups();
     if (homes.size === 0) {
       return html`<ha-card
@@ -156,16 +255,27 @@ export class IrrigationRoomGroups extends LitElement {
                       >
                     </div>
                     <div class="chips">
-                      ${list.map(
-                        (v) => html`
-                          <button
-                            class="chip ${this._dotClass(v.state)}"
-                            title=${v.state}
-                            @click=${() => this._openMoreInfo(v.entity)}
-                          >
-                            <span class="dot"></span>${v.name}
-                          </button>
-                        `
+                      ${list.map((v) =>
+                        v.path
+                          ? html`
+                              <a
+                                class="chip ${this._dotClass(v.state)}"
+                                href=${v.path}
+                                title=${v.state}
+                                @click=${(e: Event) =>
+                                  this._navigate(e, v.path as string)}
+                              >
+                                <span class="dot"></span>${v.name}
+                              </a>
+                            `
+                          : html`
+                              <span
+                                class="chip nolink ${this._dotClass(v.state)}"
+                                title=${v.state}
+                              >
+                                <span class="dot"></span>${v.name}
+                              </span>
+                            `
                       )}
                     </div>
                   </div>
@@ -251,6 +361,14 @@ export class IrrigationRoomGroups extends LitElement {
       color: var(--rg-text);
       font-size: 0.82em;
       cursor: pointer;
+      text-decoration: none;
+    }
+    .chip:hover {
+      border-color: var(--rg-text);
+    }
+    .chip.nolink {
+      cursor: default;
+      opacity: 0.85;
     }
     .chip .dot {
       width: 8px;
