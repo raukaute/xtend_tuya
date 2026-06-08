@@ -173,22 +173,22 @@ class MultiManager(TuyaManager):
             await XTEventLoopProtector.execute_out_of_event_loop_and_return(
                 account.on_post_setup
             )
-        # Controllable-device quota tracker — only OpenAPI (tuya_iot) hubs have
-        # the 10-controllable/month cap. "tuya_iot" == MESSAGE_SOURCE_TUYA_IOT,
-        # "access_id" == CONF_ACCESS_ID (the project id, used as the hub key).
-        if self.get_account_by_name("tuya_iot") is not None:
-            try:
-                access_id = self.config_entry.options.get("access_id")
-            except Exception:
-                access_id = None
-            hub_id = access_id or self.config_entry.entry_id
-            self.controllable_quota = ControllableQuotaTracker(self.hass, hub_id)
-            try:
-                await self.controllable_quota.async_load()
-            except Exception:
-                LOGGER.warning(
-                    "Failed to load controllable-quota store for hub %s", hub_id
-                )
+        # Controllable-device quota tracker, one per hub. Each xtend hub maps to
+        # one Tuya cloud project with a free-tier cap of 10 controllable devices
+        # per calendar month. We count every device this hub successfully sends a
+        # command to via send_commands. Commands issued from the SmartLife app go
+        # through Tuya's app cloud and never reach send_commands, so they are
+        # naturally excluded; reads don't go through send_commands either. The
+        # hub key is the config entry id (the OpenAPI access_id is not reliably in
+        # config_entry.options on this deployment — it lives in xtend storage).
+        hub_id = self.config_entry.entry_id
+        self.controllable_quota = ControllableQuotaTracker(self.hass, hub_id)
+        try:
+            await self.controllable_quota.async_load()
+        except Exception:
+            LOGGER.warning(
+                "Failed to load controllable-quota store for hub %s", hub_id
+            )
 
     async def setup_entity_parsers(self) -> None:
         await XTCustomEntityParser.setup_entity_parsers(self.hass, self)
@@ -557,13 +557,12 @@ class MultiManager(TuyaManager):
     def _note_controllable_command(self, account, device_id: str) -> None:
         """Count a successful command toward this hub's controllable-device cap.
 
-        Only commands issued via the OpenAPI (tuya_iot) account consume the
-        Tuya project's monthly controllable allowance. Thread-safe.
+        Every device this hub commands consumes one unit of the Tuya project's
+        monthly controllable allowance. ``account`` is unused (the hub maps to a
+        single cloud project regardless of which internal account object served
+        the command). Thread-safe — send_commands runs in an executor.
         """
-        if (
-            self.controllable_quota is not None
-            and account.get_type_name() == "tuya_iot"
-        ):
+        if self.controllable_quota is not None:
             self.controllable_quota.record(device_id)
 
     def send_commands(self, device_id: str, commands: list[dict[str, Any]]) -> bool: # type: ignore
