@@ -131,6 +131,36 @@ export class IrrigationControlCard extends LitElement {
     return Number.isFinite(d.getTime()) ? d : null;
   }
 
+  // Timezone-proof timing for an active timed run, or null when no run is in
+  // flight (idle, Manual ON, or a completed cycle).
+  //
+  // The device's start_time / close_time strings carry no timezone, so parsing
+  // them as wall-clock is only safe for their DIFFERENCE — that gives the run's
+  // total duration (e.g. close 16:40:41 − start 16:40:26 = 15 s) regardless of
+  // the tz gap between the device/HA and the viewing browser. Comparing a
+  // tz-less device string to `now` was off by a full hour in testing, so for
+  // elapsed/remaining we anchor instead to the start_time SENSOR's
+  // `last_changed` — the real HA UTC timestamp of when this watering window was
+  // reported, i.e. when the run actually started. This is correct on first
+  // paint and after a reload mid-run, and it self-excludes:
+  //   - idle / completed runs: elapsed ≥ total → null (no countdown)
+  //   - Manual ON: the window is stale (no fresh start_time push), so its
+  //     last_changed is old → elapsed ≫ total → null → controls, not a countdown
+  private _runTiming(): { total: number; elapsed: number; remaining: number } | null {
+    const start = this._startTime();
+    const end = this._endTime();
+    if (!start || !end || !this._config.start_time_sensor) return null;
+    const total = (end.getTime() - start.getTime()) / 1000;
+    if (!(total > 0) || total >= 86400) return null;
+    const startEnt = this.hass.states[this._config.start_time_sensor] as
+      | { last_changed?: string }
+      | undefined;
+    if (!startEnt?.last_changed) return null;
+    const elapsed = (Date.now() - new Date(startEnt.last_changed).getTime()) / 1000;
+    if (elapsed < 0 || elapsed >= total) return null;
+    return { total, elapsed, remaining: Math.max(0, total - elapsed) };
+  }
+
   private _currentVolume(): number | null {
     if (!this._config.volume_sensor) return null;
     const e = this.hass.states[this._config.volume_sensor];
@@ -223,23 +253,20 @@ export class IrrigationControlCard extends LitElement {
     const location = this._valveLocation();
     const running = this._isOn();
     const start = this._startTime();
-    const end = this._endTime();
-    // A cycle is "in progress" when the valve is open with a fresh start_time
-    // (newer than the last close) AND something is actually driving a timed
-    // run. Two independent signals, so the countdown is durable:
-    //   - _initiatedHere: this card just pressed Single watering — show the
-    //     progress view instantly, before the device echoes its state back.
-    //   - one_control target value > 0: the DEVICE reports an active
-    //     duration/volume run. This survives page reloads (it reads from
-    //     hass.states, not in-memory flags) and also covers cycles started
-    //     from the app or a schedule. Gating on _initiatedHere ALONE made the
-    //     countdown vanish on every reload/navigation (regressed 2026-05-05).
-    // A plain "Manual ON" writes no target (value 0), so it still shows the
-    // controls, not a countdown — preserving the original Manual-ON carve-out.
-    const runningCycle =
-      running && start !== null && (end === null || start > end);
-    const inProgress =
-      runningCycle && (this._initiatedHere || (this._targetValue() ?? 0) > 0);
+    // A run is "in progress" when the valve is open AND the device reports a
+    // sane watering window (close_time > start_time) that we're still inside,
+    // measured from the real open moment (see _runTiming — timezone-proof and
+    // reload-proof). This is device-reported, so it survives reloads and covers
+    // single watering AND scheduled runs alike. It replaces the old
+    // value_sensor gate, which never fired on the frozen prod dashboard (its
+    // card config predates the value_sensor wiring) — the reason the countdown
+    // stayed dead after every reload.
+    //   - _initiatedHere gives instant feedback the moment Single watering is
+    //     pressed, before the device echoes its new window back.
+    // A plain "Manual ON" sets no fresh window, so once the last run's window
+    // has elapsed it shows the controls, not a countdown.
+    const timing = this._runTiming();
+    const inProgress = running && (timing !== null || this._initiatedHere);
 
     return html`
       <ha-card>
@@ -254,7 +281,7 @@ export class IrrigationControlCard extends LitElement {
           ${this._renderStatusPill(running, inProgress)}
         </div>
         <div class="card-content">
-          ${inProgress ? this._renderProgress(start!) : this._renderControls()}
+          ${inProgress ? this._renderProgress(start) : this._renderControls()}
         </div>
       </ha-card>
     `;
@@ -270,7 +297,7 @@ export class IrrigationControlCard extends LitElement {
     return html`<span class="pill idle">Idle</span>`;
   }
 
-  private _renderProgress(start: Date) {
+  private _renderProgress(start: Date | null) {
     void this._tick; // re-render trigger
     const activeMode = this._activeMode() ?? this._mode;
     const target = this._targetValue() ?? this._target;
@@ -294,20 +321,30 @@ export class IrrigationControlCard extends LitElement {
       `;
     }
 
-    // Duration mode. start_time is reported by the device without a
-    // timezone — Date() parses it as the browser's local time. If the
-    // browser and device disagree on TZ, elapsed can come out negative;
-    // clamp to [0, target] so the UI stays sane until we get the cycle's
-    // first end_time and the right view re-renders.
-    const elapsedRaw = (Date.now() - start.getTime()) / 1000;
-    const elapsed = Math.max(0, Math.min(target, elapsedRaw));
-    const pct = target > 0 ? Math.min(100, (elapsed / target) * 100) : 0;
-    const remaining = Math.max(0, target - elapsed);
+    // Duration mode. Prefer the timezone-proof device window (see _runTiming):
+    // total = close − start, elapsed anchored to the valve's real open time.
+    // Correct even with no value_sensor wired (the frozen prod dashboard) and
+    // for cycles started by a schedule or the app. Fall back to the one_control
+    // target only in the brief instant after pressing Start, before the device
+    // has echoed its window back.
+    const timing = this._runTiming();
+    let total: number;
+    let elapsed: number;
+    let remaining: number;
+    if (timing !== null) {
+      ({ total, elapsed, remaining } = timing);
+    } else {
+      total = target;
+      const elapsedRaw = start ? (Date.now() - start.getTime()) / 1000 : 0;
+      elapsed = Math.max(0, Math.min(total, elapsedRaw));
+      remaining = Math.max(0, total - elapsed);
+    }
+    const pct = total > 0 ? Math.min(100, (elapsed / total) * 100) : 0;
     return html`
       <div class="progress">
         <div class="progress-text">
           <span class="big">${formatDuration(remaining)}</span>
-          <span class="dim"> left of ${formatDuration(target)}</span>
+          <span class="dim"> left of ${formatDuration(total)}</span>
         </div>
         <div class="bar">
           <div class="fill" style="width:${pct}%"></div>
