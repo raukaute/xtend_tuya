@@ -512,6 +512,15 @@ class Fdm5kwSensor:
             # entities created before 4.4.150 have null translation_key in
             # the entity registry; the strategy + calendar fall back to
             # entity-id suffix matching for those.
+            # NOTE: every descriptor below sets ignore_other_dp_code_handler=True.
+            # Three descriptors share dpcode=time_task and two share one_control,
+            # so the first to register marks the DP "handled" and the rest would
+            # be suppressed by _supports_description (entity.py). Worse, once any
+            # of these entities orphans (e.g. a hub re-add / device-id churn),
+            # register_current_entities_as_handled_dpcode marks the DP handled on
+            # every boot, so the parser permanently suppresses re-creating them
+            # (the "914 timer never shows" regression). The flag makes each
+            # entity register regardless — same fix as the cur_cap flow_rate race.
             Fdm5kwSensorEntityDescription(
                 key=f"{XTDPCode.START_TIME}_timestamp",
                 dpcode=XTDPCode.START_TIME,
@@ -519,6 +528,7 @@ class Fdm5kwSensor:
                 name="Last watering start",
                 icon="mdi:clock-start",
                 entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
                 wrapper_class=(DPCodeTimestampWrapper,),
             ),
             Fdm5kwSensorEntityDescription(
@@ -528,6 +538,7 @@ class Fdm5kwSensor:
                 name="Last watering end",
                 icon="mdi:clock-end",
                 entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
                 wrapper_class=(DPCodeTimestampWrapper,),
             ),
             # --- One-shot control status ---
@@ -538,6 +549,7 @@ class Fdm5kwSensor:
                 name="Watering mode",
                 icon="mdi:water-pump",
                 entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
                 wrapper_class=(DPCodeOneControlModeWrapper,),
             ),
             Fdm5kwSensorEntityDescription(
@@ -547,6 +559,7 @@ class Fdm5kwSensor:
                 name="Watering value",
                 icon="mdi:water",
                 entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
                 wrapper_class=(DPCodeOneControlValueWrapper,),
             ),
             # --- Timer schedule ---
@@ -557,6 +570,7 @@ class Fdm5kwSensor:
                 name="Timer slot",
                 icon="mdi:timer-outline",
                 entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
                 wrapper_class=(DPCodeTimeTaskSlotWrapper,),
             ),
             Fdm5kwSensorEntityDescription(
@@ -566,6 +580,7 @@ class Fdm5kwSensor:
                 name="Timer schedule",
                 icon="mdi:calendar-clock",
                 entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
                 wrapper_class=(DPCodeTimeTaskSummaryWrapper,),
             ),
             # --- Timer registry (accumulates all 7 slots) ---
@@ -576,6 +591,7 @@ class Fdm5kwSensor:
                 name="Irrigation timer registry",
                 icon="mdi:timer-cog",
                 entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
                 wrapper_class=(DPCodeTimeTaskRegistryWrapper,),
             ),
             # --- Derived flow rate (l/min) for watering-history graph ---
