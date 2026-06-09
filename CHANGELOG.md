@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.200] - 2026-06-09
+
+### Added
+- **Timer card on the valve detail view now shows the "Home · Room" sub-line**
+  under its name, matching the control card (Simon's request). Same source —
+  the registry sensor's `valve_home` / `valve_room` attributes — so it helps
+  locate the valve in SmartLife from the timer card too. Renders nothing until
+  the location is known.
+
 ## [4.4.199] - 2026-06-09
 
 ### Fixed

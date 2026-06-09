@@ -186,11 +186,25 @@ export class IrrigationTimerCard extends LitElement {
       (stateAttrs?.friendly_name as string | undefined) ??
       "Irrigation Timer";
 
+    // "Home · Room" sub-line, same source/registry attributes as the control
+    // card, so the timer card on the detail view also helps locate the valve
+    // in the SmartLife app (Simon's request). Renders nothing until known.
+    const home = stateAttrs?.valve_home as string | undefined;
+    const room = stateAttrs?.valve_room as string | undefined;
+    const location = [home, room]
+      .filter((p) => p && String(p).trim())
+      .join(" · ");
+
     return html`
       <ha-card>
         <div class="card-header">
           <ha-icon icon="mdi:timer-cog-outline"></ha-icon>
-          <span>${name}</span>
+          <div class="title">
+            <span class="name">${name}</span>
+            ${location
+              ? html`<span class="location">${location}</span>`
+              : nothing}
+          </div>
         </div>
         <div class="card-content">
           ${this._editing ? this._renderEditor() : this._renderList()}
@@ -393,6 +407,26 @@ export class IrrigationTimerCard extends LitElement {
 
     .card-header ha-icon {
       color: var(--timer-card-primary);
+    }
+
+    .card-header .title {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .card-header .title .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card-header .title .location {
+      font-size: 0.7em;
+      font-weight: 400;
+      opacity: 0.6;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .card-content {
