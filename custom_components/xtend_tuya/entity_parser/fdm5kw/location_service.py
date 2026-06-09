@@ -69,7 +69,13 @@ def _build_map(api: Any) -> dict[str, dict[str, str]]:
         if home_id is None:
             continue
         rooms = api.get(f"/v1.0/homes/{home_id}/rooms")
-        room_list = (rooms.get("result") or {}).get("rooms") or []
+        rooms_result = rooms.get("result") or {}
+        # /homes/{id}/rooms returns either {"rooms": [...]} or a bare list,
+        # depending on DC/account; tolerate both.
+        if isinstance(rooms_result, list):
+            room_list = rooms_result
+        else:
+            room_list = rooms_result.get("rooms") or []
         for room in room_list:
             room_id = room.get("room_id")
             room_name = room.get("name") or ""

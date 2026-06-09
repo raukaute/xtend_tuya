@@ -257,6 +257,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
         None,
         False,
     )
+
+    # Build the fdm5kw valve home/room map for this hub up-front, decoupled
+    # from entity spawn. Previously this only fired from a timer-registry
+    # entity being added (sensor.py); valves that dropped to the bare "Valve"
+    # entity never triggered it, so an entire hub's home/room map went
+    # missing (only the solar hub ever walked its homes -> "64 solar" only,
+    # simon-account valves had no home/room). Each hub's token_info.uid is its
+    # own linked SmartLife account, so walking it here per hub unions both
+    # accounts' homes into the shared LOCATION_MAP. Fire-and-forget and fully
+    # guarded: a location fetch must never block or break setup.
+    try:
+        from .entity_parser.fdm5kw import location_service as _fdm5kw_location
+
+        hass.async_create_task(
+            _fdm5kw_location.async_ensure_scheduled(hass, multi_manager)
+        )
+    except Exception:  # noqa: BLE001
+        LOGGER.debug("fdm5kw: location bootstrap scheduling failed", exc_info=True)
     multi_manager.device_watcher.report_message(
         XTDeviceWatcherSpecialDevice.NOT_LINKED_TO_A_DEVICE,
         f"Xtended Tuya {entry.title} loaded in {datetime.now() - start_time}",

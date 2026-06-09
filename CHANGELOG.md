@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.198] - 2026-06-09
+
+### Fixed
+- **Valve home/room now populates for every hub, not just the solar one.**
+  The fdm5kw home/room map (`valve_home` / `valve_room` attributes) only built
+  when a timer-registry entity spawned. Valves that dropped to the bare "Valve"
+  entity never triggered it, so an entire hub's map went missing — only the
+  solar account's ~64 valves ever got a home/room, simon-account valves none.
+  The builder is now kicked off per hub at the end of `async_setup_entry`,
+  decoupled from entity spawn, so each hub walks its own linked SmartLife
+  account's homes and unions them into the shared map (verified 90/90 valves,
+  e.g. `985 → Mavronero Solar Valve · Big Farm`, `901 → Mavronero · Olive East`).
+  Cross-enrolled valves (in one Cloud project but bound to another account's
+  home) are covered by whichever hub owns that account's home, since the map is
+  keyed globally by `device_id`.
+- `_build_map` now tolerates both `{"rooms": [...]}` and bare-list shapes from
+  `/v1.0/homes/{id}/rooms`.
+
 ## [Unreleased]
 
 Alarm-panel platform still needs the py3.14 port: upstream `ALARM` is now
