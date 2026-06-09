@@ -128,14 +128,33 @@ class DPCodeOneControlWrapper(XTDPCodeRawStatusWrapper):
 
 
 class DPCodeOneControlModeWrapper(DPCodeOneControlWrapper):
-    """Returns the one_control mode: 1=duration, 3=volume (hypothesis)."""
+    """Returns the one_control *status* mode label.
+
+    one_control status mirrors the last command payload [lead, value(4B BE), flag].
+    Verified live 2026-06-09 by triggering single-waterings on 964 and reading status:
+        idle (no single-watering):  [0,0,0,0,0,0]      value 0
+        duration run/armed:         [0,0,0,V,V,1]      lead 0, value = seconds  (964=900, 977=10)
+        volume run/armed:           [1,0,0,0,V,1]      lead 1, value = liters   (964 volume 5L → [1,0,0,0,5,1])
+    So lead byte 0 = duration, 1 = volume — the same encoding as time_task's mode
+    byte (0=duration, 1=volume). The pre-4.4.183 note in irrigation-dp-decoding.md
+    (0=idle / 1=duration / 3=volume) was stale and is wrong on every count.
+
+    A zero value means no single-watering is set -> "idle" (covers both a truly idle
+    valve and a just-finished run, where the device clears the value but keeps the
+    last lead byte). A non-zero value -> the lead byte gives the mode.
+    """
 
     def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
         self.update_data(device)
-        if self.mode is not None:
-            modes = {0: "idle", 1: "duration", 3: "volume"}
-            return modes.get(self.mode, f"unknown ({self.mode})")
-        return None
+        if self.mode is None:
+            return None
+        if not self.value:
+            return "idle"
+        if self.mode == 0:
+            return "duration"
+        if self.mode == 1:
+            return "volume"
+        return f"unknown ({self.mode})"
 
 
 class DPCodeOneControlValueWrapper(DPCodeOneControlWrapper):

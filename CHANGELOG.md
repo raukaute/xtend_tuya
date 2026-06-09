@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.201] - 2026-06-09
+
+### Fixed
+- **Watering-mode sensor now labels single-waterings correctly (duration / volume / idle).**
+  The `one_control` mode decoder used a stale map (`0=idle, 1=duration, 3=volume`)
+  from a pre-4.4.183 capture. A live capture on valve 964 (triggering both a
+  duration and a 5 L volume single-watering and reading device status) showed the
+  status mirrors the command payload `[lead, value(4B BE), flag]`: **lead 0 =
+  duration (value=seconds), lead 1 = volume (value=liters)** — same encoding as
+  `time_task`'s mode byte. Decoder is now value-aware: zero value → idle (covers a
+  truly idle valve and a just-finished run), else lead byte gives the mode. Fixes
+  the old "S 806 Mode = Unknown" and duration runs mislabelling as idle. Verified
+  against live status of 901/964/977/902/984/985.
+
 ## [4.4.200] - 2026-06-09
 
 ### Added
