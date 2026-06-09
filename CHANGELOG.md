@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.199] - 2026-06-09
+
+### Fixed
+- **Offline valves no longer show a trailing " Valve" in the detail card name.**
+  When a valve is offline its live timer-registry is `unavailable`, so the
+  control card's `valve_name` lookup returns null and it fell back to the valve
+  *switch* entity's friendly name — which HA composes as `"<device> Valve"`
+  (the switch's `translation_key` is `valve`). The card now strips a trailing
+  `" Valve"` from that fallback, so e.g. `985 (Dry view middle)` reads as its
+  device name instead of `985 (Dry view middle) Valve`. Online valves are
+  unaffected (they read the clean `valve_name` from the live registry).
+
 ## [4.4.198] - 2026-06-09
 
 ### Fixed

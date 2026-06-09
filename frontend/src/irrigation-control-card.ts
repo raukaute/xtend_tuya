@@ -242,12 +242,18 @@ export class IrrigationControlCard extends LitElement {
   protected render() {
     if (!this._config || !this.hass) return nothing;
 
+    // Offline valves have no live registry, so _valveName() is null. The
+    // last-resort fallback is the valve *switch* entity's friendly name, which
+    // HA composes as "<device name> Valve" (the switch's translation_key is
+    // "valve"). Strip that trailing " Valve" so an offline valve reads as its
+    // device name (e.g. "985 (Dry view middle)") instead of "... Valve" —
+    // which is what Simon kept seeing on offline valves.
+    const switchName = this.hass.states[this._config.valve]?.attributes
+      ?.friendly_name as string | undefined;
     const name =
       this._config.name ??
       this._valveName() ??
-      (this.hass.states[this._config.valve]?.attributes?.friendly_name as
-        | string
-        | undefined) ??
+      switchName?.replace(/\s+Valve$/i, "") ??
       "Watering";
 
     const location = this._valveLocation();
