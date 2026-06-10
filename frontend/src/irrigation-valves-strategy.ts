@@ -1025,7 +1025,11 @@ class IrrigationValveMatrix extends HTMLElement {
 
   private _updateBattery(): void {
     if (!this._config) return;
-    const cells = this._root.querySelectorAll<HTMLElement>(".battery");
+    // Scope to data rows — the header row has a .battery cell too, and an
+    // unscoped query shifts every battery value up by one row.
+    const cells = this._root.querySelectorAll<HTMLElement>(
+      ".row:not(.header) .battery"
+    );
     this._config.valves.forEach((v, i) => {
       const cell = cells[i];
       if (!cell) return;

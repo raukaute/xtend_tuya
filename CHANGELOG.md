@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.204] - 2026-06-10
+
+### Fixed
+- **Battery column no longer shifts one row up after the first state
+  update.** 4.4.203's header row added a `.battery` cell that the
+  incremental battery updater also matched, so every battery value moved
+  into the row above it (and the header showed a percentage). The updater
+  now targets data rows only.
+
 ## [4.4.203] - 2026-06-10
 
 ### Added
