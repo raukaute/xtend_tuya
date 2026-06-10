@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.202] - 2026-06-10
+
+### Fixed
+- **Device renames in Smart Life now propagate to Home Assistant.** The HA
+  device-registry name was only ever set when a device was first created;
+  the `nameUpdate` MQTT event from Tuya updated the in-memory device cache
+  but never the registry, so renames (especially of offline valves, which
+  get no other refresh) never showed up in HA. `MultiDeviceListener` now
+  syncs the registry name whenever a device update carries a changed name —
+  this covers the live MQTT rename event and any later status update, and
+  a restart/reload also picks up renames done while HA was down. Renames
+  made inside HA itself (`name_by_user`) keep display precedence and are
+  not touched.
+
 ## [4.4.201] - 2026-06-09
 
 ### Fixed
