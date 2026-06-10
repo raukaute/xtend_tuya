@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.203] - 2026-06-10
+
+### Added
+- **"ran" and "water" columns on the valve overview list.** Each row of the
+  valve-matrix card now shows how long the valve was open (min) and how many
+  liters flowed through within the visible history window (24 h by default),
+  right next to the watering timeline. Runtime is summed from the same
+  switch history that draws the bars; liters are summed from the volume
+  sensor's history (positive increments, so per-cycle counter resets are
+  handled). Valves without a flow meter show "–" for water; valves that
+  never reported in the window (offline) show "–" for both.
+- **Re-sync button integrated into the valve-count row** of the matrix card
+  (was a standalone card at the top of the overview; the standalone element
+  stays registered so dashboards on an older saved config keep working).
+
 ## [4.4.202] - 2026-06-10
 
 ### Fixed

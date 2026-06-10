@@ -396,6 +396,7 @@ function buildOverviewView(
     name: v.valve_name,
     switch: v.switch,
     battery: v.battery_level,
+    volume: v.volume_sensor,
     path: v.view_path,
   }));
 
@@ -405,19 +406,10 @@ function buildOverviewView(
     type: "sections",
     max_columns: 3,
     sections: [
-      // Refresh button — re-runs the strategy (full page reload) so valve
-      // renames/removals on the Tuya side show up without a manual browser
-      // refresh (Simon 2026-06-04, mid-edit-session convenience).
-      {
-        type: "grid",
-        column_span: 3,
-        cards: [
-          {
-            type: "custom:irrigation-refresh-button",
-            layout_options: { grid_columns: 3, grid_rows: "auto" },
-          },
-        ],
-      },
+      // The Re-sync button lives in the valve-matrix count row (Simon
+      // 2026-06-06: "integrate the resync button there") — no standalone
+      // refresh-button card on the overview anymore. The element stays
+      // registered for dashboards still on a pre-4.4.203 saved config.
       // Cards inside a `column_span: 3` section default to grid_columns=4
       // (≈1/3 width), so each card declares grid_columns=12 to fill the
       // full row. Without this every card on the overview renders
@@ -696,6 +688,24 @@ function buildBatteryHistoryCard(v: ValveEntities, hours: number): unknown {
 //
 // Self-contained in this bundle (no Lit dep) so it ships and registers
 // alongside the strategy IIFE.
+// Regenerate the strategy against the live registry, persist over the
+// current dashboard's config, then reload. Shared by the (legacy)
+// standalone refresh-button card and the valve-matrix count-row button.
+async function resyncCurrentDashboard(hass: HomeAssistantLike): Promise<void> {
+  const config = await IrrigationValvesStrategy.generate({ type: "" }, hass);
+  const urlPath = window.location.pathname.split("/").filter(Boolean)[0];
+  await (
+    hass as unknown as {
+      callWS: (msg: Record<string, unknown>) => Promise<unknown>;
+    }
+  ).callWS({
+    type: "lovelace/config/save",
+    url_path: urlPath,
+    config,
+  });
+  window.location.reload();
+}
+
 class IrrigationRefreshButton extends HTMLElement {
   private _hass: HomeAssistantLike | null = null;
   private _btn: HTMLButtonElement | null = null;
@@ -734,20 +744,7 @@ class IrrigationRefreshButton extends HTMLElement {
       btn.textContent = "Syncing…";
     }
     try {
-      // Same bundle defines the strategy class; regenerate against the
-      // live registry, then persist over the current dashboard's config.
-      const config = await IrrigationValvesStrategy.generate({ type: "" }, hass);
-      const urlPath = window.location.pathname.split("/").filter(Boolean)[0];
-      await (
-        hass as unknown as {
-          callWS: (msg: Record<string, unknown>) => Promise<unknown>;
-        }
-      ).callWS({
-        type: "lovelace/config/save",
-        url_path: urlPath,
-        config,
-      });
-      window.location.reload();
+      await resyncCurrentDashboard(hass);
     } catch (err) {
       if (btn) {
         btn.disabled = false;
@@ -782,6 +779,7 @@ interface MatrixRow {
   name: string;
   switch?: string;
   battery?: string;
+  volume?: string;
   path?: string;
 }
 interface MatrixConfig {
@@ -821,6 +819,10 @@ class IrrigationValveMatrix extends HTMLElement {
   private _hass: HomeAssistantLike | null = null;
   private _config: MatrixConfig | null = null;
   private _segments: Record<string, MatrixSegment[]> = {};
+  // Per-switch minutes open and per-volume-sensor liters within the
+  // history window — both derived from the same history fetch as the bars.
+  private _runtimeMin: Record<string, number> = {};
+  private _waterL: Record<string, number> = {};
   private _root: ShadowRoot;
   private _refreshHandle: number | null = null;
   private _fetching = false;
@@ -873,10 +875,13 @@ class IrrigationValveMatrix extends HTMLElement {
 
   private async _fetchHistory(): Promise<void> {
     if (!this._hass || !this._config || this._fetching) return;
-    const entities = this._config.valves
+    const switches = this._config.valves
       .map((v) => v.switch)
       .filter((e): e is string => !!e);
-    if (entities.length === 0) return;
+    const volumes = this._config.valves
+      .map((v) => v.volume)
+      .filter((e): e is string => !!e);
+    if (switches.length === 0 && volumes.length === 0) return;
     this._fetching = true;
     const now = Date.now();
     const start = now - this._hours() * 3_600_000;
@@ -891,15 +896,30 @@ class IrrigationValveMatrix extends HTMLElement {
         type: "history/history_during_period",
         start_time: new Date(start).toISOString(),
         end_time: new Date(now).toISOString(),
-        entity_ids: entities,
+        entity_ids: [...switches, ...volumes],
         minimal_response: true,
         no_attributes: true,
       });
-      const next: Record<string, MatrixSegment[]> = {};
-      for (const entity of entities) {
-        next[entity] = this._buildSegments(raw[entity] ?? [], start, now);
+      const nextSegs: Record<string, MatrixSegment[]> = {};
+      const nextRun: Record<string, number> = {};
+      for (const entity of switches) {
+        const segs = this._buildSegments(raw[entity] ?? [], start, now);
+        nextSegs[entity] = segs;
+        // No segments = the valve never reported in the window (offline) —
+        // leave the runtime unset so the column shows "–", not "0 min".
+        if (segs.length === 0) continue;
+        const onFraction = segs
+          .filter((s) => s.kind === "on")
+          .reduce((acc, s) => acc + s.width, 0);
+        nextRun[entity] = (onFraction * (now - start)) / 60_000;
       }
-      this._segments = next;
+      const nextWater: Record<string, number> = {};
+      for (const entity of volumes) {
+        nextWater[entity] = this._sumPositiveDeltas(raw[entity] ?? []);
+      }
+      this._segments = nextSegs;
+      this._runtimeMin = nextRun;
+      this._waterL = nextWater;
       this._render();
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -907,6 +927,23 @@ class IrrigationValveMatrix extends HTMLElement {
     } finally {
       this._fetching = false;
     }
+  }
+
+  // Total liters delivered within the window. The volume sensor mirrors the
+  // device's per-cycle counter (cur_cap): it ramps up during a watering and
+  // resets when the next one starts. Summing only the positive increments
+  // counts every cycle once and is equally correct if a firmware reports a
+  // cumulative, ever-growing total instead.
+  private _sumPositiveDeltas(points: HistoryPoint[]): number {
+    let total = 0;
+    let prev: number | null = null;
+    for (const p of points) {
+      const v = parseFloat(p.s);
+      if (!Number.isFinite(v)) continue;
+      if (prev !== null && v > prev) total += v - prev;
+      prev = v;
+    }
+    return total;
   }
 
   private _buildSegments(
@@ -939,6 +976,30 @@ class IrrigationValveMatrix extends HTMLElement {
       });
     }
     return segs;
+  }
+
+  // "min / liter" columns (Simon 2026-06-06): how long each valve ran and
+  // how much water flowed through within the visible history window. "–"
+  // means no data source (no switch / no flow meter on that valve).
+  private _runText(entity?: string): string {
+    if (!entity || !(entity in this._runtimeMin)) return "–";
+    const min = this._runtimeMin[entity];
+    if (min <= 0) return "0 min";
+    if (min < 1) return "<1 min";
+    if (min >= 90) return `${(min / 60).toFixed(1)} h`;
+    return `${Math.round(min)} min`;
+  }
+
+  private _waterText(entity?: string): string {
+    if (!entity || !(entity in this._waterL)) return "–";
+    const liters = this._waterL[entity];
+    if (liters <= 0) return "0 L";
+    if (liters < 10) return `${liters.toFixed(1)} L`;
+    return `${Math.round(liters)} L`;
+  }
+
+  private _metricClass(text: string): string {
+    return text === "–" || text === "0 min" || text === "0 L" ? "muted" : "";
   }
 
   private _batteryText(entity?: string): string {
@@ -1007,6 +1068,28 @@ class IrrigationValveMatrix extends HTMLElement {
     );
   }
 
+  private async _resync(): Promise<void> {
+    const btn = this._root.querySelector<HTMLButtonElement>("#matrix-resync");
+    if (!this._hass) {
+      window.location.reload();
+      return;
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Syncing…";
+    }
+    try {
+      await resyncCurrentDashboard(this._hass);
+    } catch (err) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "↻ Re-sync failed — retry";
+      }
+      // eslint-disable-next-line no-console
+      console.error("xtend_tuya: valve re-sync failed", err);
+    }
+  }
+
   private _render(): void {
     if (!this._config) return;
     const c = this._config;
@@ -1021,6 +1104,8 @@ class IrrigationValveMatrix extends HTMLElement {
               )}%;width:${(s.width * 100).toFixed(3)}%"></span>`
           )
           .join("");
+        const run = this._runText(v.switch);
+        const water = this._waterText(v.volume);
         return `<div class="row ${
           v.path ? "clickable" : ""
         }" data-path="${escapeHtml(v.path || "")}">
@@ -1028,19 +1113,28 @@ class IrrigationValveMatrix extends HTMLElement {
             v.name
           )}</div>
           <div class="bar">${bars}</div>
+          <div class="metric ${this._metricClass(run)}">${escapeHtml(run)}</div>
+          <div class="metric ${this._metricClass(water)}">${escapeHtml(
+            water
+          )}</div>
           <div class="battery ${this._batteryClass(
             v.battery
           )}">${escapeHtml(this._batteryText(v.battery))}</div>
         </div>`;
       })
       .join("");
+    const hoursLabel = `${this._hours()} h`;
     this._root.innerHTML = `
       <style>
         ha-card { padding-bottom: 8px; }
         .card-header { font-size: 1.4rem; font-weight: 400; padding: 16px 16px 4px; margin: 0; }
-        .card-subtitle { padding: 0 16px 10px; margin: 0; color: var(--secondary-text-color); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+        .card-subtitle { padding: 0 16px 10px; margin: 0; color: var(--secondary-text-color); font-size: 0.95rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        #matrix-resync { border: none; background: none; color: var(--primary-color); font: inherit; font-weight: 500; cursor: pointer; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+        #matrix-resync:hover { background: var(--secondary-background-color); }
+        #matrix-resync:disabled { color: var(--secondary-text-color); cursor: default; }
         .grid { display: flex; flex-direction: column; }
-        .row { display: grid; grid-template-columns: 150px 1fr 64px; align-items: center; gap: 12px; height: 32px; padding: 0 16px; }
+        .row { display: grid; grid-template-columns: 150px 1fr 60px 60px 64px; align-items: center; gap: 12px; height: 32px; padding: 0 16px; }
+        .row.header { height: 22px; color: var(--secondary-text-color); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
         .row.clickable { cursor: pointer; }
         .row.clickable:hover { background: var(--secondary-background-color); }
         .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
@@ -1052,20 +1146,35 @@ class IrrigationValveMatrix extends HTMLElement {
         .seg { position: absolute; top: 0; bottom: 0; }
         .seg.off { background: rgba(3, 169, 244, 0.30); }
         .seg.on { background: var(--state-switch-active-color, #f9a825); }
+        .metric { text-align: right; font-variant-numeric: tabular-nums; font-size: 0.9rem; white-space: nowrap; }
+        .metric.muted { color: var(--secondary-text-color); }
         .battery { text-align: right; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
         .battery.muted { color: var(--secondary-text-color); }
         .battery.low { color: var(--error-color, #db4437); font-weight: 600; }
       </style>
       <ha-card>
         ${c.title ? `<h1 class="card-header">${escapeHtml(c.title)}</h1>` : ""}
-        <div class="card-subtitle" id="valve-counts">${escapeHtml(
-          this._countsText()
-        )}</div>
+        <div class="card-subtitle">
+          <span id="valve-counts">${escapeHtml(this._countsText())}</span>
+          <button id="matrix-resync" title="Re-read all valves from Tuya and rebuild this dashboard">↻ Re-sync valves</button>
+        </div>
+        <div class="grid header-row">
+          <div class="row header" title="ran / water = totals over the last ${hoursLabel} (the timeline window)">
+            <div></div>
+            <div></div>
+            <div class="metric">ran</div>
+            <div class="metric">water</div>
+            <div class="battery">batt</div>
+          </div>
+        </div>
         <div class="grid">${rows}</div>
       </ha-card>`;
     this._root.querySelectorAll<HTMLElement>(".row.clickable").forEach((el) => {
       el.addEventListener("click", () => this._navigate(el.dataset.path));
     });
+    this._root
+      .querySelector<HTMLButtonElement>("#matrix-resync")
+      ?.addEventListener("click", () => void this._resync());
   }
 }
 
