@@ -541,15 +541,25 @@ async def _query_recent_runs(
 
     runs: list[dict[str, Any]] = []
     j = 0  # cursor into end_events
-    for s_last_updated, s_value in start_events:
+    for idx, (s_last_updated, s_value) in enumerate(start_events):
         # Find the first end-event chronologically after the start, by
         # the time the state row was recorded — that's the cycle close.
         while j < len(end_events) and end_events[j][0] <= s_last_updated:
             j += 1
-        if j >= len(end_events):
-            # Orphan start — no end after it. If this is the most recent
-            # start and the caller wants in-progress events, surface it.
-            if include_open:
+        is_last_start = idx + 1 >= len(start_events)
+        next_start_lu = None if is_last_start else start_events[idx + 1][0]
+
+        if j >= len(end_events) or (
+            next_start_lu is not None and next_start_lu < end_events[j][0]
+        ):
+            # No end report belonging to THIS cycle: either none exists at
+            # all, or the next recorder event after this start is another
+            # start — meaning this cycle's end report was lost. Pairing it
+            # with the next cycle's end would merge two runs into one event
+            # with a wrong completion time (e.g. 06:00→10:45 spanning a
+            # lost 06:00 run and a real 10:30 one), so drop it instead.
+            # Surface the newest start as in-progress when requested.
+            if include_open and is_last_start and j >= len(end_events):
                 run_start = s_value or s_last_updated
                 # Volume peak so far for the running cycle.
                 total_l: float | None = None
@@ -567,7 +577,7 @@ async def _query_recent_runs(
                         "open": True,
                     }
                 )
-            break
+            continue
         e_last_updated, e_value = end_events[j]
         j += 1
 
@@ -634,7 +644,10 @@ class IrrigationPlannedCalendar(CalendarEntity):
 
     _attr_has_entity_name = False
     _attr_name = "Irrigation Planned"
-    _attr_icon = "mdi:water-pump-outline"
+    # NB: must be a real MDI name — the earlier "mdi:water-pump-outline"
+    # does not exist in MDI, so the planned calendar rendered no icon at
+    # all while the completed one (valid mdi:water-check) had one.
+    _attr_icon = "mdi:water-pump"
     _attr_unique_id = "xtend_tuya_irrigation_planned"
 
     def __init__(self, hass: HomeAssistant, averages: _AveragesCache) -> None:

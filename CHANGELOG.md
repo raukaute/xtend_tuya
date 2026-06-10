@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.205] - 2026-06-10
+
+### Fixed
+- **Completed-calendar events no longer merge two runs when an end report
+  was lost.** The recorder pairing matched each watering start with the
+  first end event after it — if a cycle's end report never arrived (valve
+  lost signal mid-run), the start was paired with the NEXT cycle's end,
+  producing a single event with a wrong completion time (e.g. 06:00→10:45
+  spanning two separate runs, passing the 6 h sanity cap). A start whose
+  next recorder event is another start is now treated as an interrupted
+  cycle and dropped; the genuine run keeps its own end. Also fixes the
+  last-10 averages (l/min, per-cycle liters) that fed on the merged runs.
+- **"Irrigation Planned" calendar icon shows again.** It was set to
+  `mdi:water-pump-outline`, which does not exist in MDI, so the calendar
+  rendered without an icon (the completed calendar's `mdi:water-check` is
+  valid, hence the asymmetry). Now `mdi:water-pump`.
+
 ## [4.4.204] - 2026-06-10
 
 ### Fixed
