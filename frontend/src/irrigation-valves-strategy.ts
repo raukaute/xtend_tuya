@@ -81,6 +81,10 @@ interface ValveEntities {
   registry_entity: string;
   valve_name: string;
   factory_name: string;
+  /** SmartLife home / room the valve lives in (registry sensor attrs,
+   * 4.4.207) — used to group the overview valve list. */
+  valve_home: string | null;
+  valve_room: string | null;
   view_path: string;
   switch?: string;
   duration?: string;
@@ -245,6 +249,8 @@ function collectValveEntities(
     registry_entity: registryEntityId,
     valve_name,
     factory_name,
+    valve_home: (registryState.attributes.valve_home as string | undefined) ?? null,
+    valve_room: (registryState.attributes.valve_room as string | undefined) ?? null,
     view_path,
   };
 
@@ -398,6 +404,8 @@ function buildOverviewView(
     battery: v.battery_level,
     volume: v.volume_sensor,
     path: v.view_path,
+    home: v.valve_home ?? null,
+    room: v.valve_room ?? null,
   }));
 
   return {
@@ -414,19 +422,9 @@ function buildOverviewView(
       // (≈1/3 width), so each card declares grid_columns=12 to fill the
       // full row. Without this every card on the overview renders
       // squeezed into the left third of the screen.
-      {
-        type: "grid",
-        column_span: 3,
-        cards: [
-          {
-            type: "grid",
-            columns: 4,
-            square: false,
-            cards: tiles,
-            layout_options: { grid_columns: 12, grid_rows: "auto" },
-          },
-        ],
-      },
+      //
+      // Order (ticket pkN0lM49, 4.4.209): the valve LIST with the
+      // timeline comes FIRST, the per-valve tile buttons after it.
       {
         type: "grid",
         column_span: 3,
@@ -436,6 +434,19 @@ function buildOverviewView(
             title: "Watering history & battery (all valves)",
             hours,
             valves: matrixValves,
+            layout_options: { grid_columns: 12, grid_rows: "auto" },
+          },
+        ],
+      },
+      {
+        type: "grid",
+        column_span: 3,
+        cards: [
+          {
+            type: "grid",
+            columns: 4,
+            square: false,
+            cards: tiles,
             layout_options: { grid_columns: 12, grid_rows: "auto" },
           },
         ],
@@ -781,6 +792,9 @@ interface MatrixRow {
   battery?: string;
   volume?: string;
   path?: string;
+  /** SmartLife home / room for list grouping (4.4.207). */
+  home?: string | null;
+  room?: string | null;
 }
 interface MatrixConfig {
   type: string;
@@ -935,11 +949,16 @@ class IrrigationValveMatrix extends HTMLElement {
   // counts every cycle once and is equally correct if a firmware reports a
   // cumulative, ever-growing total instead.
   private _sumPositiveDeltas(points: HistoryPoint[]): number {
+    // Physical ceiling (4.4.206): cur_cap intermittently emits garbage
+    // spikes (15237, 177610 …) far above what a valve can deliver
+    // (25 L/min × max run ≈ 9000 L). Drop those samples entirely so a
+    // single spike can't inflate the windowed total.
+    const MAX_PLAUSIBLE_L = 9000;
     let total = 0;
     let prev: number | null = null;
     for (const p of points) {
       const v = parseFloat(p.s);
-      if (!Number.isFinite(v)) continue;
+      if (!Number.isFinite(v) || v > MAX_PLAUSIBLE_L) continue;
       if (prev !== null && v > prev) total += v - prev;
       prev = v;
     }
@@ -1023,6 +1042,30 @@ class IrrigationValveMatrix extends HTMLElement {
     return "";
   }
 
+  // Home/room grouping (4.4.207): when any valve carries home/room the
+  // list renders sorted by "home • room" with group headers. Rendering
+  // AND incremental updates must iterate this same order — updating in
+  // config order while rendering in grouped order writes battery values
+  // into the wrong rows (same failure class as the 4.4.204 header-row
+  // offset bug).
+  private _groupKey(v: MatrixRow): string {
+    return `${v.home || "Unassigned"}•${v.room || "—"}`;
+  }
+
+  private _grouped(): boolean {
+    return (this._config?.valves ?? []).some((v) => v.room || v.home);
+  }
+
+  private _orderedRows(): MatrixRow[] {
+    const valves = this._config?.valves ?? [];
+    if (!this._grouped()) return valves;
+    return [...valves].sort(
+      (a, b) =>
+        this._groupKey(a).localeCompare(this._groupKey(b)) ||
+        String(a.name).localeCompare(String(b.name))
+    );
+  }
+
   private _updateBattery(): void {
     if (!this._config) return;
     // Scope to data rows — the header row has a .battery cell too, and an
@@ -1030,7 +1073,7 @@ class IrrigationValveMatrix extends HTMLElement {
     const cells = this._root.querySelectorAll<HTMLElement>(
       ".row:not(.header) .battery"
     );
-    this._config.valves.forEach((v, i) => {
+    this._orderedRows().forEach((v, i) => {
       const cell = cells[i];
       if (!cell) return;
       cell.textContent = this._batteryText(v.battery);
@@ -1097,22 +1140,21 @@ class IrrigationValveMatrix extends HTMLElement {
   private _render(): void {
     if (!this._config) return;
     const c = this._config;
-    const rows = c.valves
-      .map((v) => {
-        const segs = v.switch ? this._segments[v.switch] ?? [] : [];
-        const bars = segs
-          .map(
-            (s) =>
-              `<span class="seg ${s.kind}" style="left:${(s.left * 100).toFixed(
-                3
-              )}%;width:${(s.width * 100).toFixed(3)}%"></span>`
-          )
-          .join("");
-        const run = this._runText(v.switch);
-        const water = this._waterText(v.volume);
-        return `<div class="row ${
-          v.path ? "clickable" : ""
-        }" data-path="${escapeHtml(v.path || "")}">
+    const rowOf = (v: MatrixRow): string => {
+      const segs = v.switch ? this._segments[v.switch] ?? [] : [];
+      const bars = segs
+        .map(
+          (s) =>
+            `<span class="seg ${s.kind}" style="left:${(s.left * 100).toFixed(
+              3
+            )}%;width:${(s.width * 100).toFixed(3)}%"></span>`
+        )
+        .join("");
+      const run = this._runText(v.switch);
+      const water = this._waterText(v.volume);
+      return `<div class="row ${
+        v.path ? "clickable" : ""
+      }" data-path="${escapeHtml(v.path || "")}">
           <div class="name" title="${escapeHtml(v.name)}">${escapeHtml(
             v.name
           )}</div>
@@ -1125,8 +1167,23 @@ class IrrigationValveMatrix extends HTMLElement {
             v.battery
           )}">${escapeHtml(this._batteryText(v.battery))}</div>
         </div>`;
-      })
-      .join("");
+    };
+    // Grouped: sorted by home • room with a header div per group (headers
+    // carry no .battery cell, so _updateBattery's row indexing is safe).
+    const grouped = this._grouped();
+    let rows = "";
+    let lastKey: string | null = null;
+    for (const v of this._orderedRows()) {
+      if (grouped) {
+        const k = this._groupKey(v);
+        if (k !== lastKey) {
+          lastKey = k;
+          const [h, r] = k.split("•");
+          rows += `<div class="grouphdr">${escapeHtml(h)} · ${escapeHtml(r)}</div>`;
+        }
+      }
+      rows += rowOf(v);
+    }
     const hoursLabel = `${this._hours()} h`;
     this._root.innerHTML = `
       <style>
@@ -1155,6 +1212,8 @@ class IrrigationValveMatrix extends HTMLElement {
         .battery { text-align: right; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
         .battery.muted { color: var(--secondary-text-color); }
         .battery.low { color: var(--error-color, #db4437); font-weight: 600; }
+        .grouphdr { padding: 10px 16px 3px; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--primary-color); border-top: 1px solid var(--divider-color, #e0e0e0); }
+        .grouphdr:first-child { border-top: none; }
       </style>
       <ha-card>
         ${c.title ? `<h1 class="card-header">${escapeHtml(c.title)}</h1>` : ""}
