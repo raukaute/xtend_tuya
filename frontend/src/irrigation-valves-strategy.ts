@@ -965,13 +965,28 @@ class IrrigationValveMatrix extends HTMLElement {
     // (25 L/min × max run ≈ 9000 L). Drop those samples entirely so a
     // single spike can't inflate the windowed total.
     const MAX_PLAUSIBLE_L = 9000;
+    // Rate check (4.4.212): sub-ceiling garbage still slipped through —
+    // valve 824 summed 10,303 L over 1.5 h runtime (~114 L/min; the meter
+    // maxes at 25 L/min). cur_cap publishes every ~10 s during a run, so a
+    // real sample-to-sample delta is a few liters; reject any delta whose
+    // implied flow beats 50 L/min (2× spec, margin for update jitter).
+    // The sample still becomes `prev`, so a stuck garbage value contributes
+    // nothing further and the next cycle's reset re-anchors cleanly.
+    const MAX_RATE_L_PER_MIN = 50;
     let total = 0;
     let prev: number | null = null;
+    let prevLu = 0;
     for (const p of points) {
       const v = parseFloat(p.s);
       if (!Number.isFinite(v) || v > MAX_PLAUSIBLE_L) continue;
-      if (prev !== null && v > prev) total += v - prev;
+      if (prev !== null && v > prev) {
+        const dtMin = (p.lu - prevLu) / 60;
+        if (dtMin > 0 && (v - prev) / dtMin <= MAX_RATE_L_PER_MIN) {
+          total += v - prev;
+        }
+      }
       prev = v;
+      prevLu = p.lu;
     }
     return total;
   }
@@ -1242,6 +1257,20 @@ class IrrigationValveMatrix extends HTMLElement {
         .battery.low { color: var(--error-color, #db4437); font-weight: 600; }
         .grouphdr { padding: 10px 16px 3px; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--primary-color); border-top: 1px solid var(--divider-color, #e0e0e0); }
         .grouphdr:first-child { border-top: none; }
+        .lbl-short { display: none; }
+        /* Companion app / phones: the 150px + 3 wide metric columns don't
+           fit a ~400px viewport — the bar collapses to nothing. Compact
+           grid + short header labels keep every column readable. */
+        @media (max-width: 620px) {
+          .row { grid-template-columns: 92px 1fr 44px 48px 44px; gap: 6px; padding: 0 10px; }
+          .name { font-size: 0.8rem; }
+          .metric, .battery { font-size: 0.78rem; }
+          .battery { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .lbl-long { display: none; }
+          .lbl-short { display: inline; }
+          .card-subtitle { flex-wrap: wrap; }
+          .grouphdr { padding: 10px 10px 3px; }
+        }
       </style>
       <ha-card>
         ${c.title ? `<h1 class="card-header">${escapeHtml(c.title)}</h1>` : ""}
@@ -1256,9 +1285,9 @@ class IrrigationValveMatrix extends HTMLElement {
           <div class="row header" title="time / water = totals over the last ${hoursLabel} (the timeline window)">
             <div></div>
             <div></div>
-            <div class="metric">time (min)</div>
-            <div class="metric">water (L)</div>
-            <div class="battery">battery</div>
+            <div class="metric"><span class="lbl-long">time (min)</span><span class="lbl-short">min</span></div>
+            <div class="metric"><span class="lbl-long">water (L)</span><span class="lbl-short">L</span></div>
+            <div class="battery"><span class="lbl-long">battery</span><span class="lbl-short">batt</span></div>
           </div>
         </div>
         <div class="grid">${rows}</div>

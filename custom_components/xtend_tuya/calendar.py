@@ -103,11 +103,20 @@ def _run_volume(
     an impossible per-run total. Dropping any sample above MAX_SANE_RUN_LITERS
     filters the spikes while keeping the real ramp.
     """
+    # Scale the ceiling to the ACTUAL run duration, not the 6 h cap:
+    # a 5-minute run physically tops out around 125 L, so a 2,000 L
+    # sample inside it is garbage even though it clears the absolute
+    # ceiling. 50 L/min = 2× the meter's 25 L/min spec — margin for
+    # cur_cap's ~10 s update lag; 50 L floor keeps sub-minute runs from
+    # rejecting their own real ramp. (Valve 824 emitted exactly this
+    # class of sub-ceiling garbage, 2026-07-06.)
+    run_minutes = max((end_lu - start_lu).total_seconds() / 60, 0.0)
+    sane_cap = min(MAX_SANE_RUN_LITERS, max(50.0, 50.0 * run_minutes))
     peak: float | None = None
     for ts, v in vol_series:
         if ts < start_lu or ts > end_lu:
             continue
-        if v > MAX_SANE_RUN_LITERS:
+        if v > sane_cap:
             continue  # glitch spike — not a real reading
         if peak is None or v > peak:
             peak = v
