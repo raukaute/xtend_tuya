@@ -110,6 +110,22 @@ if TYPE_CHECKING:
 
 COMPOUND_KEY: list[str | tuple[str, ...]] = ["key", "dpcode"]
 
+# Liters ceiling for a single cur_cap reading. The QT-08W impeller tops out
+# at 25 L/min, so even a long (6 h) cycle can't exceed 25 * 360 = 9000 L. The
+# cur_cap DP intermittently reports a garbage spike (e.g. 177610 L) that is
+# physically impossible; drop any reading above this so the watering-volume
+# sensor and its history graph don't show the spike.
+SANE_CUR_CAP_MAX = 9000
+
+
+def filter_cur_cap_spike(value: object) -> int | None:
+    """Return cur_cap as int, or None if it's an impossible glitch spike."""
+    try:
+        v = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return int(v) if v <= SANE_CUR_CAP_MAX else None
+
 
 class XTElectricityCurrentStringWrapper(TuyaDPCodeStringWrapper[float]):
     """Custom DPCode Wrapper for extracting electricity current from base64."""
@@ -1884,6 +1900,9 @@ SENSORS: dict[str, tuple[XTSensorEntityDescription, ...]] = {
             device_class=SensorDeviceClass.WATER,
             native_unit_of_measurement="L",
             suggested_display_precision=0,
+            # Drop cur_cap glitch spikes (see filter_cur_cap_spike) so the
+            # detail-card volume + its graph never show an impossible value.
+            native_value=filter_cur_cap_spike,
             # cur_cap resets to 0 each cycle; TOTAL_INCREASING lets HA
             # long-term stats treat each reset as a new accumulator window,
             # giving an all-time water figure. FDM5KW has no water_total DP.

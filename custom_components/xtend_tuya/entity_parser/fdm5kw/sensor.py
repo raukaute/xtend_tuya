@@ -38,6 +38,11 @@ DP_RUN_TASK_STA = "run_task_sta"
 DP_CUR_CAP = "cur_cap"
 DP_START_TIME = "start_time"
 
+# Liters ceiling for one cur_cap reading (25 L/min impeller * 6 h cap). The
+# cur_cap DP occasionally emits a garbage spike (e.g. 177610 L); a spike would
+# otherwise produce an impossible derived flow burst (e.g. 260000 L/min).
+SANE_CUR_CAP_MAX = 9000
+
 # How often to re-publish the flow-rate sensor state while a run is active.
 # Pure local recomputation (no API call) — cost is one recorder row per tick
 # per running valve. Simon asked for 10s in the 2026-05-12 review.
@@ -501,6 +506,12 @@ class Fdm5kwFlowRateEntity(XTSensorEntity):
             self._last_ts = None
             self._was_running = False
             return changed
+
+        if cur_cap > SANE_CUR_CAP_MAX:
+            # Glitch spike in the cur_cap DP — ignore this sample so the
+            # derived rate doesn't show an impossible burst. Keep the last
+            # baseline; the next real reading resumes a sane delta.
+            return False
 
         if not self._was_running or self._last_ts is None or self._last_cur_cap is None:
             # Run just started: capture baseline, emit 0 once.
