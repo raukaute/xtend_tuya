@@ -81,6 +81,37 @@ AVERAGES_CACHE_TTL_SEC = 30.0
 # either a stale registry slot or a broken start/end recorder pairing
 # and must not bleed into the calendar UI.
 MAX_SANE_RUN_SECONDS = 6 * 3600
+# Cap on liters delivered in one cycle. The QT-08W impeller tops out at
+# 25 L/min, so even the longest sane run can't exceed 25 * (cap minutes).
+# A derived per-run volume above this means the cur_cap delta is garbage
+# (e.g. an odometer reset mid-run) and must be dropped, not shown.
+MAX_SANE_RUN_LITERS = 25 * (MAX_SANE_RUN_SECONDS / 60)
+
+
+def _run_volume(
+    vol_series: list[tuple[datetime, float]],
+    start_lu: datetime,
+    end_lu: datetime,
+) -> float | None:
+    """Per-run liters = peak cur_cap in the run window, ignoring spikes.
+
+    cur_cap resets to 0 at cycle start and ramps up as water flows, so the
+    peak inside the run window is the liters delivered. But the DP glitches:
+    it intermittently reports a garbage value (e.g. 15237, 177610 L —
+    observed on ~2 of 488 samples, 2026-07-06) that sticks as the idle
+    resting value between runs. A plain max() picks up that spike and shows
+    an impossible per-run total. Dropping any sample above MAX_SANE_RUN_LITERS
+    filters the spikes while keeping the real ramp.
+    """
+    peak: float | None = None
+    for ts, v in vol_series:
+        if ts < start_lu or ts > end_lu:
+            continue
+        if v > MAX_SANE_RUN_LITERS:
+            continue  # glitch spike — not a real reading
+        if peak is None or v > peak:
+            peak = v
+    return peak
 
 
 async def async_setup_entry(
@@ -561,13 +592,10 @@ async def _query_recent_runs(
             # Surface the newest start as in-progress when requested.
             if include_open and is_last_start and j >= len(end_events):
                 run_start = s_value or s_last_updated
-                # Volume peak so far for the running cycle.
-                total_l: float | None = None
-                for ts, v in vol_series:
-                    if ts < s_last_updated:
-                        continue
-                    if total_l is None or v > total_l:
-                        total_l = v
+                # Running liters so far = cur_cap delta since run start.
+                total_l = _run_volume(
+                    vol_series, s_last_updated, datetime.now().astimezone()
+                )
                 runs.append(
                     {
                         "start": run_start,
@@ -597,17 +625,9 @@ async def _query_recent_runs(
             )
             continue
 
-        # Volume peak between the two recorder timestamps; cur_cap
-        # resets to 0 on cycle start and accumulates, so max(...) in
-        # the window is the total liters delivered.
-        total_l = None
-        for ts, v in vol_series:
-            if ts < s_last_updated:
-                continue
-            if ts > e_last_updated:
-                break
-            if total_l is None or v > total_l:
-                total_l = v
+        # Per-run liters = cur_cap delta across the run window. Handles
+        # both reset-per-cycle and lifetime-odometer valve firmwares.
+        total_l = _run_volume(vol_series, s_last_updated, e_last_updated)
 
         runs.append(
             {
