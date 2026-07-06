@@ -1194,7 +1194,7 @@ class IrrigationValveMatrix extends HTMLElement {
         #matrix-resync:hover { background: var(--secondary-background-color); }
         #matrix-resync:disabled { color: var(--secondary-text-color); cursor: default; }
         .grid { display: flex; flex-direction: column; }
-        .row { display: grid; grid-template-columns: 150px 1fr 60px 60px 64px; align-items: center; gap: 12px; height: 32px; padding: 0 16px; }
+        .row { display: grid; grid-template-columns: 150px 1fr 74px 70px 68px; align-items: center; gap: 12px; height: 32px; padding: 0 16px; }
         .row.header { height: 22px; color: var(--secondary-text-color); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
         .row.clickable { cursor: pointer; }
         .row.clickable:hover { background: var(--secondary-background-color); }
@@ -1222,12 +1222,12 @@ class IrrigationValveMatrix extends HTMLElement {
           <button id="matrix-resync" title="Re-read all valves from Tuya and rebuild this dashboard">↻ Re-sync valves</button>
         </div>
         <div class="grid header-row">
-          <div class="row header" title="ran / water = totals over the last ${hoursLabel} (the timeline window)">
+          <div class="row header" title="time / water = totals over the last ${hoursLabel} (the timeline window)">
             <div></div>
             <div></div>
-            <div class="metric">ran</div>
-            <div class="metric">water</div>
-            <div class="battery">batt</div>
+            <div class="metric">time (min)</div>
+            <div class="metric">water (L)</div>
+            <div class="battery">battery</div>
           </div>
         </div>
         <div class="grid">${rows}</div>
