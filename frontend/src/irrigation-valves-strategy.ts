@@ -883,8 +883,19 @@ class IrrigationValveMatrix extends HTMLElement {
     }
   }
 
+  // Window the user picked in the range dropdown this session. Runtime-only
+  // on purpose: persisting it would need a dashboard-config save round-trip
+  // (and everyone shares the saved config); a fresh load starts at the
+  // configured default again.
+  private _runtimeHours: number | null = null;
+
   private _hours(): number {
-    return this._config?.hours ?? 24;
+    return this._runtimeHours ?? this._config?.hours ?? 24;
+  }
+
+  private _hoursLabel(): string {
+    const h = this._hours();
+    return h % 24 === 0 && h >= 48 ? `${h / 24} d` : `${h} h`;
   }
 
   private async _fetchHistory(): Promise<void> {
@@ -1184,7 +1195,22 @@ class IrrigationValveMatrix extends HTMLElement {
       }
       rows += rowOf(v);
     }
-    const hoursLabel = `${this._hours()} h`;
+    const hoursLabel = this._hoursLabel();
+    // Range options for the timeline / totals window. 30 d is the ceiling —
+    // verified the recorder keeps ≥30 days; beyond retention the fetch just
+    // returns what exists. ponytail: full-history (season+) needs the
+    // PostgreSQL export track, not the recorder.
+    const RANGE_OPTIONS: Array<[number, string]> = [
+      [24, "24 h"],
+      [48, "48 h"],
+      [168, "7 d"],
+      [336, "14 d"],
+      [720, "30 d"],
+    ];
+    const rangeSelect = `<select id="matrix-range" title="Timeline window — bars and time/water totals cover this range">${RANGE_OPTIONS.map(
+      ([h, label]) =>
+        `<option value="${h}"${h === this._hours() ? " selected" : ""}>${label}</option>`
+    ).join("")}</select>`;
     this._root.innerHTML = `
       <style>
         ha-card { padding-bottom: 8px; }
@@ -1193,6 +1219,8 @@ class IrrigationValveMatrix extends HTMLElement {
         #matrix-resync { border: none; background: none; color: var(--primary-color); font: inherit; font-weight: 500; cursor: pointer; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
         #matrix-resync:hover { background: var(--secondary-background-color); }
         #matrix-resync:disabled { color: var(--secondary-text-color); cursor: default; }
+        .subtitle-actions { display: flex; align-items: center; gap: 8px; }
+        #matrix-range { border: 1px solid var(--divider-color, #e0e0e0); background: var(--card-background-color, #fff); color: var(--primary-text-color); font: inherit; font-size: 0.85rem; padding: 2px 6px; border-radius: 6px; cursor: pointer; }
         .grid { display: flex; flex-direction: column; }
         .row { display: grid; grid-template-columns: 150px 1fr 74px 70px 68px; align-items: center; gap: 12px; height: 32px; padding: 0 16px; }
         .row.header { height: 22px; color: var(--secondary-text-color); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -1219,7 +1247,10 @@ class IrrigationValveMatrix extends HTMLElement {
         ${c.title ? `<h1 class="card-header">${escapeHtml(c.title)}</h1>` : ""}
         <div class="card-subtitle">
           <span id="valve-counts">${escapeHtml(this._countsText())}</span>
-          <button id="matrix-resync" title="Re-read all valves from Tuya and rebuild this dashboard">↻ Re-sync valves</button>
+          <span class="subtitle-actions">
+            ${rangeSelect}
+            <button id="matrix-resync" title="Re-read all valves from Tuya and rebuild this dashboard">↻ Re-sync valves</button>
+          </span>
         </div>
         <div class="grid header-row">
           <div class="row header" title="time / water = totals over the last ${hoursLabel} (the timeline window)">
@@ -1238,6 +1269,21 @@ class IrrigationValveMatrix extends HTMLElement {
     this._root
       .querySelector<HTMLButtonElement>("#matrix-resync")
       ?.addEventListener("click", () => void this._resync());
+    this._root
+      .querySelector<HTMLSelectElement>("#matrix-range")
+      ?.addEventListener("change", (ev) => {
+        this._runtimeHours = parseInt(
+          (ev.target as HTMLSelectElement).value,
+          10
+        );
+        // Old-window data would render mislabeled while the fetch runs —
+        // clear it so lanes go empty, then refill for the new window.
+        this._segments = {};
+        this._runtimeMin = {};
+        this._waterL = {};
+        this._render();
+        void this._fetchHistory();
+      });
   }
 }
 
