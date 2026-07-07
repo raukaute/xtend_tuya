@@ -294,6 +294,28 @@ class DPCodeTimeTaskRegistryWrapper(DPCodeTimeTaskWrapper):
                 idx = self.timer["slot"]
                 if 0 <= idx < self.NUM_SLOTS:
                     self.slots[idx] = dict(self.timer)
+                    # Tuya's cloud registry can map two timers onto the same
+                    # device slot (seen live on 969: 04:05 and 22:05 both as
+                    # slot 1). When that slot's push carries a time+days that
+                    # another slot already holds, the other entry is a stale
+                    # duplicate of this same timer — drop it so the registry
+                    # doesn't show one timer twice / a ghost that never fires.
+                    for other, s in self.slots.items():
+                        if (
+                            other != idx
+                            and s
+                            and s.get("hour") == self.timer["hour"]
+                            and s.get("minute") == self.timer["minute"]
+                            and s.get("days_mask") == self.timer["days_mask"]
+                        ):
+                            _LOGGER.warning(
+                                "time_task slot %d duplicates slot %d (%02d:%02d) — dropping stale entry",
+                                other,
+                                idx,
+                                self.timer["hour"],
+                                self.timer["minute"],
+                            )
+                            self.slots[other] = None
             elif self.slot_index is not None and 0 <= self.slot_index < self.NUM_SLOTS:
                 # count=0 means slot was deleted
                 self.slots[self.slot_index] = None
