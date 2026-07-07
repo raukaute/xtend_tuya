@@ -44,7 +44,7 @@ const dt={attribute:!0,type:String,converter:$,reflect:!1,hasChanged:g},lt=(t=dt
           ${this._editing?this._renderEditor():this._renderList()}
         </div>
       </ha-card>
-    `}_renderList(){const t=Array.from(this._timers.values()).sort((t,e)=>t.slot-e.slot);return V`
+    `}_renderList(){const t=Array.from(this._timers.values()).sort((t,e)=>60*t.hour+t.minute-(60*e.hour+e.minute));return V`
       ${0===t.length?V`<div class="empty">No timers configured</div>`:t.map(t=>this._renderTimerRow(t))}
       <button class="add-btn" @click=${this._startNew}>
         <ha-icon icon="mdi:plus"></ha-icon>

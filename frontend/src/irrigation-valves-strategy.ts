@@ -557,16 +557,27 @@ function buildControlCard(v: ValveEntities): unknown | null {
 }
 
 function buildOtherSettingsCard(v: ValveEntities): unknown | null {
-  const entities: unknown[] = [];
-  if (v.sleep_mode) entities.push({ entity: v.sleep_mode, name: "Sleep Mode" });
+  const cards: unknown[] = [];
+  if (v.sleep_mode)
+    cards.push({
+      type: "entities",
+      title: "Other settings",
+      show_header_toggle: false,
+      entities: [{ entity: v.sleep_mode, name: "Sleep Mode" }],
+    });
+  // Rain/Snow delay as a tile with −/+ buttons instead of an entities row —
+  // more responsive to tap, esp. on the companion app (Trello ExgyBKSb).
   if (v.rain_snow_delay)
-    entities.push({ entity: v.rain_snow_delay, name: "Rain/Snow Delay" });
-  if (entities.length === 0) return null;
+    cards.push({
+      type: "tile",
+      entity: v.rain_snow_delay,
+      name: "Rain/Snow Delay",
+      features: [{ type: "numeric-input", style: "buttons" }],
+    });
+  if (cards.length === 0) return null;
   return {
-    type: "entities",
-    title: "Other settings",
-    show_header_toggle: false,
-    entities,
+    type: "vertical-stack",
+    cards,
     layout_options: { grid_columns: 4, grid_rows: "auto" },
   };
 }

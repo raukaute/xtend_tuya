@@ -214,8 +214,10 @@ export class IrrigationTimerCard extends LitElement {
   }
 
   private _renderList() {
+    // Sort by time of day, not slot index — slot numbers are an internal
+    // device detail and read as random ordering (Trello ExgyBKSb).
     const timers = Array.from(this._timers.values()).sort(
-      (a, b) => a.slot - b.slot
+      (a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute)
     );
 
     return html`
