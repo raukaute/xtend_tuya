@@ -14,8 +14,20 @@ interface HomeAssistant {
   callService(
     domain: string,
     service: string,
-    data: Record<string, unknown>
-  ): Promise<void>;
+    data?: Record<string, unknown>,
+    target?: unknown,
+    notifyOnError?: boolean,
+    returnResponse?: boolean
+  ): Promise<{ response?: ResyncResponse }>;
+}
+
+/** Return payload of xtend_tuya.fdm5kw_resync_timers. */
+interface ResyncResponse {
+  success?: boolean;
+  error?: string;
+  checked?: number;
+  orphans_cleared?: number;
+  orphans_deferred?: number;
 }
 
 interface HassEntity {
@@ -49,6 +61,10 @@ export class IrrigationTimerCard extends LitElement {
 
   /** Are we creating a new timer? */
   @state() private _isNew = false;
+
+  /** Cloud-resync in flight + last-result banner (auto-clears). */
+  @state() private _resyncing = false;
+  @state() private _resyncStatus: string | null = null;
 
   setConfig(config: IrrigationTimerCardConfig): void {
     if (!config.entity) {
@@ -158,6 +174,44 @@ export class IrrigationTimerCard extends LitElement {
     this._timers.delete(slot);
   }
 
+  /** Reconcile this valve's timers against the Tuya cloud, dropping ghosts.
+   * Read-first server-side: only a live orphan (would water offline) costs a
+   * device write. The registry entity refreshes itself, so the ghost rows
+   * just vanish; the banner covers the "nothing changed / all clean" case. */
+  private async _resync(): Promise<void> {
+    if (this._resyncing) return;
+    this._resyncing = true;
+    this._resyncStatus = null;
+    try {
+      const res = await this.hass.callService(
+        "xtend_tuya",
+        "fdm5kw_resync_timers",
+        { device_id: this._config.device_id },
+        undefined,
+        undefined,
+        true
+      );
+      const r = res?.response ?? {};
+      if (r.success === false) {
+        this._resyncStatus = `Resync failed: ${r.error ?? "unknown"}`;
+      } else {
+        const cleared = r.orphans_cleared ?? 0;
+        const parts: string[] = [];
+        if (cleared === 0) parts.push("All in sync");
+        else parts.push(`Cleared ${cleared} zombie${cleared === 1 ? "" : "s"}`);
+        if (r.orphans_deferred) parts.push(`${r.orphans_deferred} deferred (quota)`);
+        this._resyncStatus = parts.join(" · ");
+      }
+    } catch (err) {
+      this._resyncStatus = `Resync failed: ${err}`;
+    } finally {
+      this._resyncing = false;
+      window.setTimeout(() => {
+        this._resyncStatus = null;
+      }, 5000);
+    }
+  }
+
   private _startEdit(timer: TimerSlot): void {
     this._editing = { ...timer };
     this._isNew = false;
@@ -205,7 +259,18 @@ export class IrrigationTimerCard extends LitElement {
               ? html`<span class="location">${location}</span>`
               : nothing}
           </div>
+          <button
+            class="resync-btn ${this._resyncing ? "spinning" : ""}"
+            title="Resync timers from cloud (clears ghost/zombie timers)"
+            ?disabled=${this._resyncing}
+            @click=${this._resync}
+          >
+            <ha-icon icon="mdi:cloud-sync-outline"></ha-icon>
+          </button>
         </div>
+        ${this._resyncStatus
+          ? html`<div class="resync-status">${this._resyncStatus}</div>`
+          : nothing}
         <div class="card-content">
           ${this._editing ? this._renderEditor() : this._renderList()}
         </div>
@@ -429,6 +494,40 @@ export class IrrigationTimerCard extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .resync-btn {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border: none;
+      background: transparent;
+      color: var(--timer-card-secondary);
+      cursor: pointer;
+      border-radius: 50%;
+      transition: color 0.2s;
+    }
+    .resync-btn:hover:not([disabled]) {
+      color: var(--timer-card-primary);
+    }
+    .resync-btn[disabled] {
+      cursor: default;
+    }
+    .resync-btn.spinning ha-icon {
+      animation: resync-spin 1s linear infinite;
+    }
+    @keyframes resync-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    .resync-status {
+      margin: 4px 16px 0;
+      font-size: 0.8em;
+      color: var(--timer-card-secondary);
+      text-align: right;
     }
 
     .card-content {

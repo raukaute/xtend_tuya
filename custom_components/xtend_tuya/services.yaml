@@ -135,3 +135,16 @@ fdm5kw_clear_quota_lockout:
     error. Call after upgrading the IoT-Core plan or removing devices
     so the next timer mutation retries the cloud write. DP-only writes
     were not affected by the lockout.
+
+fdm5kw_resync_timers:
+  name: Resync fdm5kw timers from cloud
+  description: >-
+    Reconcile the HA timer registry for one valve against the Tuya cloud,
+    dropping ghost/zombie timer slots the cloud no longer knows about.
+    Disabled ghosts are dropped read-only (no quota cost); a live orphan
+    slot (enabled, no cloud entry — would water offline) is cleared with a
+    device write (1 controllable-device unit). Returns reconcile counts.
+  fields:
+    device_id:
+      required: true
+      example: "bfbc9ae1e1ad6d3135vxmj"

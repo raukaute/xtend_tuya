@@ -484,6 +484,133 @@ async def set_timer(hass, data: dict) -> bool:
     return True
 
 
+async def _get_cloud_timer_keys(account, device_id: str) -> set[tuple[str, str]] | None:
+    """GET the cloud timer registry and return the set of (time_str, loops)
+    keys it holds. Read-only — draws the 26k/mo API-call pool, NOT the
+    10-controllable-device cap. Returns None if the GET failed (so callers
+    don't mistake an API failure for an empty cloud registry and wipe every
+    HA slot as a ghost)."""
+    list_url = f"/v1.0/devices/{device_id}/timers"
+    try:
+        resp = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+            account.call_api, "GET", list_url, None
+        )
+    except Exception:
+        _LOGGER.warning(
+            "resync: cloud timer GET raised for %s (non-fatal)", device_id, exc_info=True
+        )
+        return None
+    if not resp or not resp.get("success"):
+        _LOGGER.warning("resync: cloud timer GET non-success for %s: %s", device_id, resp)
+        return None
+    keys: set[tuple[str, str]] = set()
+    for category in resp.get("result", []):
+        for group in category.get("groups", []):
+            for timer in group.get("timers", []):
+                funcs = timer.get("functions") or []
+                v = funcs[0].get("value", {}) if funcs else {}
+                t = v.get("startTimeStr")
+                loops = v.get("loops")
+                if t is not None and loops is not None:
+                    keys.add((t, loops))
+    return keys
+
+
+async def resync_from_cloud(hass, data: dict) -> dict:
+    """Reconcile the HA timer registry against the Tuya cloud, clearing the
+    live orphan (zombie) slots the cloud no longer knows about.
+
+    A *live orphan* = an ENABLED HA slot with no matching cloud timer. Enabled
+    timers are always cloud-posted (`set_timer` posts on enable), so a missing
+    cloud entry means the cloud rolled back / a SmartLife delete left the
+    device slot live — it WILL water offline with no cloud entry (the 969
+    04:20 case). Clear the device slot: a control write, 1 unit against the
+    10/valve/month cap for this account.
+
+    DISABLED slots are deliberately left alone. `set_timer` never posts a
+    disabled timer to the cloud, so a legitimately user-disabled timer is
+    indistinguishable from a disabled ghost by cloud state alone — dropping it
+    would delete a real timer the user just toggled off. Disabled ghosts don't
+    fire, so they're harmless clutter; leave manual cleanup for those.
+
+    Read-first by construction: the GET is always free against the control
+    cap; a write happens only per live orphan found. User-triggered per valve,
+    so it can't runaway the quota the way a periodic sweep would."""
+    device_id: str = data["device_id"]
+
+    account = _find_iot_account(hass, device_id)
+    if account is None:
+        _LOGGER.warning("resync: no tuya_iot account for %s — cannot reconcile", device_id)
+        return {"success": False, "error": "no_cloud_account"}
+
+    from .sensor import Fdm5kwTimerRegistryEntity
+
+    entity = Fdm5kwTimerRegistryEntity.INSTANCES.get(device_id)
+    if entity is None:
+        _LOGGER.warning("resync: no timer registry entity loaded for %s", device_id)
+        return {"success": False, "error": "no_registry_entity"}
+    wrapper = entity._dpcode_wrapper
+    slots: dict = getattr(wrapper, "slots", None)
+    if slots is None:
+        return {"success": False, "error": "no_registry_slots"}
+
+    cloud_keys = await _get_cloud_timer_keys(account, device_id)
+    if cloud_keys is None:
+        return {"success": False, "error": "cloud_get_failed"}
+
+    multi_manager = _find_multi_manager(hass, device_id)
+    locked_out = _is_quota_locked_out()
+
+    checked = orphans_cleared = orphans_deferred = 0
+    for slot_idx, s in list(slots.items()):
+        if not s:
+            continue
+        checked += 1
+        # Only enabled slots are judged — disabled ones are never in the cloud
+        # by design (see docstring), so "no cloud match" tells us nothing.
+        if not s.get("enabled"):
+            continue
+        key = (
+            f"{int(s.get('hour', 0)):02d}:{int(s.get('minute', 0)):02d}",
+            _mask_to_loops(int(s.get("days_mask", 0))),
+        )
+        if key in cloud_keys:
+            continue  # legit — cloud agrees it exists
+        # Live orphan — fires offline with no cloud entry. Needs a device slot
+        # clear (control write). Skip if quota-locked; the write would just
+        # fail, so report it deferred rather than burn a call.
+        if locked_out or multi_manager is None:
+            orphans_deferred += 1
+            _LOGGER.warning(
+                "resync: live orphan slot %d on %s left in place (quota lockout / no manager)",
+                slot_idx, device_id,
+            )
+            continue
+        if await _write_time_task(
+            multi_manager, device_id, build_delete_payload(slot_idx)
+        ):
+            slots[slot_idx] = None
+            orphans_cleared += 1
+            _LOGGER.warning(
+                "resync: cleared live orphan slot %d on %s (no cloud entry)",
+                slot_idx, device_id,
+            )
+        else:
+            orphans_deferred += 1
+
+    if orphans_cleared:
+        entity.async_write_ha_state()
+
+    result = {
+        "success": True,
+        "checked": checked,
+        "orphans_cleared": orphans_cleared,
+        "orphans_deferred": orphans_deferred,
+    }
+    _LOGGER.warning("resync %s: %s", device_id, result)
+    return result
+
+
 async def delete_timer(hass, data: dict) -> bool:
     device_id: str = data["device_id"]
     slot: int = int(data["slot"])

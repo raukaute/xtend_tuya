@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.215] - 2026-07-14
+
+### Added
+- **Per-valve "Resync from cloud" button on the timer card** (Simon request) —
+  clears live orphan (zombie) timers the Tuya cloud no longer knows about but
+  that still fire on the device. Read-first: GETs the cloud timer registry
+  (draws the 26k/mo API-call pool, *not* the 10-controllable-device cap) and
+  reconciles the HA slot registry against it. A live orphan = an *enabled* HA
+  slot with no cloud entry (would water offline — the 969 04:20 case); it's
+  cleared with a device write, 1 controllable-device unit. Disabled slots are
+  left alone: `set_timer` never posts disabled timers to the cloud, so a
+  user-disabled timer is indistinguishable from a disabled ghost by cloud
+  state — dropping it would delete a real timer. User-triggered per valve, so
+  it can't runaway the quota the way a periodic sweep would. New service
+  `xtend_tuya.fdm5kw_resync_timers` returns reconcile counts; button reports
+  "Cleared N zombies / All in sync". Orphan writes deferred (not failed) under
+  quota lockout.
+
 ## [4.4.205] - 2026-06-10
 
 ### Fixed
