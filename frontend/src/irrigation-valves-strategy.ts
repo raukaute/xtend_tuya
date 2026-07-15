@@ -118,6 +118,12 @@ const TRANSLATION_KEY_TO_FIELD: Record<string, keyof ValveEntities> = {
   battery_level: "battery_level",
   watering_duration: "duration",
   rain_snow_delay: "rain_snow_delay",
+  // QT-08W-T3 valves expose the same concepts under indexed / differently
+  // named translation_keys (4-program model). Map them onto the same fields
+  // so T3 valves get the full detail view (control card, battery tile, run
+  // duration) with no separate code path.
+  battery: "battery_level",
+  indexed_irrigation_duration: "duration",
 };
 
 // Existing entities created before 4.4.150 have null `translation_key`
@@ -281,7 +287,9 @@ function collectValveEntities(
     // back to the suffix for legacy entities with no translation_key.
     if (
       e.entity_id.startsWith("switch.") &&
-      (e.translation_key === "valve" || e.entity_id.endsWith("_valve"))
+      (e.translation_key === "valve" ||
+        e.translation_key === "indexed_switch" ||
+        e.entity_id.endsWith("_valve"))
     ) {
       if (!v.switch) v.switch = e.entity_id;
       continue;

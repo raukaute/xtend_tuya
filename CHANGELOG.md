@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.221] - 2026-07-15
+
+### Added
+- **QT-08W-T3 valve support, phase 2d — dashboard detail views.** The valve
+  strategy now recognises the T3's indexed / renamed translation_keys so T3
+  valves get the full detail view like the old valves: `indexed_switch` →
+  control card + overview tile, `battery` → battery tile + history,
+  `indexed_irrigation_duration` → run duration. Timer card + start/stop
+  watering already route through the T3-aware services. No separate code path —
+  three key mappings in the strategy. **Completes full T3 parity** (read,
+  timers, single-watering, dashboard). Regenerate the saved dashboard (Re-sync
+  valves button) after upgrading to pick up T3 detail cards.
+
 ## [4.4.220] - 2026-07-15
 
 ### Added
