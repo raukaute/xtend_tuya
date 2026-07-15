@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.216] - 2026-07-15
+
+### Added
+- **QT-08W-T3 valve support, phase 1 — read sensors** (new valve type on the
+  Mavronero farm, product `rjnqkjk1pct15ku2`, HM Olive/verbs 701-706). The T3
+  is a different DP model from the QT-08W (indexed `_0` DPs, no
+  `vbat_state`/`cur_cap`/`one_control`), so HA showed only a generic switch.
+  Adds three sensors, all DP-presence-gated (zero effect on old valves):
+  - **Battery level** — byte-packed in `sat_0` (byte3 & 0x7F); the T3 has no
+    battery DP, the value is inside the status heartbeat. Matches SmartLife.
+  - **Watering volume** — `flow_sta_0` bytes1-4 BE (live-cumulative during a
+    run, last-run total when idle), with the same 9000 L glitch ceiling.
+  - **Next watering** — `sat_0` bytes7-11 datetime.
+  - On/off already works via the base Tuya integration (`switch_1`).
+  Decoders validated against live captures (see
+  `entity_parser/fdm5kw/test_t3_decode.py`). Timers (cloud-registry read +
+  12-byte `time_task_0` write) are phase 2.
+
 ## [4.4.215] - 2026-07-14
 
 ### Added

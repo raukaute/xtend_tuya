@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Callable, Mapping
 
-from homeassistant.const import UnitOfVolumeFlowRate
-from homeassistant.components.sensor import SensorStateClass
+from homeassistant.const import UnitOfVolumeFlowRate, UnitOfVolume, PERCENTAGE
+from homeassistant.components.sensor import SensorStateClass, SensorDeviceClass
 from homeassistant.helpers.event import async_track_time_interval
 from tuya_device_handlers.definition.sensor import (
     SensorDefinition as TuyaSensorDefinition,
@@ -573,6 +573,97 @@ class Fdm5kwFlowRateEntity(XTSensorEntity):
 
 
 # ---------------------------------------------------------------------------
+# QT-08W-T3 valve — raw DP wrappers (product rjnqkjk1pct15ku2)
+# ---------------------------------------------------------------------------
+# The T3 is a DIFFERENT product from the QT-08W (o6dagifntoafakst): indexed DP
+# model (switch_1, time_task_0, flow_sta_0, sat_0, counter_custom), no
+# vbat_state / cur_cap / one_control. Battery is byte-packed inside sat_0.
+# Decoders validated against live captures 2026-07-15 — see
+# ~/Documents/work/irrigation-t3-dp-decode.md. All descriptors below are
+# DP-presence-gated, so they only spawn on T3 devices and never touch the old
+# QT-08W (which lacks these codes) — same coexistence model as every other
+# fdm5kw descriptor.
+
+DP_T3_SAT = "sat_0"
+DP_T3_FLOW_STA = "flow_sta_0"
+DP_T3_COUNTER = "counter_custom"
+
+
+class DPCodeSat0BatteryWrapper(XTDPCodeRawStatusWrapper):
+    """T3 battery %: sat_0 byte[3] low 7 bits (high bit = charge/sun flag).
+
+    sat_0 = 00 01 00 [BB] 00 01 00 [Y M D H M] 00 (13 B). 706 read 0x64=100,
+    matching SmartLife's 100%.
+    """
+
+    def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
+        decoded = super().read_device_status(device)
+        if decoded and len(decoded) >= 4:
+            # ponytail: a lone byte3=0x00 glitch was seen once (07-13); returns
+            # 0% for that frame. Debounce here if it proves noisy in the field.
+            return str(decoded[3] & 0x7F)
+        return None
+
+
+class DPCodeSat0NextRunWrapper(XTDPCodeRawStatusWrapper):
+    """T3 next-irrigation time from sat_0 bytes[7..11] = [Y-2000, M, D, H, M].
+    0xFF year / month 0 (idle frame `..ff ff ff ff ff`) = no schedule -> None."""
+
+    def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
+        decoded = super().read_device_status(device)
+        if decoded and len(decoded) >= 12:
+            y, mo, d, h, mi = decoded[7], decoded[8], decoded[9], decoded[10], decoded[11]
+            if y == 0xFF or mo == 0 or mo > 12 or d == 0 or d > 31:
+                return None
+            return f"20{y:02d}-{mo:02d}-{d:02d} {h:02d}:{mi:02d}:00"
+        return None
+
+
+class DPCodeFlowStaVolumeWrapper(XTDPCodeRawStatusWrapper):
+    """T3 watering volume (L): flow_sta_0 bytes[1:5] BE. Live-cumulative during a
+    run, holds the last run's final total when idle. Captured mid-run 07-14:
+    climbed 80..113 L; final frame bytes[1:5]=00 00 00 71 = 113 L (=app 113 L).
+    """
+
+    def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
+        decoded = super().read_device_status(device)
+        if decoded and len(decoded) >= 5:
+            vol = int.from_bytes(decoded[1:5], "big")
+            if vol > SANE_CUR_CAP_MAX:
+                return None  # glitch guard, same ceiling as cur_cap
+            return str(vol)
+        return None
+
+
+class DPCodeCounterCustomWrapper(XTDPCodeRawStatusWrapper):
+    """T3 counter_custom — a plain CSV STRING (not base64), last completed run:
+    'mode,flag,duration_s,volume_L,timestamp'. e.g. '0,1,600,113,20260714161000'.
+    duration 65534 (0xFFFE) = aborted/interrupted sentinel."""
+
+    def _parse(self, device: TuyaCustomerDevice) -> dict | None:
+        raw = device.status.get(self.dpcode)
+        if not isinstance(raw, str) or "," not in raw:
+            return None
+        parts = raw.split(",")
+        if len(parts) < 5:
+            return None
+        try:
+            return {"duration": int(parts[2]), "volume": int(parts[3]), "ts": parts[4]}
+        except ValueError:
+            return None
+
+
+class DPCodeCounterCustomVolumeWrapper(DPCodeCounterCustomWrapper):
+    """Last completed-run volume (L). Skips the 0xFFFE aborted sentinel."""
+
+    def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
+        p = self._parse(device)
+        if not p or p["duration"] == 65534:
+            return None
+        return str(p["volume"])
+
+
+# ---------------------------------------------------------------------------
 # Entity Descriptors
 # ---------------------------------------------------------------------------
 
@@ -735,6 +826,42 @@ class Fdm5kwSensor:
                 icon="mdi:water-percent",
                 entity_registry_enabled_default=True,
                 ignore_other_dp_code_handler=True,
+            ),
+            # --- QT-08W-T3 valve (product rjnqkjk1pct15ku2) ---
+            # DP-presence-gated to T3; these codes are absent on the old QT-08W.
+            Fdm5kwSensorEntityDescription(
+                key=f"{DP_T3_SAT}_battery",
+                dpcode=DP_T3_SAT,
+                translation_key="battery",
+                name="Battery level",
+                device_class=SensorDeviceClass.BATTERY,
+                native_unit_of_measurement=PERCENTAGE,
+                state_class=SensorStateClass.MEASUREMENT,
+                entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
+                wrapper_class=(DPCodeSat0BatteryWrapper,),
+            ),
+            Fdm5kwSensorEntityDescription(
+                key=f"{DP_T3_FLOW_STA}_volume",
+                dpcode=DP_T3_FLOW_STA,
+                translation_key="watering_volume",
+                name="Watering volume",
+                device_class=SensorDeviceClass.WATER,
+                native_unit_of_measurement=UnitOfVolume.LITERS,
+                icon="mdi:water",
+                entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
+                wrapper_class=(DPCodeFlowStaVolumeWrapper,),
+            ),
+            Fdm5kwSensorEntityDescription(
+                key=f"{DP_T3_SAT}_next_run",
+                dpcode=DP_T3_SAT,
+                translation_key="next_watering",
+                name="Next watering",
+                icon="mdi:clock-outline",
+                entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
+                wrapper_class=(DPCodeSat0NextRunWrapper,),
             ),
         ]
 
