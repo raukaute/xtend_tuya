@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.217] - 2026-07-15
+
+### Added
+- **QT-08W-T3 valve support, phase 2a — timer read/display.** The T3
+  `time_task_0` DP is the same sliding-window + per-timer-index model as the old
+  valve, verified live (byte[1]=index, proven with two duration timers), just a
+  different 12-byte layout `[00, index, b2, mode, value(4B BE), h, m, days,
+  enabled]`. New `DPCodeT3TimeTask*` wrappers reuse the old accumulate / dedup /
+  registry logic via MRO — only the decoder is swapped. Adds T3 timer_slot /
+  timer_schedule / irrigation_timer_registry sensors (same translation_keys as
+  old valves, so the dashboard treats them the same). Ghost caveat confirmed
+  live: a SmartLife delete doesn't clear the DP, so deletions stay invisible on
+  the DP exactly like the old valve — the reactive resync path applies. Timer
+  *write* (12-byte `time_task_0` + cloud dual-write) is phase 2b.
+
 ## [4.4.216] - 2026-07-15
 
 ### Added

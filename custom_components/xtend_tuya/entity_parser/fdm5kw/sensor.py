@@ -663,6 +663,67 @@ class DPCodeCounterCustomVolumeWrapper(DPCodeCounterCustomWrapper):
         return str(p["volume"])
 
 
+DP_T3_TIME_TASK = "time_task_0"
+
+
+class DPCodeT3TimeTaskWrapper(DPCodeTimeTaskWrapper):
+    """T3 time_task_0 — 12 bytes, same sliding-window + per-timer-index model as
+    the old valve, but a different layout (verified live 2026-07-15):
+      [00, index, b2, mode, value(4B BE), hour, minute, days_mask, enabled]
+    - byte[1] = per-timer index (the T3 equivalent of the old byte[0] slot) —
+      PROVEN with two duration timers (A idx0, B idx1). NOT the enable flag.
+    - byte[3] = mode (0=duration/seconds, 1=volume/liters).
+    - byte[11] = enabled (1=active, 0=disabled).
+    - byte[2] = a create/order marker (1 only on the create push), ignored.
+    Ghost caveat (proven live): a SmartLife delete does NOT clear the DP or set
+    enabled=0 — the device keeps re-reporting the stale timer. So, exactly like
+    the old valve, deletions are invisible on the DP and need the reactive
+    resync path; only an all-zero payload counts as an empty slot here.
+    """
+
+    def update_data(self, device: TuyaCustomerDevice) -> None:
+        if decoded := super().read_device_status(device):
+            if len(decoded) < 12:
+                return
+            self.slot_index = decoded[1]
+            mode = decoded[3]
+            value = int.from_bytes(decoded[4:8], byteorder="big")
+            hour = decoded[8]
+            minute = decoded[9]
+            days_mask = decoded[10]
+            enabled = decoded[11]
+            # Empty/cleared slot = an all-zero payload (what a slot clear writes).
+            if not value and not hour and not minute and not days_mask and not enabled:
+                self.timer = None
+                return
+            days = [DAYS_OF_WEEK[i] for i in range(7) if days_mask & (1 << i)]
+            self.timer = {
+                "slot": self.slot_index,
+                "hour": hour,
+                "minute": minute,
+                "mode": "duration" if mode == 0 else "volume",
+                "value": value,
+                "value_unit": "s" if mode == 0 else "L",
+                "days": days,
+                "days_mask": days_mask,
+                "enabled": bool(enabled),
+            }
+
+
+# The Slot/Summary/Registry variants reuse the old read/accumulate logic and
+# only swap in the T3 decoder via MRO (T3 update_data resolves before the base).
+class DPCodeT3TimeTaskSlotWrapper(DPCodeTimeTaskSlotWrapper, DPCodeT3TimeTaskWrapper):
+    pass
+
+
+class DPCodeT3TimeTaskSummaryWrapper(DPCodeTimeTaskSummaryWrapper, DPCodeT3TimeTaskWrapper):
+    pass
+
+
+class DPCodeT3TimeTaskRegistryWrapper(DPCodeTimeTaskRegistryWrapper, DPCodeT3TimeTaskWrapper):
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Entity Descriptors
 # ---------------------------------------------------------------------------
@@ -862,6 +923,39 @@ class Fdm5kwSensor:
                 entity_registry_enabled_default=True,
                 ignore_other_dp_code_handler=True,
                 wrapper_class=(DPCodeSat0NextRunWrapper,),
+            ),
+            # T3 timers — same registry/slot/summary as the old valve, on
+            # time_task_0 with the 12-byte decoder. Matching translation_keys so
+            # the dashboard strategy + timer card treat T3 like the old valves.
+            Fdm5kwSensorEntityDescription(
+                key=f"{DP_T3_TIME_TASK}_slot",
+                dpcode=DP_T3_TIME_TASK,
+                translation_key="timer_slot",
+                name="Timer slot",
+                icon="mdi:timer-outline",
+                entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
+                wrapper_class=(DPCodeT3TimeTaskSlotWrapper,),
+            ),
+            Fdm5kwSensorEntityDescription(
+                key=f"{DP_T3_TIME_TASK}_summary",
+                dpcode=DP_T3_TIME_TASK,
+                translation_key="timer_schedule",
+                name="Timer schedule",
+                icon="mdi:calendar-clock",
+                entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
+                wrapper_class=(DPCodeT3TimeTaskSummaryWrapper,),
+            ),
+            Fdm5kwTimerRegistryDescription(
+                key=f"{DP_T3_TIME_TASK}_registry",
+                dpcode=DP_T3_TIME_TASK,
+                translation_key="irrigation_timer_registry",
+                name="Irrigation timer registry",
+                icon="mdi:timer-cog",
+                entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
+                wrapper_class=(DPCodeT3TimeTaskRegistryWrapper,),
             ),
         ]
 

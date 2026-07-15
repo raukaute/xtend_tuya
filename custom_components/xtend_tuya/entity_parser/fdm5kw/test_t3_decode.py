@@ -32,6 +32,18 @@ def counter_volume(csv):  # DPCodeCounterCustomVolumeWrapper
     return int(p[3])
 
 
+def time_task(b):  # DPCodeT3TimeTaskWrapper.update_data
+    if len(b) < 12:
+        return None
+    mode, value = b[3], int.from_bytes(b[4:8], "big")
+    hour, minute, days_mask, enabled = b[8], b[9], b[10], b[11]
+    if not value and not hour and not minute and not days_mask and not enabled:
+        return None  # empty slot
+    return {"slot": b[1], "mode": "duration" if mode == 0 else "volume",
+            "value": value, "hour": hour, "minute": minute,
+            "days_mask": days_mask, "enabled": bool(enabled)}
+
+
 def demo():
     d = base64.b64decode
     # sat_0 (701): battery 100%, next 2026-07-15 16:00
@@ -49,6 +61,19 @@ def demo():
     # counter_custom: last run 113 L; aborted (65534) -> None
     assert counter_volume("0,1,600,113,20260714161000") == 113
     assert counter_volume("0,1,65534,9,20260714155958") is None
+    # time_task_0 — Timer A (idx0, 3min/180s, 03:03, Mon, duration)
+    a = time_task(d("AAAAAAAAALQDAwEB"))
+    assert a == {"slot": 0, "mode": "duration", "value": 180, "hour": 3,
+                 "minute": 3, "days_mask": 0x01, "enabled": True}, a
+    # Timer B (idx1, 6min/360s, 06:06, Tue, duration)
+    b = time_task(d("AAEBAAAAAWgGBgIB"))
+    assert b == {"slot": 1, "mode": "duration", "value": 360, "hour": 6,
+                 "minute": 6, "days_mask": 0x02, "enabled": True}, b
+    # Volume timer (idx1, 33 L, 05:07, all days)
+    v = time_task(d("AAEBAQAAACEFB38B"))
+    assert v["mode"] == "volume" and v["value"] == 33 and v["slot"] == 1, v
+    # All-zero payload = empty slot
+    assert time_task(bytes(12)) is None
     print("T3 decode self-check OK")
 
 
