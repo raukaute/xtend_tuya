@@ -326,6 +326,7 @@ async def _post_cloud_timer(
     mode: int,
     value: int,
     enabled: bool,
+    code: str = TIME_TASK_CODE,
 ) -> None:
     """Cloud timer create so the cloud doesn't roll back our DP write.
     Schema (verified 2026-05-12 against Mavronero fleet, fdm5kw category):
@@ -367,7 +368,7 @@ async def _post_cloud_timer(
                 {
                     "time": time_str,
                     "date": "00000000",
-                    "functions": [{"code": TIME_TASK_CODE, "value": func_value}],
+                    "functions": [{"code": code, "value": func_value}],
                 }
             ],
         }
@@ -436,9 +437,13 @@ async def _delete_cloud_timer_by_match(
     for category in resp.get("result", []):
         for group in category.get("groups", []):
             for timer in group.get("timers", []):
+                # Prefer the top-level time/loops — always present, including
+                # T3 app-created timers whose `functions` list comes back empty.
                 funcs = timer.get("functions") or []
                 v = funcs[0].get("value", {}) if funcs else {}
-                if v.get("startTimeStr") == time_str and v.get("loops") == loops:
+                t_time = timer.get("time") or v.get("startTimeStr")
+                t_loops = timer.get("loops") or v.get("loops")
+                if t_time == time_str and t_loops == loops:
                     # Tuya's selective timer delete takes the timer-group
                     # id as a *query-string* parameter; both path-style
                     # variants (/timers/{group_id}, /timer/group/{id}, …)
@@ -494,27 +499,22 @@ async def set_timer(hass, data: dict) -> bool:
     # duplicate SmartLife timer entries after time/day changes.
     prior = _get_prior_slot(hass, device_id, slot)
 
-    # T3 valves: write the 12-byte time_task_0 DP and stop. The cloud POST
-    # function code for T3 is still unknown (GET renders functions:[] empty),
-    # so there's no verified dual-write yet — DP-only executes locally and
-    # offline. Cloud sync/rollback-protection for T3 is a follow-up.
-    # ponytail: DP-only until the T3 cloud POST shape is captured live.
-    if _is_t3(hass, device_id):
+    # T3 valves carry the indexed 12-byte `time_task_0` DP; everything else
+    # (cloud dual-write, prior-delete, disabled-skip) is identical — the cloud
+    # POST just uses the `time_task_0` function code. Verified 2026-07-15:
+    # POST /timers with code time_task_0 renders back on GET; DP write applies
+    # and the cloud doesn't roll it back.
+    is_t3 = _is_t3(hass, device_id)
+    task_code = TIME_TASK_CODE_T3 if is_t3 else TIME_TASK_CODE
+    if is_t3:
         b64 = build_time_task_payload_t3(
             slot, mode, value, hour, minute, days_mask, enabled
         )
-        ok = await _write_time_task(
-            multi_manager, device_id, b64, code=TIME_TASK_CODE_T3
+    else:
+        b64 = build_time_task_payload(
+            slot, mode, value, hour, minute, days_mask, enabled
         )
-        if ok:
-            _LOGGER.warning(
-                "set_timer: T3 DP-only write for %s slot %d (no cloud dual-write yet)",
-                device_id, slot,
-            )
-        return ok
-
-    b64 = build_time_task_payload(slot, mode, value, hour, minute, days_mask, enabled)
-    if not await _write_time_task(multi_manager, device_id, b64):
+    if not await _write_time_task(multi_manager, device_id, b64, code=task_code):
         return False
 
     account = _find_iot_account(hass, device_id)
@@ -565,7 +565,8 @@ async def set_timer(hass, data: dict) -> bool:
         return True
 
     await _post_cloud_timer(
-        hass, account, device_id, hour, minute, days_mask, mode, value, enabled
+        hass, account, device_id, hour, minute, days_mask, mode, value, enabled,
+        code=task_code,
     )
     return True
 
@@ -593,10 +594,13 @@ async def _get_cloud_timer_keys(account, device_id: str) -> set[tuple[str, str]]
     for category in resp.get("result", []):
         for group in category.get("groups", []):
             for timer in group.get("timers", []):
+                # Top-level time/loops first — T3 app timers report empty
+                # `functions`, so keying off the value dict alone would miss
+                # them and (in resync) flag every enabled slot as an orphan.
                 funcs = timer.get("functions") or []
                 v = funcs[0].get("value", {}) if funcs else {}
-                t = v.get("startTimeStr")
-                loops = v.get("loops")
+                t = timer.get("time") or v.get("startTimeStr")
+                loops = timer.get("loops") or v.get("loops")
                 if t is not None and loops is not None:
                     keys.add((t, loops))
     return keys
@@ -623,14 +627,7 @@ async def resync_from_cloud(hass, data: dict) -> dict:
     cap; a write happens only per live orphan found. User-triggered per valve,
     so it can't runaway the quota the way a periodic sweep would."""
     device_id: str = data["device_id"]
-
-    # T3: cloud GET renders functions:[] empty, so we can't read the cloud
-    # registry to judge orphans — every enabled slot would look orphaned and
-    # get mass-cleared. Refuse until the T3 cloud timer shape is captured.
-    # ponytail: unblock once the T3 cloud read format is known.
-    if _is_t3(hass, device_id):
-        _LOGGER.warning("resync: T3 valve %s — cloud reconcile not supported yet", device_id)
-        return {"success": False, "error": "t3_cloud_unsupported"}
+    is_t3 = _is_t3(hass, device_id)
 
     account = _find_iot_account(hass, device_id)
     if account is None:
@@ -680,8 +677,13 @@ async def resync_from_cloud(hass, data: dict) -> dict:
                 slot_idx, device_id,
             )
             continue
+        clear_payload = (
+            build_delete_payload_t3(slot_idx) if is_t3
+            else build_delete_payload(slot_idx)
+        )
+        clear_code = TIME_TASK_CODE_T3 if is_t3 else TIME_TASK_CODE
         if await _write_time_task(
-            multi_manager, device_id, build_delete_payload(slot_idx)
+            multi_manager, device_id, clear_payload, code=clear_code
         ):
             slots[slot_idx] = None
             orphans_cleared += 1
@@ -721,20 +723,16 @@ async def delete_timer(hass, data: dict) -> bool:
         "delete_timer: device=%s slot=%d prior=%s", device_id, slot, prior
     )
 
-    # T3: clear the time_task_0 slot, DP-only (see set_timer note).
-    if _is_t3(hass, device_id):
+    # T3 uses the indexed 12-byte clear + time_task_0 code; the cloud
+    # delete-by-match below is code-agnostic (matches on time/loops).
+    is_t3 = _is_t3(hass, device_id)
+    if is_t3:
         b64 = build_delete_payload_t3(slot)
-        ok = await _write_time_task(
-            multi_manager, device_id, b64, code=TIME_TASK_CODE_T3
-        )
-        if ok:
-            _LOGGER.warning(
-                "delete_timer: T3 DP-only clear for %s slot %d", device_id, slot
-            )
-        return ok
-
-    b64 = build_delete_payload(slot)
-    if not await _write_time_task(multi_manager, device_id, b64):
+        task_code = TIME_TASK_CODE_T3
+    else:
+        b64 = build_delete_payload(slot)
+        task_code = TIME_TASK_CODE
+    if not await _write_time_task(multi_manager, device_id, b64, code=task_code):
         return False
 
     account = _find_iot_account(hass, device_id)

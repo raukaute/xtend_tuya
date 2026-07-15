@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.219] - 2026-07-15
+
+### Added
+- **QT-08W-T3 valve support, phase 2b — cloud dual-write + resync.** Completes
+  T3 timer parity with the old valves. Captured live: a cloud `POST /timers`
+  with function code `time_task_0` (old-valve schema) is accepted and renders
+  back on GET, and a DP write is not rolled back by the cloud. So `set_timer` /
+  `delete_timer` now run the full DP + cloud dual-write for T3, and
+  `resync_from_cloud` handles T3 too. The cloud match/read helpers key off the
+  timer's top-level `time` + `loops` (always present) instead of the nested
+  `functions` value — T3 app-created timers report `functions:[]` empty, so the
+  old key would have missed them and flagged every enabled slot as an orphan.
+
 ## [4.4.218] - 2026-07-15
 
 ### Added
