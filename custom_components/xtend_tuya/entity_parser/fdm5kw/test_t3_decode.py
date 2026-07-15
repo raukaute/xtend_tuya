@@ -44,6 +44,14 @@ def time_task(b):  # DPCodeT3TimeTaskWrapper.update_data
             "days_mask": days_mask, "enabled": bool(enabled)}
 
 
+def build_t3(index, mode, value, hour, minute, days_mask, enabled):
+    # mirror of build_time_task_payload_t3 in timer_service.py
+    return bytes([0, index, index, mode,
+                  (value >> 24) & 0xFF, (value >> 16) & 0xFF,
+                  (value >> 8) & 0xFF, value & 0xFF,
+                  hour, minute, days_mask & 0x7F, 1 if enabled else 0])
+
+
 def demo():
     d = base64.b64decode
     # sat_0 (701): battery 100%, next 2026-07-15 16:00
@@ -74,6 +82,13 @@ def demo():
     assert v["mode"] == "volume" and v["value"] == 33 and v["slot"] == 1, v
     # All-zero payload = empty slot
     assert time_task(bytes(12)) is None
+    # builder round-trips through the decoder (write -> read parity)
+    assert time_task(build_t3(1, 0, 360, 6, 6, 0x02, True)) == {
+        "slot": 1, "mode": "duration", "value": 360, "hour": 6,
+        "minute": 6, "days_mask": 0x02, "enabled": True}
+    assert time_task(build_t3(2, 1, 33, 5, 7, 0x7F, True))["mode"] == "volume"
+    # delete payload (all-zero at index) decodes as empty slot
+    assert time_task(bytes([0, 3] + [0] * 10)) is None
     print("T3 decode self-check OK")
 
 

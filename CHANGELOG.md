@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.218] - 2026-07-15
+
+### Added
+- **QT-08W-T3 valve support, phase 2b — timer write (DP path).** `set_timer` /
+  `delete_timer` now branch on `time_task_0` presence: for T3 they write the
+  12-byte `time_task_0` DP via the new `build_time_task_payload_t3` /
+  `build_delete_payload_t3` builders (byte[1]=index, byte[2] mirrors index,
+  mode 0=dur/1=vol, days bit0=Mon). Raw write proven to apply on-device
+  (48 s echo, no cloud rollback). Local + offline-safe execution.
+
+### Not yet
+- **T3 cloud dual-write is deferred.** The cloud POST function code for T3 is
+  still unknown (GET renders `functions:[]` empty), so T3 timer writes are
+  DP-only for now — no SmartLife sync, and a valve that already holds cloud
+  timers could see the cloud rewrite the DP. `resync_from_cloud` refuses T3
+  (`t3_cloud_unsupported`) rather than risk mass-clearing enabled slots it
+  can't read from the cloud. Both unblock once the T3 cloud timer shape is
+  captured live.
+
 ## [4.4.217] - 2026-07-15
 
 ### Added

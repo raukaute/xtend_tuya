@@ -32,6 +32,11 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 TIME_TASK_CODE = "time_task"
+# QT-08W-T3 valves carry the indexed `time_task_0` DP instead of `time_task`,
+# with a 12-byte payload (per-timer index at byte[1], not byte[0]). Same
+# sliding-window model — only the DP code + byte layout differ, so the write
+# path branches on device.status presence. See t3_valve_dp_decode memory.
+TIME_TASK_CODE_T3 = "time_task_0"
 MODE_DURATION = 0
 MODE_VOLUME = 1
 
@@ -180,6 +185,64 @@ def build_delete_payload(slot: int) -> str:
     return base64.b64encode(bytes([slot] + [0] * 10)).decode("ascii")
 
 
+def build_time_task_payload_t3(
+    index: int,
+    mode: int,
+    value: int,
+    hour: int,
+    minute: int,
+    days_mask: int,
+    enabled: bool,
+) -> str:
+    """Build base64 12-byte time_task_0 DP payload for QT-08W-T3.
+
+    Byte layout (decoded live 2026-07-15, two duration timers on 706):
+    [00, index, index, mode, value(4B BE), hour, minute, days_mask, enabled].
+    byte[1] is the per-timer index (NOT byte[0] as on old valves); byte[2]
+    mirrors the index in SmartLife's own writes; mode 0=duration(s)/1=vol(L),
+    days bit0=Mon. A raw write of this shape applied on-device (48 s echo,
+    cloud didn't roll back) — see t3_valve_dp_decode memory.
+    """
+    if not 0 <= index <= 6:
+        raise ValueError(f"index must be 0–6, got {index}")
+    payload = bytes(
+        [
+            0,
+            index & 0xFF,
+            index & 0xFF,
+            mode & 0xFF,
+            (value >> 24) & 0xFF,
+            (value >> 16) & 0xFF,
+            (value >> 8) & 0xFF,
+            value & 0xFF,
+            hour & 0xFF,
+            minute & 0xFF,
+            days_mask & 0x7F,
+            1 if enabled else 0,
+        ]
+    )
+    return base64.b64encode(payload).decode("ascii")
+
+
+def build_delete_payload_t3(index: int) -> str:
+    """Clear a T3 slot: all-zero 12-byte payload at the given index. index 0
+    is the all-zeros frame confirmed to clear on 706 (2026-07-15)."""
+    if not 0 <= index <= 6:
+        raise ValueError(f"index must be 0–6, got {index}")
+    return base64.b64encode(bytes([0, index] + [0] * 10)).decode("ascii")
+
+
+def _is_t3(hass, device_id: str) -> bool:
+    """T3 valve = carries the `time_task_0` DP. Detected from live status."""
+    mm = _find_multi_manager(hass, device_id)
+    if mm is None:
+        return False
+    device = mm.device_map.get(device_id)
+    if device is None:
+        return False
+    return device.status.get(TIME_TASK_CODE_T3) is not None
+
+
 def _find_multi_manager(hass, device_id: str) -> MultiManager | None:
     for mm in get_all_multi_managers(hass):
         if mm.device_map.get(device_id):
@@ -212,9 +275,12 @@ def _get_prior_slot(hass, device_id: str, slot: int) -> dict | None:
 
 
 async def _write_time_task(
-    multi_manager: MultiManager, device_id: str, b64_value: str
+    multi_manager: MultiManager,
+    device_id: str,
+    b64_value: str,
+    code: str = TIME_TASK_CODE,
 ) -> bool:
-    commands = [{"code": TIME_TASK_CODE, "value": b64_value}]
+    commands = [{"code": code, "value": b64_value}]
     try:
         ok = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
             multi_manager.send_commands, device_id, commands
@@ -427,6 +493,26 @@ async def set_timer(hass, data: dict) -> bool:
     # we can delete the cloud entry that's about to be replaced. Avoids
     # duplicate SmartLife timer entries after time/day changes.
     prior = _get_prior_slot(hass, device_id, slot)
+
+    # T3 valves: write the 12-byte time_task_0 DP and stop. The cloud POST
+    # function code for T3 is still unknown (GET renders functions:[] empty),
+    # so there's no verified dual-write yet — DP-only executes locally and
+    # offline. Cloud sync/rollback-protection for T3 is a follow-up.
+    # ponytail: DP-only until the T3 cloud POST shape is captured live.
+    if _is_t3(hass, device_id):
+        b64 = build_time_task_payload_t3(
+            slot, mode, value, hour, minute, days_mask, enabled
+        )
+        ok = await _write_time_task(
+            multi_manager, device_id, b64, code=TIME_TASK_CODE_T3
+        )
+        if ok:
+            _LOGGER.warning(
+                "set_timer: T3 DP-only write for %s slot %d (no cloud dual-write yet)",
+                device_id, slot,
+            )
+        return ok
+
     b64 = build_time_task_payload(slot, mode, value, hour, minute, days_mask, enabled)
     if not await _write_time_task(multi_manager, device_id, b64):
         return False
@@ -538,6 +624,14 @@ async def resync_from_cloud(hass, data: dict) -> dict:
     so it can't runaway the quota the way a periodic sweep would."""
     device_id: str = data["device_id"]
 
+    # T3: cloud GET renders functions:[] empty, so we can't read the cloud
+    # registry to judge orphans — every enabled slot would look orphaned and
+    # get mass-cleared. Refuse until the T3 cloud timer shape is captured.
+    # ponytail: unblock once the T3 cloud read format is known.
+    if _is_t3(hass, device_id):
+        _LOGGER.warning("resync: T3 valve %s — cloud reconcile not supported yet", device_id)
+        return {"success": False, "error": "t3_cloud_unsupported"}
+
     account = _find_iot_account(hass, device_id)
     if account is None:
         _LOGGER.warning("resync: no tuya_iot account for %s — cannot reconcile", device_id)
@@ -626,6 +720,18 @@ async def delete_timer(hass, data: dict) -> bool:
     _LOGGER.warning(
         "delete_timer: device=%s slot=%d prior=%s", device_id, slot, prior
     )
+
+    # T3: clear the time_task_0 slot, DP-only (see set_timer note).
+    if _is_t3(hass, device_id):
+        b64 = build_delete_payload_t3(slot)
+        ok = await _write_time_task(
+            multi_manager, device_id, b64, code=TIME_TASK_CODE_T3
+        )
+        if ok:
+            _LOGGER.warning(
+                "delete_timer: T3 DP-only clear for %s slot %d", device_id, slot
+            )
+        return ok
 
     b64 = build_delete_payload(slot)
     if not await _write_time_task(multi_manager, device_id, b64):
