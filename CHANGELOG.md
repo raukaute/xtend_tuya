@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions match the integration `manifest.json` version field — bump that
 when shipping anything user-visible so HACS picks the release up.
 
+## [4.4.220] - 2026-07-15
+
+### Added
+- **QT-08W-T3 valve support, phase 2c — single-watering (start/stop now).** T3
+  valves have no `one_control` DP; their manual run is `cyc_control_0`, captured
+  live (706 toggled on/off in SmartLife): `[00, 00, value(4B BE), 01, 00, 00,
+  flag]`, byte[9]=1 start / 0 stop, duration in seconds, device hardware-closes
+  after the run. `fdm5kw_start_watering` / `fdm5kw_stop_watering` branch on
+  `cyc_control_0` presence. Volume-mode cyclic run not yet captured — T3 runs
+  duration only. This closes T3 timer + manual-watering parity with the old
+  valves.
+
 ## [4.4.219] - 2026-07-15
 
 ### Added

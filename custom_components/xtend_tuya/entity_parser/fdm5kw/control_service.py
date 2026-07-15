@@ -34,6 +34,42 @@ _LOGGER = logging.getLogger(__name__)
 ONE_CONTROL_CODE = "one_control"
 SWITCH_CODE = "switch"
 
+# QT-08W-T3 valves have no `one_control` DP. Their manual single-run is the
+# `cyc_control_0` DP, captured live 2026-07-15 (706 toggled on/off in SmartLife):
+#     start = 00 00 00 00 00 3c 01 00 00 01   (value=60 s, flag byte[9]=1)
+#     stop  = 00 00 00 00 00 3c 01 00 00 00   (flag byte[9]=0)
+# Layout: [00, 00, value(4B BE), 01, 00, 00, flag]. byte[6]=01 = duration mode.
+# The device runs `value` seconds then hardware-closes (counter_custom logged the
+# actual run when stopped early), same offline-safe model as one_control.
+CYC_CONTROL_CODE = "cyc_control_0"
+
+
+def build_cyc_control_payload(value: int, flag: int) -> str:
+    """Build base64 10-byte cyc_control_0 payload [00,00,value(4B BE),01,00,00,flag]."""
+    if not 0 <= value <= 0xFFFFFFFF:
+        raise ValueError(f"value out of range: {value}")
+    payload = bytes(
+        [
+            0,
+            0,
+            (value >> 24) & 0xFF,
+            (value >> 16) & 0xFF,
+            (value >> 8) & 0xFF,
+            value & 0xFF,
+            1,
+            0,
+            0,
+            flag & 0xFF,
+        ]
+    )
+    return base64.b64encode(payload).decode("ascii")
+
+
+def _is_t3(multi_manager: MultiManager, device_id: str) -> bool:
+    """T3 valve = carries the `cyc_control_0` DP (no `one_control`)."""
+    device = multi_manager.device_map.get(device_id)
+    return device is not None and device.status.get(CYC_CONTROL_CODE) is not None
+
 # one_control is a 6-byte payload: [lead, value(4-byte uint32 BE), flag].
 #
 # These leading-byte / flag values are NOT guesses — they were captured from
@@ -133,6 +169,19 @@ async def start_watering(hass, data: dict) -> bool:
         _LOGGER.error("No multi_manager found for device %s", device_id)
         return False
 
+    # T3: cyc_control_0 duration run (no one_control DP). Volume-mode cyclic run
+    # not captured — duration only for now.
+    if _is_t3(multi_manager, device_id):
+        if mode == "volume":
+            _LOGGER.warning(
+                "start_watering: T3 %s volume mode unverified, running as duration",
+                device_id,
+            )
+        b64 = build_cyc_control_payload(value, FLAG_START)
+        return await _send_commands(
+            multi_manager, device_id, [{"code": CYC_CONTROL_CODE, "value": b64}]
+        )
+
     lead = LEAD_SINGLE_RUN if mode == "duration" else LEAD_VOLUME
     b64 = build_one_control_payload(lead, value, FLAG_START)
     return await _write_one_control(multi_manager, device_id, b64)
@@ -151,6 +200,14 @@ async def stop_watering(hass, data: dict) -> bool:
     if multi_manager is None:
         _LOGGER.error("No multi_manager found for device %s", device_id)
         return False
+
+    # T3: cyc_control_0 with flag byte[9]=0 stops the run.
+    if _is_t3(multi_manager, device_id):
+        return await _send_commands(
+            multi_manager,
+            device_id,
+            [{"code": CYC_CONTROL_CODE, "value": build_cyc_control_payload(0, FLAG_IDLE)}],
+        )
 
     ok = await _write_one_control(
         multi_manager,

@@ -89,7 +89,15 @@ def demo():
     assert time_task(build_t3(2, 1, 33, 5, 7, 0x7F, True))["mode"] == "volume"
     # delete payload (all-zero at index) decodes as empty slot
     assert time_task(bytes([0, 3] + [0] * 10)) is None
+    # cyc_control_0 single-run builder matches the live 706 capture
+    assert cyc_control(60, 1) == bytes.fromhex("00000000003c01000001".zfill(20))
+    assert cyc_control(60, 0)[9] == 0 and cyc_control(60, 1)[9] == 1
     print("T3 decode self-check OK")
+
+
+def cyc_control(value, flag):  # mirror of build_cyc_control_payload
+    return bytes([0, 0, (value >> 24) & 0xFF, (value >> 16) & 0xFF,
+                  (value >> 8) & 0xFF, value & 0xFF, 1, 0, 0, flag & 0xFF])
 
 
 if __name__ == "__main__":
