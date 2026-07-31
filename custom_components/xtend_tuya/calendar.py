@@ -73,17 +73,6 @@ ICS_DEFAULT_PAST_DAYS = 30
 COMPLETED_MAX_WINDOW = timedelta(days=90)
 # Last-N runs we average per device for the description line.
 LAST_N_FOR_AVERAGES = 10
-# Recorder window for the averages pass. It used to default to
-# COMPLETED_MAX_WINDOW (90 d), which meant every cold calendar render ran
-# a 90-day significant-states scan PER VALVE (107 of them) — minutes of
-# recorder time, the HTTP request timed out, and the Calendar panel
-# rendered empty (Simon's "calendar still empty", ticket 9W8FXA4l).
-# Daily schedules put the last 10 runs well inside 14 days.
-AVERAGES_WINDOW = timedelta(days=14)
-# Cache TTL for the averages helper. Averages over the last 10 runs move
-# slowly — 30 min keeps repeat renders instant; the old 30 s was
-# effectively always cold.
-AVERAGES_CACHE_TTL_SEC = 1800.0
 # Cap on a single watering cycle. FDM5KW battery / typical tank means a
 # real cycle never runs more than a few hours; anything longer is
 # either a stale registry slot or a broken start/end recorder pairing
@@ -150,13 +139,22 @@ async def async_setup_entry(
     recorder on each `async_get_events`, so adding/removing valves
     after setup is picked up automatically.
     """
-    averages = _AveragesCache(hass)
+    from .runs_store import async_get_store
+
+    store = await async_get_store(hass)
     async_add_entities(
         [
-            IrrigationPlannedCalendar(hass, averages),
-            IrrigationCompletedCalendar(hass, averages),
+            IrrigationPlannedCalendar(hass, store),
+            IrrigationCompletedCalendar(hass, store),
         ]
     )
+
+    # Arm the end-sensor listener for every valve known right now (devices
+    # appearing later are picked up on each calendar render) and run the
+    # one-time recorder backfill in the background — the ONLY recorder
+    # scan left in the calendar path, and it is off the request path.
+    store.track_devices(_iter_fdm5kw_devices(hass))
+    _maybe_start_backfill(hass, store)
 
     # Register the ICS export view once across all xtend_tuya config
     # entries — the view resolves entities at request time, so a single
@@ -164,6 +162,73 @@ async def async_setup_entry(
     if not hass.data.get(ICS_VIEW_REGISTERED_KEY):
         hass.http.register_view(XtendTuyaCalendarICSView())
         hass.data[ICS_VIEW_REGISTERED_KEY] = True
+
+
+def _maybe_start_backfill(hass: HomeAssistant, store) -> None:
+    """Kick the one-time backfill when valves are actually visible.
+
+    Calendar platform setup can run before the valve entities exist, so
+    this is also called from each render — first call that sees devices
+    starts the job; the in-flight guard keeps it single."""
+    if store.backfilled or getattr(store, "_backfill_started", False):
+        return
+    if not any(
+        d["start_entity"] and d["end_entity"] and d["volume_entity"]
+        for d in _iter_fdm5kw_devices(hass)
+    ):
+        return
+    store._backfill_started = True
+    hass.async_create_task(_async_backfill_runs(hass, store))
+
+
+async def _async_backfill_runs(hass: HomeAssistant, store) -> None:
+    """One-time import of the last 30 days of runs from the recorder into
+    the runs store. Slow (minutes on a 107-valve fleet) but runs in the
+    background — never on a request path."""
+    try:
+        devices = [
+            d
+            for d in _iter_fdm5kw_devices(hass)
+            if d["start_entity"] and d["end_entity"] and d["volume_entity"]
+        ]
+        w_end = datetime.now().astimezone()
+        w_start = w_end - timedelta(days=30)
+        added = 0
+        # Chunk to keep individual recorder queries bounded.
+        for i in range(0, len(devices), 15):
+            chunk = devices[i : i + 15]
+            states = await _batch_significant_states(
+                hass,
+                [
+                    e
+                    for d in chunk
+                    for e in (
+                        d["start_entity"],
+                        d["end_entity"],
+                        d["volume_entity"],
+                    )
+                ],
+                w_start,
+                w_end,
+            )
+            for d in chunk:
+                runs = _pair_runs(
+                    states.get(d["start_entity"], []),
+                    states.get(d["end_entity"], []),
+                    states.get(d["volume_entity"], []),
+                    window_start=w_start,
+                    window_end=w_end,
+                )
+                added += store.merge_backfill(d["tuya_device_id"], runs)
+        store.backfilled = True
+        store.async_schedule_save()
+        _LOGGER.info(
+            "irrigation runs backfill complete: %d runs from %d valves",
+            added,
+            len(devices),
+        )
+    except Exception:  # noqa: BLE001 — backfill must never break setup
+        _LOGGER.warning("irrigation runs backfill failed", exc_info=True)
 
 
 # ----------------------------------------------------------------------
@@ -476,6 +541,44 @@ def _build_in_progress_event(
     )
 
 
+def _live_open_run(hass: HomeAssistant, d: dict[str, Any]) -> dict[str, Any] | None:
+    """Detect an in-progress run from live states: the start_time DP is
+    newer than the last real close and recent enough to be plausible.
+    Liters-so-far come from the live cur_cap accumulator."""
+    start_state = hass.states.get(d["start_entity"]) if d["start_entity"] else None
+    end_state = hass.states.get(d["end_entity"]) if d["end_entity"] else None
+    start = _parse_dt(start_state.state) if start_state else None
+    if start is None:
+        return None
+    end = _parse_dt(end_state.state) if end_state else None
+    now = datetime.now().astimezone()
+    # Closed: a REAL close report lies between start and (roughly) now.
+    # During a run the pre-report firmware writes the SCHEDULED close —
+    # a FUTURE value — so end > now means the run is still in progress;
+    # end < start is a stale value from the previous run.
+    if end is not None and start < end <= now + timedelta(seconds=120):
+        return None
+    if not (0 <= (now - start).total_seconds() <= MAX_SANE_RUN_SECONDS):
+        return None
+    total_l: float | None = None
+    vol = d.get("volume_entity")
+    if vol and (vs := hass.states.get(vol)):
+        try:
+            v = float(vs.state)
+        except (TypeError, ValueError):
+            v = None
+        run_min = max((now - start).total_seconds() / 60.0, 1.0)
+        if v is not None and 0 <= v <= max(50.0, 50.0 * run_min):
+            total_l = v
+    return {
+        "start": start,
+        "end": None,
+        "duration_seconds": 0,
+        "total_l": total_l,
+        "open": True,
+    }
+
+
 def _parse_dt(raw: Any) -> datetime | None:
     """Parse a recorder/state value that should be an ISO timestamp.
 
@@ -497,93 +600,6 @@ def _parse_dt(raw: Any) -> datetime | None:
         # `astimezone()` on a naive datetime treats it as local time.
         parsed = parsed.astimezone()
     return parsed
-
-
-# ----------------------------------------------------------------------
-# Last-N averages cache
-# ----------------------------------------------------------------------
-
-
-class _AveragesCache:
-    """Per-device cache of the last-N completed runs' averages. Both
-    calendar entities query this; we want a single recorder hit per
-    render pass, not 2 × N_valves."""
-
-    def __init__(self, hass: HomeAssistant) -> None:
-        self.hass = hass
-        self._cache: dict[str, tuple[float, float | None, float | None]] = {}
-
-    def _fresh(self, tuya_device_id: str) -> bool:
-        cached = self._cache.get(tuya_device_id)
-        return bool(
-            cached and (time.monotonic() - cached[0]) < AVERAGES_CACHE_TTL_SEC
-        )
-
-    async def warm(self, devices: list[dict[str, Any]]) -> None:
-        """Fill the cache for every stale device with ONE recorder query.
-
-        Per-device queries serialized on the recorder executor made a
-        cold calendar render take minutes (107 valves) and the panel
-        request time out. Batch all stale devices' entities into a
-        single significant-states pass instead.
-        """
-        stale = [
-            d
-            for d in devices
-            if d["start_entity"] and d["end_entity"] and d["volume_entity"]
-            and not self._fresh(d["tuya_device_id"])
-        ]
-        if not stale:
-            return
-        w_end = datetime.now().astimezone()
-        w_start = w_end - AVERAGES_WINDOW
-        ids = [
-            e
-            for d in stale
-            for e in (d["start_entity"], d["end_entity"], d["volume_entity"])
-        ]
-        states = await _batch_significant_states(self.hass, ids, w_start, w_end)
-        now = time.monotonic()
-        for d in stale:
-            runs = _pair_runs(
-                states.get(d["start_entity"], []),
-                states.get(d["end_entity"], []),
-                states.get(d["volume_entity"], []),
-                limit=LAST_N_FOR_AVERAGES,
-                window_start=w_start,
-                window_end=w_end,
-            )
-            avg_lpm, avg_cycle = _compute_averages(runs)
-            self._cache[d["tuya_device_id"]] = (now, avg_lpm, avg_cycle)
-
-    async def get(
-        self,
-        tuya_device_id: str,
-        start_entity: str | None,
-        end_entity: str | None,
-        volume_entity: str | None,
-    ) -> tuple[float | None, float | None]:
-        """Return (avg_lpm, avg_per_cycle) for the last N completed
-        cycles of this device. Cached for AVERAGES_CACHE_TTL_SEC."""
-        now = time.monotonic()
-        cached = self._cache.get(tuya_device_id)
-        if cached and (now - cached[0]) < AVERAGES_CACHE_TTL_SEC:
-            return cached[1], cached[2]
-        if not (start_entity and end_entity and volume_entity):
-            self._cache[tuya_device_id] = (now, None, None)
-            return None, None
-
-        runs = await _query_recent_runs(
-            self.hass,
-            start_entity,
-            end_entity,
-            volume_entity,
-            limit=LAST_N_FOR_AVERAGES,
-            window_start=datetime.now().astimezone() - AVERAGES_WINDOW,
-        )
-        avg_lpm, avg_cycle = _compute_averages(runs)
-        self._cache[tuya_device_id] = (now, avg_lpm, avg_cycle)
-        return avg_lpm, avg_cycle
 
 
 def _compute_averages(
@@ -842,9 +858,9 @@ class IrrigationPlannedCalendar(CalendarEntity):
     _attr_icon = "mdi:water-pump"
     _attr_unique_id = "xtend_tuya_irrigation_planned"
 
-    def __init__(self, hass: HomeAssistant, averages: _AveragesCache) -> None:
+    def __init__(self, hass: HomeAssistant, store) -> None:
         self.hass = hass
-        self._averages = averages
+        self._runs_store = store
 
     @property
     def event(self) -> CalendarEvent | None:
@@ -859,21 +875,20 @@ class IrrigationPlannedCalendar(CalendarEntity):
         start_date: datetime,
         end_date: datetime,
     ) -> list[CalendarEvent]:
-        # Pull averages + lifetime for every device first so _build_events
-        # stays sync (it's also called from the `event` property). warm()
-        # batches all stale devices into single recorder/statistics
-        # queries; the per-device get() calls below are then cache hits.
+        # Everything here reads memory: slots from registry states,
+        # averages from the runs store. The only awaited call is the
+        # lifetime statistics batch, one query cached for 30 min.
+        devices = _iter_fdm5kw_devices(self.hass)
+        self._runs_store.track_devices(devices)
+        _maybe_start_backfill(self.hass, self._runs_store)
+        await _warm_lifetime(self.hass, [d["volume_entity"] for d in devices])
         averages_by_device: dict[str, tuple[float | None, float | None]] = {}
         lifetime_by_device: dict[str, int | None] = {}
-        devices = _iter_fdm5kw_devices(self.hass)
-        await self._averages.warm(devices)
-        await _warm_lifetime(self.hass, [d["volume_entity"] for d in devices])
         for d in devices:
-            averages_by_device[d["tuya_device_id"]] = await self._averages.get(
-                d["tuya_device_id"],
-                d["start_entity"],
-                d["end_entity"],
-                d["volume_entity"],
+            averages_by_device[d["tuya_device_id"]] = _compute_averages(
+                self._runs_store.last_runs(
+                    d["tuya_device_id"], LAST_N_FOR_AVERAGES
+                )
             )
             lifetime_by_device[d["tuya_device_id"]] = await _lifetime_liters(
                 self.hass, d["volume_entity"]
@@ -1034,9 +1049,9 @@ class IrrigationCompletedCalendar(CalendarEntity):
     _attr_icon = "mdi:water-check"
     _attr_unique_id = "xtend_tuya_irrigation_completed"
 
-    def __init__(self, hass: HomeAssistant, averages: _AveragesCache) -> None:
+    def __init__(self, hass: HomeAssistant, store) -> None:
         self.hass = hass
-        self._averages = averages
+        self._runs_store = store
         self._last_event: CalendarEvent | None = None
 
     @property
@@ -1067,40 +1082,30 @@ class IrrigationCompletedCalendar(CalendarEntity):
         devices = [
             d
             for d in _iter_fdm5kw_devices(self.hass)
-            if d["start_entity"] and d["end_entity"] and d["volume_entity"]
+            if d["start_entity"] and d["end_entity"]
         ]
-        # ONE recorder pass for every device's three entities — per-device
-        # queries serialized on the recorder executor took minutes on a
-        # cold render and the Calendar panel request timed out (empty grid).
-        states = await _batch_significant_states(
-            self.hass,
-            [
-                e
-                for d in devices
-                for e in (d["start_entity"], d["end_entity"], d["volume_entity"])
-            ],
-            effective_start,
-            effective_end,
-        )
-        await self._averages.warm(devices)
+        self._runs_store.track_devices(devices)
+        _maybe_start_backfill(self.hass, self._runs_store)
+        # NO recorder work on the request path: closed runs come from the
+        # materialized runs store (event-driven, real-time), the open
+        # "running now" run from live states. The recorder-scan approach —
+        # even batched — blew past Nabu Casa's 60 s proxy timeout on a
+        # 107-valve fleet and the Calendar panel rendered empty (9W8FXA4l).
         await _warm_lifetime(self.hass, [d["volume_entity"] for d in devices])
         for d in devices:
-            runs = _pair_runs(
-                states.get(d["start_entity"], []),
-                states.get(d["end_entity"], []),
-                states.get(d["volume_entity"], []),
-                window_start=effective_start,
-                window_end=effective_end,
-                include_open=True,
+            runs = self._runs_store.runs_in_window(
+                d["tuya_device_id"], effective_start, effective_end
             )
+            open_run = _live_open_run(self.hass, d)
+            if open_run is not None:
+                runs.append(open_run)
             if not runs:
                 continue
             lifetime_l = await _lifetime_liters(self.hass, d["volume_entity"])
-            avg_lpm, avg_cycle = await self._averages.get(
-                d["tuya_device_id"],
-                d["start_entity"],
-                d["end_entity"],
-                d["volume_entity"],
+            avg_lpm, avg_cycle = _compute_averages(
+                self._runs_store.last_runs(
+                    d["tuya_device_id"], LAST_N_FOR_AVERAGES
+                )
             )
             for r in runs:
                 if r.get("open"):
