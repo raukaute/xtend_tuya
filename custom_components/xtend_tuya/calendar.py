@@ -73,9 +73,17 @@ ICS_DEFAULT_PAST_DAYS = 30
 COMPLETED_MAX_WINDOW = timedelta(days=90)
 # Last-N runs we average per device for the description line.
 LAST_N_FOR_AVERAGES = 10
-# Cache TTL for the averages helper; both calendars hit it on the same
-# render pass so 30 s deduplicates the recorder hammer.
-AVERAGES_CACHE_TTL_SEC = 30.0
+# Recorder window for the averages pass. It used to default to
+# COMPLETED_MAX_WINDOW (90 d), which meant every cold calendar render ran
+# a 90-day significant-states scan PER VALVE (107 of them) — minutes of
+# recorder time, the HTTP request timed out, and the Calendar panel
+# rendered empty (Simon's "calendar still empty", ticket 9W8FXA4l).
+# Daily schedules put the last 10 runs well inside 14 days.
+AVERAGES_WINDOW = timedelta(days=14)
+# Cache TTL for the averages helper. Averages over the last 10 runs move
+# slowly — 30 min keeps repeat renders instant; the old 30 s was
+# effectively always cold.
+AVERAGES_CACHE_TTL_SEC = 1800.0
 # Cap on a single watering cycle. FDM5KW battery / typical tank means a
 # real cycle never runs more than a few hours; anything longer is
 # either a stale registry slot or a broken start/end recorder pairing
@@ -475,6 +483,7 @@ class _AveragesCache:
             end_entity,
             volume_entity,
             limit=LAST_N_FOR_AVERAGES,
+            window_start=datetime.now().astimezone() - AVERAGES_WINDOW,
         )
         if not runs:
             self._cache[tuya_device_id] = (now, None, None)
