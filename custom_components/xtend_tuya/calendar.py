@@ -818,13 +818,15 @@ class IrrigationPlannedCalendar(CalendarEntity):
             else:
                 duration_seconds = 0
                 duration_min = 0
-        # Estimated cycle volume for the title: prefer the historical
-        # avg_cycle if we have one, otherwise derive from avg_lpm * duration.
+        # Estimated cycle volume for the title. Prefer avg_lpm × THIS slot's
+        # duration — avg_cycle averages over runs of any length, so a 5-min
+        # slot next to 10-min ones showed "5 min · ~15 L/min · ~126 L".
+        # avg_cycle stays as fallback when only per-cycle history exists.
         estimated_l: float | None = None
-        if avg_cycle is not None:
-            estimated_l = avg_cycle
-        elif avg_lpm is not None and duration_min > 0:
+        if avg_lpm is not None and duration_min > 0:
             estimated_l = avg_lpm * duration_min
+        elif avg_cycle is not None:
+            estimated_l = avg_cycle
 
         title = _format_planned_title(
             valve_name, duration_min, avg_lpm, estimated_l
