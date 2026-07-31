@@ -52,6 +52,26 @@ interface HomeAssistantLike {
   states: Record<string, HassState>;
   entities: Record<string, HassEntityRegistryEntry>;
   devices: Record<string, HassDeviceRegistryEntry>;
+  callApi?: <T>(method: string, path: string) => Promise<T>;
+}
+
+/** device id (Tuya or HA registry) -> {home, room}, served by the backend
+ * location service. Authoritative over live registry-sensor attributes:
+ * an unavailable sensor loses its attrs, which used to dump every offline
+ * valve into "Unassigned" (ticket c802BqOn). */
+type LocationMap = Record<string, { home?: string | null; room?: string | null }>;
+
+async function fetchLocations(hass: HomeAssistantLike): Promise<LocationMap> {
+  if (!hass.callApi) return {};
+  try {
+    const r = await hass.callApi<{ locations?: LocationMap }>(
+      "GET",
+      "xtend_tuya/valve_locations"
+    );
+    return r?.locations ?? {};
+  } catch {
+    return {};
+  }
 }
 
 interface StrategyConfig {
@@ -149,7 +169,8 @@ class IrrigationValvesStrategy extends HTMLElement {
     config: StrategyConfig,
     hass: HomeAssistantLike
   ): Promise<DashboardConfig> {
-    const valves = discoverValves(hass);
+    const locations = await fetchLocations(hass);
+    const valves = discoverValves(hass, locations);
     const hours = config.hours_to_show ?? 24;
     const overviewTitle = config.overview_title ?? "Valves";
 
@@ -176,7 +197,10 @@ class IrrigationValvesStrategy extends HTMLElement {
  * Discovery                                                           *
  * ------------------------------------------------------------------ */
 
-function discoverValves(hass: HomeAssistantLike): ValveEntities[] {
+function discoverValves(
+  hass: HomeAssistantLike,
+  locations: LocationMap = {}
+): ValveEntities[] {
   // Find every registry entity. Prefer the entity registry's
   // translation_key when available (stable), and fall back to entity_id
   // suffix matching for installs predating that field.
@@ -215,7 +239,8 @@ function discoverValves(hass: HomeAssistantLike): ValveEntities[] {
       regId,
       regEntry.device_id,
       tuyaDeviceId,
-      regState
+      regState,
+      locations
     );
     if (valve) valves.push(valve);
   }
@@ -230,7 +255,8 @@ function collectValveEntities(
   registryEntityId: string,
   haDeviceId: string,
   tuyaDeviceId: string,
-  registryState: HassState
+  registryState: HassState,
+  locations: LocationMap = {}
 ): ValveEntities | null {
   // When the registry sensor is unavailable HA strips its custom
   // attributes (valve_name, valve_factory_name, device_id), so fall back
@@ -255,8 +281,18 @@ function collectValveEntities(
     registry_entity: registryEntityId,
     valve_name,
     factory_name,
-    valve_home: (registryState.attributes.valve_home as string | undefined) ?? null,
-    valve_room: (registryState.attributes.valve_room as string | undefined) ?? null,
+    // Backend location map first (cloud-backed, covers offline valves whose
+    // sensor attrs are stripped); live attrs as fallback for old backends.
+    valve_home:
+      locations[tuyaDeviceId]?.home ??
+      locations[haDeviceId]?.home ??
+      (registryState.attributes.valve_home as string | undefined) ??
+      null,
+    valve_room:
+      locations[tuyaDeviceId]?.room ??
+      locations[haDeviceId]?.room ??
+      (registryState.attributes.valve_room as string | undefined) ??
+      null,
     view_path,
   };
 
@@ -1097,8 +1133,22 @@ class IrrigationValveMatrix extends HTMLElement {
     return `${v.home || "Unassigned"}•${v.room || "—"}`;
   }
 
-  private _grouped(): boolean {
+  // GUI flag to switch room grouping on/off (ticket c802BqOn). Per-browser
+  // preference; default on.
+  private _groupPref(): boolean {
+    try {
+      return localStorage.getItem("xt-valve-matrix-grouped") !== "0";
+    } catch {
+      return true;
+    }
+  }
+
+  private _groupable(): boolean {
     return (this._config?.valves ?? []).some((v) => v.room || v.home);
+  }
+
+  private _grouped(): boolean {
+    return this._groupPref() && this._groupable();
   }
 
   private _orderedRows(): MatrixRow[] {
@@ -1250,8 +1300,8 @@ class IrrigationValveMatrix extends HTMLElement {
         ha-card { padding-bottom: 8px; }
         .card-header { font-size: 1.4rem; font-weight: 400; padding: 16px 16px 4px; margin: 0; }
         .card-subtitle { padding: 0 16px 10px; margin: 0; color: var(--secondary-text-color); font-size: 0.95rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        #matrix-resync { border: none; background: none; color: var(--primary-color); font: inherit; font-weight: 500; cursor: pointer; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
-        #matrix-resync:hover { background: var(--secondary-background-color); }
+        #matrix-resync, #matrix-group { border: none; background: none; color: var(--primary-color); font: inherit; font-weight: 500; cursor: pointer; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+        #matrix-resync:hover, #matrix-group:hover { background: var(--secondary-background-color); }
         #matrix-resync:disabled { color: var(--secondary-text-color); cursor: default; }
         .subtitle-actions { display: flex; align-items: center; gap: 8px; }
         #matrix-range { border: 1px solid var(--divider-color, #e0e0e0); background: var(--card-background-color, #fff); color: var(--primary-text-color); font: inherit; font-size: 0.85rem; padding: 2px 6px; border-radius: 6px; cursor: pointer; }
@@ -1296,6 +1346,13 @@ class IrrigationValveMatrix extends HTMLElement {
         <div class="card-subtitle">
           <span id="valve-counts">${escapeHtml(this._countsText())}</span>
           <span class="subtitle-actions">
+            ${
+              this._groupable()
+                ? `<button id="matrix-group" title="Toggle grouping by home / room">${
+                    this._grouped() ? "▤ Grouped" : "▦ Flat"
+                  }</button>`
+                : ""
+            }
             ${rangeSelect}
             <button id="matrix-resync" title="Re-read all valves from Tuya and rebuild this dashboard">↻ Re-sync valves</button>
           </span>
@@ -1317,6 +1374,20 @@ class IrrigationValveMatrix extends HTMLElement {
     this._root
       .querySelector<HTMLButtonElement>("#matrix-resync")
       ?.addEventListener("click", () => void this._resync());
+    this._root
+      .querySelector<HTMLButtonElement>("#matrix-group")
+      ?.addEventListener("click", () => {
+        try {
+          localStorage.setItem(
+            "xt-valve-matrix-grouped",
+            this._groupPref() ? "0" : "1"
+          );
+        } catch {
+          /* private mode — toggle just won't persist */
+        }
+        this._render();
+        this._updateBattery();
+      });
     this._root
       .querySelector<HTMLSelectElement>("#matrix-range")
       ?.addEventListener("change", (ev) => {

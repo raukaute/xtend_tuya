@@ -8,9 +8,13 @@ interface HassEntity {
 }
 interface HomeAssistant {
   states: Record<string, HassEntity>;
+  entities?: Record<string, { device_id?: string | null }>;
   callService?: (domain: string, service: string, data: unknown) => void;
   callWS?: <T = unknown>(msg: Record<string, unknown>) => Promise<T>;
+  callApi?: <T = unknown>(method: string, path: string) => Promise<T>;
 }
+
+type LocationMap = Record<string, { home?: string | null; room?: string | null }>;
 
 interface LovelaceView {
   path?: string;
@@ -77,6 +81,11 @@ export class IrrigationRoomGroups extends LitElement {
   // titles and don't always match the live valve_name).
   @state() private _pathMap: Record<string, string> | null = null;
   private _pathLoadStarted = false;
+  // Cloud-backed device -> home/room map from the backend. Authoritative over
+  // live sensor attrs: an unavailable registry sensor loses its attrs, which
+  // used to dump every offline valve into "Unassigned" (ticket c802BqOn).
+  @state() private _locMap: LocationMap | null = null;
+  private _locLoadStarted = false;
 
   setConfig(config: RoomGroupsConfig): void {
     this._config = config;
@@ -125,6 +134,20 @@ export class IrrigationRoomGroups extends LitElement {
     this._pathMap = map;
   }
 
+  private async _loadLocations(): Promise<void> {
+    if (this._locLoadStarted || !this.hass?.callApi) return;
+    this._locLoadStarted = true;
+    try {
+      const r = await this.hass.callApi<{ locations?: LocationMap }>(
+        "GET",
+        "xtend_tuya/valve_locations"
+      );
+      this._locMap = r?.locations ?? {};
+    } catch {
+      // leave null -> grouping falls back to live sensor attrs
+    }
+  }
+
   getCardSize(): number {
     return 6;
   }
@@ -133,7 +156,8 @@ export class IrrigationRoomGroups extends LitElement {
     return (
       changed.has("_config") ||
       changed.has("hass") ||
-      changed.has("_pathMap")
+      changed.has("_pathMap") ||
+      changed.has("_locMap")
     );
   }
 
@@ -150,8 +174,18 @@ export class IrrigationRoomGroups extends LitElement {
       const raw = (a.valve_name as string) || (a.friendly_name as string) || id;
       const name =
         raw.replace(/\s*Irrigation timer registry$/i, "").trim() || raw;
-      const home = ((a.valve_home as string) || "").trim() || UNASSIGNED;
-      const room = ((a.valve_room as string) || "").trim() || UNASSIGNED;
+      // Location: backend map first (keyed by Tuya id from attrs, or by HA
+      // device id when the sensor is unavailable and attrs are stripped),
+      // then live attrs for old backends without the view.
+      const tuyaId = (a.device_id as string) || null;
+      const haDevId = this.hass.entities?.[id]?.device_id ?? null;
+      const loc =
+        (tuyaId ? this._locMap?.[tuyaId] : undefined) ??
+        (haDevId ? this._locMap?.[haDevId] : undefined);
+      const home =
+        (loc?.home || (a.valve_home as string) || "").trim() || UNASSIGNED;
+      const room =
+        (loc?.room || (a.valve_room as string) || "").trim() || UNASSIGNED;
       const valveEntity = deriveValveEntity(id, this.hass, name);
       const state = valveEntity
         ? this.hass.states[valveEntity]?.state ?? "unknown"
@@ -213,6 +247,7 @@ export class IrrigationRoomGroups extends LitElement {
   protected render() {
     if (!this._config || !this.hass) return nothing;
     void this._loadPaths(); // one-shot, guarded
+    void this._loadLocations(); // one-shot, guarded
     const homes = this._groups();
     if (homes.size === 0) {
       return html`<ha-card

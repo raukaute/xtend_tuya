@@ -21,10 +21,14 @@ import logging
 from datetime import timedelta
 from typing import Any, Callable
 
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_track_time_interval
+from aiohttp import web
 
-from ...const import MESSAGE_SOURCE_TUYA_IOT
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.http import HomeAssistantView
+
+from ...const import DOMAIN, MESSAGE_SOURCE_TUYA_IOT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +44,8 @@ _SCHEDULED: set[int] = set()
 REFRESH_LISTENERS: list[Callable[[], None]] = []
 
 REFRESH_INTERVAL = timedelta(hours=12)
+
+_VIEW_REGISTERED_KEY = f"{DOMAIN}_valve_locations_view"
 
 
 def _iot_api(multi_manager: Any) -> Any | None:
@@ -123,6 +129,12 @@ async def async_ensure_scheduled(hass: HomeAssistant, multi_manager: Any) -> Non
         return
     _SCHEDULED.add(key)
 
+    # One view registration across all hubs/entries (same pattern as the
+    # calendar ICS view — the view reads the process-wide map at request time).
+    if not hass.data.get(_VIEW_REGISTERED_KEY):
+        hass.http.register_view(XTValveLocationsView())
+        hass.data[_VIEW_REGISTERED_KEY] = True
+
     await async_refresh(hass, multi_manager)
 
     async def _tick(_now: Any) -> None:
@@ -134,3 +146,29 @@ async def async_ensure_scheduled(hass: HomeAssistant, multi_manager: Any) -> Non
 def get_location(device_id: str) -> dict[str, str] | None:
     """Return {'home', 'room'} for a device, or None if unknown."""
     return LOCATION_MAP.get(device_id)
+
+
+class XTValveLocationsView(HomeAssistantView):
+    """Serve LOCATION_MAP so the dashboard can group OFFLINE valves too.
+
+    An unavailable registry sensor loses its valve_home/valve_room state
+    attributes, so any grouping built from live states shows offline valves
+    as "Unassigned" even though the cloud walk knows their room. This view
+    is backed by the cloud data directly and is keyed by BOTH the Tuya
+    device id and the HA device-registry id (the frontend only has the HA
+    id for a valve whose registry sensor is unavailable).
+    """
+
+    url = f"/api/{DOMAIN}/valve_locations"
+    name = f"api:{DOMAIN}:valve_locations"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        payload: dict[str, dict[str, str]] = dict(LOCATION_MAP)
+        dev_reg = dr.async_get(hass)
+        for tuya_id, loc in LOCATION_MAP.items():
+            device = dev_reg.async_get_device(identifiers={(DOMAIN, tuya_id)})
+            if device is not None:
+                payload[device.id] = loc
+        return self.json({"locations": payload})
