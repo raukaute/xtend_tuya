@@ -92,6 +92,7 @@ def _run_volume(
     vol_series: list[tuple[datetime, float]],
     start_lu: datetime,
     end_lu: datetime,
+    run_minutes: float | None = None,
 ) -> float | None:
     """Per-run liters = peak cur_cap in the run window, ignoring spikes.
 
@@ -110,7 +111,11 @@ def _run_volume(
     # cur_cap's ~10 s update lag; 50 L floor keeps sub-minute runs from
     # rejecting their own real ramp. (Valve 824 emitted exactly this
     # class of sub-ceiling garbage, 2026-07-06.)
-    run_minutes = max((end_lu - start_lu).total_seconds() / 60, 0.0)
+    # run_minutes is passed explicitly when the sampling window is wider
+    # than the actual run (see the pairing loop) — the spike ceiling must
+    # scale with the real watering duration, not the window size.
+    if run_minutes is None:
+        run_minutes = max((end_lu - start_lu).total_seconds() / 60, 0.0)
     sane_cap = min(MAX_SANE_RUN_LITERS, max(50.0, 50.0 * run_minutes))
     peak: float | None = None
     for ts, v in vol_series:
@@ -634,9 +639,22 @@ async def _query_recent_runs(
             )
             continue
 
-        # Per-run liters = cur_cap delta across the run window. Handles
-        # both reset-per-cycle and lifetime-odometer valve firmwares.
-        total_l = _run_volume(vol_series, s_last_updated, e_last_updated)
+        # Per-run liters = peak cur_cap between THIS cycle start and the
+        # NEXT cycle start (or now). The end-row time can't bound the
+        # window: most firmwares pre-report the SCHEDULED close time the
+        # moment the run starts, so the end row lands ~1 s after the start
+        # row while the cur_cap ramp arrives over the following minutes —
+        # a [start_row, end_row] window contains no samples and every
+        # event showed "—" liters (ticket 9W8FXA4l, "liters missing in
+        # most entries"). Between cycles cur_cap rests at the final run
+        # total, so extending to the next start stays exact; the spike
+        # ceiling is scaled by the real run duration.
+        total_l = _run_volume(
+            vol_series,
+            s_last_updated,
+            next_start_lu or datetime.now().astimezone(),
+            run_minutes=duration_seconds / 60,
+        )
 
         runs.append(
             {
