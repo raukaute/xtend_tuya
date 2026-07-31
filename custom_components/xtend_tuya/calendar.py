@@ -960,7 +960,13 @@ class IrrigationCompletedCalendar(CalendarEntity):
                     )
                     continue
                 duration_min = int(r["duration_seconds"] // 60)
-                if r["total_l"] is not None and r["duration_seconds"] > 0:
+                # Sub-minute runs (manual open/close blips): "0 min" with a
+                # rate extrapolated from a few seconds reads as garbage
+                # ("0 min · 30 L/min · 1 L") — show no rate for those.
+                if (
+                    r["total_l"] is not None
+                    and r["duration_seconds"] >= 60
+                ):
                     l_per_min: float | None = r["total_l"] / (
                         r["duration_seconds"] / 60.0
                     )
