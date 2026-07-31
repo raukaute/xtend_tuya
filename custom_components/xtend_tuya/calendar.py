@@ -314,6 +314,57 @@ def _iter_fdm5kw_devices(
     return out
 
 
+# volume_entity -> (monotonic stamp, lifetime liters). Lifetime totals move
+# slowly; caching avoids a statistics query per valve per render.
+_LIFETIME_CACHE: dict[str, tuple[float, int | None]] = {}
+LIFETIME_CACHE_TTL_SEC = 1800.0
+
+
+async def _warm_lifetime(
+    hass: HomeAssistant, volume_entities: list[str | None]
+) -> None:
+    """Fill the lifetime cache for every stale entity with ONE statistics
+    query (statistics_during_period accepts a set of ids)."""
+    from homeassistant.components.recorder import get_instance
+    from homeassistant.components.recorder.statistics import (
+        statistics_during_period,
+    )
+
+    now = time.monotonic()
+    stale = {
+        v
+        for v in volume_entities
+        if v
+        and not (
+            (c := _LIFETIME_CACHE.get(v))
+            and (now - c[0]) < LIFETIME_CACHE_TTL_SEC
+        )
+    }
+    if not stale:
+        return
+    very_old = datetime(2020, 1, 1, tzinfo=timezone.utc)
+
+    def _query():
+        return statistics_during_period(
+            hass, very_old, None, stale, "month", None, {"sum"}
+        )
+
+    try:
+        stats = await get_instance(hass).async_add_executor_job(_query)
+    except Exception:  # noqa: BLE001
+        _LOGGER.debug("Bulk lifetime stats query failed", exc_info=True)
+        return
+    for v in stale:
+        rows = stats.get(v) or []
+        val: int | None = None
+        if rows and rows[-1].get("sum") is not None:
+            try:
+                val = int(rows[-1]["sum"])
+            except (TypeError, ValueError):
+                val = None
+        _LIFETIME_CACHE[v] = (now, val)
+
+
 async def _lifetime_liters(
     hass: HomeAssistant, volume_entity: str | None
 ) -> int | None:
@@ -329,6 +380,9 @@ async def _lifetime_liters(
     """
     if not volume_entity:
         return None
+    cached = _LIFETIME_CACHE.get(volume_entity)
+    if cached and (time.monotonic() - cached[0]) < LIFETIME_CACHE_TTL_SEC:
+        return cached[1]
     from homeassistant.components.recorder import get_instance
     from homeassistant.components.recorder.statistics import (
         statistics_during_period,
@@ -359,15 +413,14 @@ async def _lifetime_liters(
         )
         return None
     rows = stats.get(volume_entity) or []
-    if not rows:
-        return None
-    last_sum = rows[-1].get("sum")
-    if last_sum is None:
-        return None
-    try:
-        return int(last_sum)
-    except (TypeError, ValueError):
-        return None
+    val: int | None = None
+    if rows and rows[-1].get("sum") is not None:
+        try:
+            val = int(rows[-1]["sum"])
+        except (TypeError, ValueError):
+            val = None
+    _LIFETIME_CACHE[volume_entity] = (time.monotonic(), val)
+    return val
 
 
 def _build_in_progress_event(
@@ -460,6 +513,49 @@ class _AveragesCache:
         self.hass = hass
         self._cache: dict[str, tuple[float, float | None, float | None]] = {}
 
+    def _fresh(self, tuya_device_id: str) -> bool:
+        cached = self._cache.get(tuya_device_id)
+        return bool(
+            cached and (time.monotonic() - cached[0]) < AVERAGES_CACHE_TTL_SEC
+        )
+
+    async def warm(self, devices: list[dict[str, Any]]) -> None:
+        """Fill the cache for every stale device with ONE recorder query.
+
+        Per-device queries serialized on the recorder executor made a
+        cold calendar render take minutes (107 valves) and the panel
+        request time out. Batch all stale devices' entities into a
+        single significant-states pass instead.
+        """
+        stale = [
+            d
+            for d in devices
+            if d["start_entity"] and d["end_entity"] and d["volume_entity"]
+            and not self._fresh(d["tuya_device_id"])
+        ]
+        if not stale:
+            return
+        w_end = datetime.now().astimezone()
+        w_start = w_end - AVERAGES_WINDOW
+        ids = [
+            e
+            for d in stale
+            for e in (d["start_entity"], d["end_entity"], d["volume_entity"])
+        ]
+        states = await _batch_significant_states(self.hass, ids, w_start, w_end)
+        now = time.monotonic()
+        for d in stale:
+            runs = _pair_runs(
+                states.get(d["start_entity"], []),
+                states.get(d["end_entity"], []),
+                states.get(d["volume_entity"], []),
+                limit=LAST_N_FOR_AVERAGES,
+                window_start=w_start,
+                window_end=w_end,
+            )
+            avg_lpm, avg_cycle = _compute_averages(runs)
+            self._cache[d["tuya_device_id"]] = (now, avg_lpm, avg_cycle)
+
     async def get(
         self,
         tuya_device_id: str,
@@ -485,28 +581,64 @@ class _AveragesCache:
             limit=LAST_N_FOR_AVERAGES,
             window_start=datetime.now().astimezone() - AVERAGES_WINDOW,
         )
-        if not runs:
-            self._cache[tuya_device_id] = (now, None, None)
-            return None, None
-
-        lpms = []
-        totals = []
-        for r in runs:
-            dur_min = r["duration_seconds"] / 60.0
-            if r["total_l"] is None or dur_min <= 0:
-                continue
-            lpms.append(r["total_l"] / dur_min)
-            totals.append(r["total_l"])
-
-        avg_lpm = sum(lpms) / len(lpms) if lpms else None
-        avg_cycle = sum(totals) / len(totals) if totals else None
+        avg_lpm, avg_cycle = _compute_averages(runs)
         self._cache[tuya_device_id] = (now, avg_lpm, avg_cycle)
         return avg_lpm, avg_cycle
+
+
+def _compute_averages(
+    runs: list[dict[str, Any]],
+) -> tuple[float | None, float | None]:
+    lpms = []
+    totals = []
+    for r in runs:
+        dur_min = r["duration_seconds"] / 60.0
+        if r["total_l"] is None or dur_min <= 0:
+            continue
+        lpms.append(r["total_l"] / dur_min)
+        totals.append(r["total_l"])
+    avg_lpm = sum(lpms) / len(lpms) if lpms else None
+    avg_cycle = sum(totals) / len(totals) if totals else None
+    return avg_lpm, avg_cycle
 
 
 # ----------------------------------------------------------------------
 # Recorder query for completed cycles
 # ----------------------------------------------------------------------
+
+
+async def _batch_significant_states(
+    hass: HomeAssistant,
+    entity_ids: list[str],
+    window_start: datetime,
+    window_end: datetime,
+) -> dict[str, list]:
+    """ONE recorder query for many entities.
+
+    Per-device queries (3 entities each × 107 valves) serialized on the
+    recorder executor took minutes on a cold render — the Calendar
+    panel's HTTP request timed out and the grid rendered empty in every
+    view (ticket 9W8FXA4l). A single multi-entity query is one SQL pass.
+    """
+    from homeassistant.components.recorder import get_instance
+    from homeassistant.components.recorder.history import get_significant_states
+
+    if not entity_ids:
+        return {}
+
+    def _query() -> dict[str, list]:
+        return get_significant_states(
+            hass,
+            window_start,
+            window_end,
+            entity_ids,
+            include_start_time_state=True,
+            significant_changes_only=False,
+            minimal_response=False,
+            no_attributes=True,
+        )
+
+    return await get_instance(hass).async_add_executor_job(_query)
 
 
 async def _query_recent_runs(
@@ -520,8 +652,40 @@ async def _query_recent_runs(
     window_end: datetime | None = None,
     include_open: bool = False,
 ) -> list[dict[str, Any]]:
-    """Recorder query — pair start_time and end_time state changes for
-    a device and compute the watering_volume peak between each pair.
+    """Single-device convenience wrapper: batch-fetch this device's three
+    entities and pair them. Bulk callers use `_batch_significant_states`
+    once + `_pair_runs` per device instead."""
+    if window_end is None:
+        window_end = datetime.now().astimezone()
+    if window_start is None:
+        window_start = window_end - COMPLETED_MAX_WINDOW
+
+    states_by_entity = await _batch_significant_states(
+        hass, [start_entity, end_entity, volume_entity], window_start, window_end
+    )
+    return _pair_runs(
+        states_by_entity.get(start_entity, []),
+        states_by_entity.get(end_entity, []),
+        states_by_entity.get(volume_entity, []),
+        limit=limit,
+        window_start=window_start,
+        window_end=window_end,
+        include_open=include_open,
+    )
+
+
+def _pair_runs(
+    start_states: list,
+    end_states: list,
+    vol_states: list,
+    *,
+    limit: int | None = None,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
+    include_open: bool = False,
+) -> list[dict[str, Any]]:
+    """Pair start_time and end_time state rows for one device and compute
+    the watering_volume peak per pair.
 
     `limit` truncates to the most recent N closed runs (used by the
     averages helper). If `window_start`/`window_end` are given, only
@@ -536,34 +700,6 @@ async def _query_recent_runs(
         `end=None` and `open=True` when `include_open=True`. The
         Completed calendar uses this to render the "running now" event.
     """
-    from homeassistant.components.recorder import get_instance
-    from homeassistant.components.recorder.history import get_significant_states
-
-    if window_end is None:
-        window_end = datetime.now().astimezone()
-    if window_start is None:
-        window_start = window_end - COMPLETED_MAX_WINDOW
-
-    entity_ids = [start_entity, end_entity, volume_entity]
-
-    def _query() -> dict[str, list]:
-        return get_significant_states(
-            hass,
-            window_start,
-            window_end,
-            entity_ids,
-            include_start_time_state=True,
-            significant_changes_only=False,
-            minimal_response=False,
-            no_attributes=True,
-        )
-
-    instance = get_instance(hass)
-    states_by_entity = await instance.async_add_executor_job(_query)
-
-    start_states = states_by_entity.get(start_entity, [])
-    end_states = states_by_entity.get(end_entity, [])
-    vol_states = states_by_entity.get(volume_entity, [])
 
     # Build sorted lists of (last_updated, parsed-state-value) for the
     # two timestamp entities. Skip rows where the state isn't a parseable
@@ -724,10 +860,14 @@ class IrrigationPlannedCalendar(CalendarEntity):
         end_date: datetime,
     ) -> list[CalendarEvent]:
         # Pull averages + lifetime for every device first so _build_events
-        # stays sync (it's also called from the `event` property).
+        # stays sync (it's also called from the `event` property). warm()
+        # batches all stale devices into single recorder/statistics
+        # queries; the per-device get() calls below are then cache hits.
         averages_by_device: dict[str, tuple[float | None, float | None]] = {}
         lifetime_by_device: dict[str, int | None] = {}
         devices = _iter_fdm5kw_devices(self.hass)
+        await self._averages.warm(devices)
+        await _warm_lifetime(self.hass, [d["volume_entity"] for d in devices])
         for d in devices:
             averages_by_device[d["tuya_device_id"]] = await self._averages.get(
                 d["tuya_device_id"],
@@ -924,14 +1064,31 @@ class IrrigationCompletedCalendar(CalendarEntity):
 
         events: list[CalendarEvent] = []
         now = datetime.now().astimezone()
-        for d in _iter_fdm5kw_devices(self.hass):
-            if not (d["start_entity"] and d["end_entity"] and d["volume_entity"]):
-                continue
-            runs = await _query_recent_runs(
-                self.hass,
-                d["start_entity"],
-                d["end_entity"],
-                d["volume_entity"],
+        devices = [
+            d
+            for d in _iter_fdm5kw_devices(self.hass)
+            if d["start_entity"] and d["end_entity"] and d["volume_entity"]
+        ]
+        # ONE recorder pass for every device's three entities — per-device
+        # queries serialized on the recorder executor took minutes on a
+        # cold render and the Calendar panel request timed out (empty grid).
+        states = await _batch_significant_states(
+            self.hass,
+            [
+                e
+                for d in devices
+                for e in (d["start_entity"], d["end_entity"], d["volume_entity"])
+            ],
+            effective_start,
+            effective_end,
+        )
+        await self._averages.warm(devices)
+        await _warm_lifetime(self.hass, [d["volume_entity"] for d in devices])
+        for d in devices:
+            runs = _pair_runs(
+                states.get(d["start_entity"], []),
+                states.get(d["end_entity"], []),
+                states.get(d["volume_entity"], []),
                 window_start=effective_start,
                 window_end=effective_end,
                 include_open=True,
