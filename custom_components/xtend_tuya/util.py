@@ -77,46 +77,36 @@ class ConfigEntryRuntimeData(NamedTuple):
 def get_config_entry_runtime_data(
     hass: HomeAssistant, entry: tuya_coordinator.TuyaConfigEntry | shared.XTConfigEntry, domain: str
 ) -> ConfigEntryRuntimeData | None:
-    if not entry or not hasattr(entry, "runtime_data"):
+    if not entry or getattr(entry, "runtime_data", None) is None:
         return None
-    runtime_data = None
+    runtime_data = entry.runtime_data
+    # Look the manager up defensively: a config entry caught mid-setup can
+    # expose a partially initialised runtime_data, and raising AttributeError
+    # from here takes down whatever was asking.
+    #
+    # Do NOT also require a listener attribute. The official Tuya entry stores
+    # a bare DeviceListener in runtime_data, and that object carries only
+    # `hass`, `_entry` and `manager` — it has neither `.listener` nor
+    # `.device_listener`. Gating the return on one of those being present made
+    # this function answer None for *every* official Tuya entry, which in turn
+    # made get_overriden_tuya_integration_runtime_data() report "no Tuya entry
+    # to override" on every install. Xtend then set itself up standalone
+    # against an account the official integration was already polling: two
+    # sharing sessions on one account, duplicated entities, and eventually a
+    # revoked token. The listener returned below is the runtime_data object
+    # itself, exactly as upstream does, so the attribute was never needed.
     device_manager = None
-    device_listener = None
-    if not hasattr(entry, "runtime_data") or entry.runtime_data is None:
-        # Try to fetch the manager using the old way
-        if domain in hass.data and entry.entry_id in hass.data[domain]:
-            runtime_data = hass.data[domain][entry.entry_id]
-            if hasattr(runtime_data, "device_manager"):
-                device_manager = runtime_data.device_manager
-            if hasattr(runtime_data, "manager"):
-                device_manager = runtime_data.manager
-            if hasattr(runtime_data, "device_listener"):
-                device_listener = runtime_data.device_listener
-            if hasattr(runtime_data, "listener"):
-                device_listener = runtime_data.listener
-    else:
-        runtime_data = entry.runtime_data
-        # Guard every attribute access: when the overriden integration
-        # (e.g. official Tuya) is still mid-setup, its runtime_data can be a
-        # partially-initialised object (a bare DeviceListener) that lacks
-        # .manager / .listener. Mirror the hasattr-guarded "old way" branch
-        # above so a not-ready shape yields None instead of AttributeError.
-        if hasattr(runtime_data, "device_manager"):
-            device_manager = runtime_data.device_manager
-        if hasattr(runtime_data, "manager"):
-            device_manager = runtime_data.manager
-        if hasattr(runtime_data, "device_listener"):
-            device_listener = runtime_data.device_listener
-        if hasattr(runtime_data, "listener"):
-            device_listener = runtime_data.listener
-    if device_manager is not None and device_listener is not None:
-        return ConfigEntryRuntimeData(
-            device_manager=device_manager, # type: ignore
-            generic_runtime_data=runtime_data,
-            device_listener=runtime_data, # type: ignore
-        )
-    else:
+    if hasattr(runtime_data, "device_manager"):
+        device_manager = runtime_data.device_manager
+    if hasattr(runtime_data, "manager"):
+        device_manager = runtime_data.manager
+    if device_manager is None:
         return None
+    return ConfigEntryRuntimeData(
+        device_manager=device_manager, # type: ignore
+        generic_runtime_data=runtime_data,
+        device_listener=runtime_data, # type: ignore
+    )
 
 
 def get_domain_config_entries(hass: HomeAssistant, domain: str) -> list[ConfigEntry]:
