@@ -6,3 +6,8 @@ __pycache__
 frontend/node_modules/
 frontend/dist/
 .vscode/launch.json
+# Agent scratch space. Held accessibility dumps of a live Home Assistant
+# UI, including its remote-access URL, until they were purged from history
+# on 2026-08-06. Never commit this directory.
+.claude/
+.venv*/
