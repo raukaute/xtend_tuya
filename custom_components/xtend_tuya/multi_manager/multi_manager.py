@@ -83,6 +83,23 @@ from .shared.quota import ControllableQuotaTracker
 
 
 class MultiManager(TuyaManager):
+    # One physical Tuya device can legitimately reach two config entries at
+    # once: entry A holds it through an OpenAPI project, entry B through the
+    # SmartLife sharing account it was shared into. Both then build the same
+    # entities with the same `tuya.<device_id><dpcode>` unique IDs, and Home
+    # Assistant logs an error and drops one copy for every single entity —
+    # ~1600 of them per setup attempt on the farm install, on every retry.
+    #
+    # Arbitrate once, here, so a device_id is materialised by exactly one
+    # entry. Keyed by entry_id, released on unload.
+    #
+    # ponytail: first entry to claim a device wins, which makes ownership
+    # depend on setup order. Good enough while entries carry equivalent data;
+    # if a poorer source ever starts winning a device, switch this to pick by
+    # descriptor richness (the source-priority machinery in XTDeviceMap
+    # already ranks sources).
+    device_owner: dict[str, str] = {}
+
     def __init__(self, hass: HomeAssistant, config_entry: XTConfigEntry) -> None:
         self.config_entry = config_entry
         self.virtual_state_handler = XTVirtualStateHandler(self)
@@ -314,6 +331,31 @@ class MultiManager(TuyaManager):
             )
         self.pending_messages.clear()
 
+    def claim_device(self, device_id: str) -> bool:
+        """Whether this entry may materialise entities for device_id.
+
+        True if we already own it or nobody does; False if another still-loaded
+        entry got there first.
+        """
+        entry_id = self.config_entry.entry_id
+        owner = MultiManager.device_owner.get(device_id)
+        if owner is not None and owner != entry_id:
+            if self.hass.config_entries.async_get_entry(owner) is not None:
+                return False
+            # Owner entry is gone — its claims died with it.
+        MultiManager.device_owner[device_id] = entry_id
+        return True
+
+    def release_devices(self) -> None:
+        """Drop every claim held by this entry."""
+        entry_id = self.config_entry.entry_id
+        for device_id in [
+            device_id
+            for device_id, owner in MultiManager.device_owner.items()
+            if owner == entry_id
+        ]:
+            del MultiManager.device_owner[device_id]
+
     def update_master_device_map(self):
         for manager in self.accounts.values():
             for device_map in manager.get_available_device_maps():
@@ -324,8 +366,17 @@ class MultiManager(TuyaManager):
                         device_map[device_id], device_map.device_source_priority
                     )
 
-                    if device_id not in self.master_device_map:
-                        self.master_device_map[device_id] = device_map[device_id]
+                    if device_id in self.master_device_map:
+                        continue
+                    if not self.claim_device(device_id):
+                        LOGGER.debug(
+                            "Device %s already owned by another config entry, "
+                            "skipping it for %s",
+                            device_id,
+                            self.config_entry.title,
+                        )
+                        continue
+                    self.master_device_map[device_id] = device_map[device_id]
 
     def __get_available_device_maps(self) -> list[XTDeviceMap]:
         return_list: list[XTDeviceMap] = []
@@ -357,6 +408,7 @@ class MultiManager(TuyaManager):
                 setattr(device, key, value)
 
     def unload(self):
+        self.release_devices()
         for manager in self.accounts.values():
             manager.unload()
 

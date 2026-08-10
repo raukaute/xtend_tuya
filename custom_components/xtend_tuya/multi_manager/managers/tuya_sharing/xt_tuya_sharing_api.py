@@ -26,6 +26,25 @@ class XTSharingTokenInfo(CustomerTokenInfo):
     pass
 
 
+# Tuya answers -9999999 for everything from a transient backend fault
+# ("network error:(SYSTEM_ERROR) Server Error") to a hard authentication
+# failure ("sign invalid"). Retrying the transient ones is worthwhile;
+# retrying an invalid signature is not, because the signature cannot become
+# valid on a second attempt. It also does real damage: with the retry, a
+# one-second auth failure becomes a chain of calls that outlives Home
+# Assistant's setup timeout, so the config entry is cancelled before it can
+# raise, and neither integration ever asks the user to re-authenticate.
+NON_RETRYABLE_MESSAGES: tuple[str, ...] = ("sign invalid",)
+
+
+def is_retryable_error(response: dict[str, Any]) -> bool:
+    """Whether a failed API response is worth attempting again."""
+    if response.get("code", 0) != "-9999999":
+        return False
+    message = str(response.get("msg", "")).lower()
+    return not any(entry in message for entry in NON_RETRYABLE_MESSAGES)
+
+
 class XTSharingAPI(CustomerApi):
     def __init__(
         self,
@@ -179,9 +198,8 @@ class XTSharingAPI(CustomerApi):
         ret = response.json()
 
         if not ret.get("success"):
-            if (
-                ret.get("code", 0) == "-9999999"
-                and attempt_number < XT_RETRY_FAILED_CALLS_NUMBER
+            if attempt_number < XT_RETRY_FAILED_CALLS_NUMBER and is_retryable_error(
+                ret
             ):
                 return self.__request(
                     method=method,
