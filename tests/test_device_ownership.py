@@ -21,15 +21,30 @@ class FakeManager:
     """Mirror of the claim/release logic, with a fake entry registry."""
 
     device_owner: dict = {}
+    registry_rows: dict = {}  # unique_id suffix -> entry_id (entity registry)
 
     def __init__(self, entry_id, live_entries):
         self.entry_id = entry_id
         self.live_entries = live_entries  # set of entry_ids still configured
 
+    def _registry_device_owner(self, device_id):
+        for unique_suffix, owner in FakeManager.registry_rows.items():
+            if unique_suffix.startswith(device_id):
+                return owner
+        return None
+
     def claim_device(self, device_id):
         owner = FakeManager.device_owner.get(device_id)
         if owner is not None and owner != self.entry_id:
             if owner in self.live_entries:
+                return False
+        if owner is None:
+            registry_owner = self._registry_device_owner(device_id)
+            if (
+                registry_owner is not None
+                and registry_owner != self.entry_id
+                and registry_owner in self.live_entries
+            ):
                 return False
         FakeManager.device_owner[device_id] = self.entry_id
         return True
@@ -43,6 +58,7 @@ class FakeManager:
 
 def setup():
     FakeManager.device_owner = {}
+    FakeManager.registry_rows = {}
     live = {"solar", "simon"}
     return FakeManager("solar", live), FakeManager("simon", live), live
 
@@ -89,6 +105,38 @@ def test_unrelated_devices_are_unaffected():
     solar, simon, _ = setup()
     assert solar.claim_device("only-in-solar") is True
     assert simon.claim_device("only-in-simon") is True
+
+
+def test_registry_owner_beats_boot_order():
+    # Chicken-house case 2026-08-10: simon's registry rows (and dashboards)
+    # predate the arbitration; solar boots first but must not steal the device.
+    solar, simon, _ = setup()
+    FakeManager.registry_rows[VALVE + "motion_switch"] = "simon"
+    assert solar.claim_device(VALVE) is False
+    assert simon.claim_device(VALVE) is True
+
+
+def test_registry_owner_holds_while_its_entry_is_disabled():
+    # A disabled entry still exists; its entities must revive on re-enable.
+    solar, simon, _ = setup()
+    FakeManager.registry_rows[VALVE + "motion_switch"] = "simon"
+    assert solar.claim_device(VALVE) is False  # simon disabled but configured
+
+
+def test_registry_owner_of_a_deleted_entry_is_ignored():
+    solar, _, live = setup()
+    FakeManager.registry_rows[VALVE + "motion_switch"] = "simon"
+    live.discard("simon")
+    assert solar.claim_device(VALVE) is True
+
+
+def test_runtime_owner_still_wins_over_registry():
+    # Once an entry has claimed this boot, the registry no longer overrides it.
+    solar, simon, _ = setup()
+    assert solar.claim_device("fresh-device") is True
+    FakeManager.registry_rows["fresh-devicedp"] = "simon"
+    assert solar.claim_device("fresh-device") is True
+    assert simon.claim_device("fresh-device") is False
 
 
 if __name__ == "__main__":

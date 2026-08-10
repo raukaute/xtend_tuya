@@ -10,7 +10,9 @@ from ..lib.tuya_iot.device import (
     PROTOCOL_DEVICE_REPORT,
     PROTOCOL_OTHER,
 )
+from homeassistant.helpers import entity_registry as er
 from ..const import (
+    DOMAIN,
     LOGGER,
     AllowedPlugins,
     XTDeviceEntityFunctions,
@@ -334,8 +336,15 @@ class MultiManager(TuyaManager):
     def claim_device(self, device_id: str) -> bool:
         """Whether this entry may materialise entities for device_id.
 
-        True if we already own it or nobody does; False if another still-loaded
-        entry got there first.
+        Runtime rule: first still-loaded claimant wins. Tie-break for devices
+        nobody has claimed yet this boot: the entity registry. A device that
+        reaches two entries (shared into both SmartLife homes) must stay with
+        the entry whose registry rows — and therefore whose entity_ids, the
+        ones dashboards reference — it already has. First-come alone made
+        ownership boot-order roulette: whichever hub loaded first grabbed the
+        shared devices and the other hub's long-standing entities went dead.
+        A disabled entry keeps its registry claim so its entities revive when
+        it is re-enabled; only deleting the entry frees its devices.
         """
         entry_id = self.config_entry.entry_id
         owner = MultiManager.device_owner.get(device_id)
@@ -343,8 +352,41 @@ class MultiManager(TuyaManager):
             if self.hass.config_entries.async_get_entry(owner) is not None:
                 return False
             # Owner entry is gone — its claims died with it.
+        if owner is None:
+            registry_owner = self._registry_device_owner(device_id)
+            if (
+                registry_owner is not None
+                and registry_owner != entry_id
+                and self.hass.config_entries.async_get_entry(registry_owner)
+                is not None
+            ):
+                return False
         MultiManager.device_owner[device_id] = entry_id
         return True
+
+    # Built once per process; xtend registry rows don't move between entries
+    # at runtime. ponytail: invalidate here if that ever stops being true.
+    _registry_owner_cache: list[tuple[str, str]] | None = None
+
+    def _registry_device_owner(self, device_id: str) -> str | None:
+        """Config entry that already owns this device's entities in the registry.
+
+        xtend unique_ids look like ``tuya.<device_id><dpcode>``, so a prefix
+        match on the part after ``tuya.`` identifies the device.
+        """
+        if MultiManager._registry_owner_cache is None:
+            registry = er.async_get(self.hass)
+            MultiManager._registry_owner_cache = [
+                (entity.unique_id.removeprefix("tuya."), entity.config_entry_id)
+                for entity in registry.entities.values()
+                if entity.platform == DOMAIN
+                and entity.config_entry_id is not None
+                and entity.unique_id.startswith("tuya.")
+            ]
+        for unique_suffix, owner_entry_id in MultiManager._registry_owner_cache:
+            if unique_suffix.startswith(device_id):
+                return owner_entry_id
+        return None
 
     def release_devices(self) -> None:
         """Drop every claim held by this entry."""
