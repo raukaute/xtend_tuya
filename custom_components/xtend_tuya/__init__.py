@@ -40,6 +40,7 @@ from .multi_manager.shared.tuya_patches.tuya_patches import (
     XTTuyaPatcher,
 )
 from .frontend import async_register_cards
+from .multi_manager.shared.debug import stall_sampler
 import socket
 
 # save the original DNS lookup function
@@ -92,6 +93,7 @@ async def update_listener(hass: HomeAssistant, entry: XTConfigEntry):
 
 async def async_setup_entry(hass: HomeAssistant, entry: XTConfigEntry) -> bool:
     """Async setup hass config entry."""
+    stall_sampler.start(hass)
     XTEventLoopProtector.hass = hass
     XTConcurrencyManager.hass = hass
     XTTuyaPatcher.patch_tuya_code()
