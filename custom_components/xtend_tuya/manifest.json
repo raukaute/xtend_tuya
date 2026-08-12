@@ -62,5 +62,5 @@
     "yappi==1.7.3",
     "icalendar>=5.0.0"
   ],
-  "version": "4.4.240"
+  "version": "4.4.241"
 }

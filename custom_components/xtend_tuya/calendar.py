@@ -1100,10 +1100,12 @@ class IrrigationCompletedCalendar(CalendarEntity):
 
         events: list[CalendarEvent] = []
         now = datetime.now().astimezone()
+        # T3 valves have no start/end sensors — their runs land in the store
+        # via the counter_custom listener, so counter-only devices render too.
         devices = [
             d
             for d in _iter_fdm5kw_devices(self.hass)
-            if d["start_entity"] and d["end_entity"]
+            if (d["start_entity"] and d["end_entity"]) or d.get("counter_entity")
         ]
         self._runs_store.track_devices(devices)
         _maybe_start_backfill(self.hass, self._runs_store)
@@ -1112,7 +1114,9 @@ class IrrigationCompletedCalendar(CalendarEntity):
         # "running now" run from live states. The recorder-scan approach —
         # even batched — blew past Nabu Casa's 60 s proxy timeout on a
         # 107-valve fleet and the Calendar panel rendered empty (9W8FXA4l).
-        await _warm_lifetime(self.hass, [d["volume_entity"] for d in devices])
+        await _warm_lifetime(
+            self.hass, [d["volume_entity"] for d in devices if d["volume_entity"]]
+        )
         for d in devices:
             runs = self._runs_store.runs_in_window(
                 d["tuya_device_id"], effective_start, effective_end
