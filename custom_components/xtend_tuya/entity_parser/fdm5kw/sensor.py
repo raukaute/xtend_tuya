@@ -668,22 +668,14 @@ class DPCodeCounterCustomLastRunWrapper(DPCodeCounterCustomWrapper):
     entity to record T3 completed runs (the old-valve path keys off
     start/end-time sensors the T3 firmware doesn't provide)."""
 
-    @classmethod
-    def find_dpcode(
-        cls,
-        device: TuyaCustomerDevice,
-        dpcodes: str | tuple[str, ...] | None,
-        *,
-        prefer_function: bool = False,
-    ):
-        # Bind on a REPORTED CSV value only. The old QT-08W's OpenAPI spec
-        # declares counter_custom without the firmware ever reporting it, so
-        # spec-based binding spawned a dead "Last watering run" sensor on
-        # every old valve (seen live on 4.4.236: ~95 unknown entities).
-        raw = device.status.get(DP_T3_COUNTER)
-        if not isinstance(raw, str) or "," not in raw:
-            return None
-        return super().find_dpcode(device, dpcodes, prefer_function=prefer_function)
+    # NOTE: do NOT gate binding in find_dpcode here. Entity creation is decided
+    # by XTEntity._supports_description ("dpcode in device.status"), not by the
+    # wrapper — a find_dpcode that returns None does not suppress the entity,
+    # it just drops it to the generic raw handler, which base64-decodes the
+    # CSV into byte garbage (live regression 4.4.237). Old valves report
+    # counter_custom as a bare number ('9000'); _parse rejects it and the
+    # sensor stays 'unknown' — those dead entities are disabled in the entity
+    # registry instead (one-time, persisted).
 
 
 DP_T3_TIME_TASK = "time_task_0"
