@@ -1,6 +1,7 @@
 """Irrigation valve (fdm5kw) data parser for raw Tuya DP codes."""
 
 from __future__ import annotations
+import base64
 import logging
 import struct
 from dataclasses import dataclass
@@ -640,9 +641,25 @@ class DPCodeCounterCustomWrapper(XTDPCodeRawStatusWrapper):
     'mode,flag,duration_s,volume_L,timestamp'. e.g. '0,1,600,113,20260714161000'.
     duration 65534 (0xFFFE) = aborted/interrupted sentinel."""
 
-    def _parse(self, device: TuyaCustomerDevice) -> dict | None:
+    def _csv(self, device: TuyaCustomerDevice) -> str | None:
+        """counter_custom as CSV text regardless of source form. Depending on
+        which manager populated device.status, the value arrives as the raw
+        CSV or base64-encoded (multi-source value-form race, seen live
+        4.4.236-238) — normalize both to CSV."""
         raw = device.status.get(self.dpcode)
-        if not isinstance(raw, str) or "," not in raw:
+        if not isinstance(raw, str) or not raw:
+            return None
+        if "," in raw:
+            return raw
+        try:
+            decoded = base64.b64decode(raw).decode("ascii")
+        except (ValueError, UnicodeDecodeError):
+            return None
+        return decoded if "," in decoded else None
+
+    def _parse(self, device: TuyaCustomerDevice) -> dict | None:
+        raw = self._csv(device)
+        if raw is None:
             return None
         parts = raw.split(",")
         if len(parts) < 5:
@@ -668,14 +685,20 @@ class DPCodeCounterCustomLastRunWrapper(DPCodeCounterCustomWrapper):
     entity to record T3 completed runs (the old-valve path keys off
     start/end-time sensors the T3 firmware doesn't provide)."""
 
-    # NOTE: do NOT gate binding in find_dpcode here. Entity creation is decided
-    # by XTEntity._supports_description ("dpcode in device.status"), not by the
-    # wrapper — a find_dpcode that returns None does not suppress the entity,
-    # it just drops it to the generic raw handler, which base64-decodes the
-    # CSV into byte garbage (live regression 4.4.237). Old valves report
-    # counter_custom as a bare number ('9000'); _parse rejects it and the
-    # sensor stays 'unknown' — those dead entities are disabled in the entity
-    # registry instead (one-time, persisted).
+    # NOTE 1: do NOT gate binding in find_dpcode here. Entity creation is
+    # decided by XTEntity._supports_description ("dpcode in device.status"),
+    # not by the wrapper — a find_dpcode that returns None does not suppress
+    # the entity, it just drops it to the generic raw handler (live regression
+    # 4.4.237). Old valves report counter_custom as a bare number ('9000');
+    # _parse rejects it and the sensor stays 'unknown' — those dead entities
+    # are disabled in the entity registry instead (one-time, persisted).
+    # NOTE 2: this override is load-bearing — without it the inherited RAW
+    # read base64-"decodes" the CSV into byte garbage (4.4.237/238 dropped it
+    # by accident and every last-run state broke).
+    def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
+        if self._parse(device) is None:
+            return None
+        return self._csv(device)
 
 
 DP_T3_TIME_TASK = "time_task_0"
