@@ -39,6 +39,7 @@ from homeassistant.components.calendar import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.http import HomeAssistantView
 
 from .const import DOMAIN, DOMAIN_ORIG
@@ -74,6 +75,8 @@ ICS_DEFAULT_PAST_DAYS = 30
 # Completed-calendar safety cap on the per-device recorder window so a
 # 90-day Google Cal pull on a 48-valve fleet stays bounded.
 COMPLETED_MAX_WINDOW = timedelta(days=90)
+# Runs-store listener re-arm cadence (see async_setup_entry).
+RUNS_STORE_REARM_INTERVAL = timedelta(minutes=15)
 # Last-N runs we average per device for the description line.
 LAST_N_FOR_AVERAGES = 10
 # Cap on a single watering cycle. FDM5KW battery / typical tank means a
@@ -155,9 +158,21 @@ async def async_setup_entry(
     # Arm the end-sensor listener for every valve known right now (devices
     # appearing later are picked up on each calendar render) and run the
     # one-time recorder backfill in the background — the ONLY recorder
-    # scan left in the calendar path, and it is off the request path.
+    # scan left in the recording path, and it is off the request path.
     store.track_devices(_iter_fdm5kw_devices(hass))
     _maybe_start_backfill(hass, store)
+
+    # Re-arm periodically. Relying on setup + renders alone broke live: the
+    # 4.4.233 speedup made this platform set up before the valve sensors
+    # exist, so the boot-time arm saw no devices — and with nobody opening
+    # the calendar panel, NO runs were recorded fleet-wide (Aug 10-12).
+    # track_devices is additive/idempotent and a state walk is cheap.
+    async def _rearm(_now) -> None:
+        store.track_devices(_iter_fdm5kw_devices(hass))
+
+    entry.async_on_unload(
+        async_track_time_interval(hass, _rearm, RUNS_STORE_REARM_INTERVAL)
+    )
 
     # Register the ICS export view once across all xtend_tuya config
     # entries — the view resolves entities at request time, so a single

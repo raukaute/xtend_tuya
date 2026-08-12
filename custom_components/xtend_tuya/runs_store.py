@@ -203,6 +203,13 @@ class RunsStore:
                     self.hass, list(c_added), self._on_counter_change
                 )
             )
+            # The counter DP retains the last completed run, so seed it on
+            # first arm — covers runs finished while no listener was armed
+            # (boot race, HA downtime). add_run's end-timestamp dedupe makes
+            # the replay idempotent.
+            for entity_id in c_added:
+                if state := self.hass.states.get(entity_id):
+                    self._record_counter_csv(counter_map[entity_id], state.state)
 
     @callback
     def _on_end_change(self, event: Event) -> None:
@@ -256,7 +263,10 @@ class RunsStore:
         d = self._counter_entity_to_device.get(event.data.get("entity_id"))
         if d is None or new_state is None:
             return
-        parts = str(new_state.state).split(",")
+        self._record_counter_csv(d, new_state.state)
+
+    def _record_counter_csv(self, d: dict[str, Any], raw: Any) -> None:
+        parts = str(raw).split(",")
         if len(parts) < 5:
             return
         try:
