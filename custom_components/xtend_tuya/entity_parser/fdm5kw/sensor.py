@@ -668,10 +668,22 @@ class DPCodeCounterCustomLastRunWrapper(DPCodeCounterCustomWrapper):
     entity to record T3 completed runs (the old-valve path keys off
     start/end-time sensors the T3 firmware doesn't provide)."""
 
-    def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
-        if self._parse(device) is None:
+    @classmethod
+    def find_dpcode(
+        cls,
+        device: TuyaCustomerDevice,
+        dpcodes: str | tuple[str, ...] | None,
+        *,
+        prefer_function: bool = False,
+    ):
+        # Bind on a REPORTED CSV value only. The old QT-08W's OpenAPI spec
+        # declares counter_custom without the firmware ever reporting it, so
+        # spec-based binding spawned a dead "Last watering run" sensor on
+        # every old valve (seen live on 4.4.236: ~95 unknown entities).
+        raw = device.status.get(DP_T3_COUNTER)
+        if not isinstance(raw, str) or "," not in raw:
             return None
-        return device.status.get(self.dpcode)
+        return super().find_dpcode(device, dpcodes, prefer_function=prefer_function)
 
 
 DP_T3_TIME_TASK = "time_task_0"
