@@ -663,6 +663,17 @@ class DPCodeCounterCustomVolumeWrapper(DPCodeCounterCustomWrapper):
         return str(p["volume"])
 
 
+class DPCodeCounterCustomLastRunWrapper(DPCodeCounterCustomWrapper):
+    """Raw counter_custom CSV as the state. The runs_store listens on this
+    entity to record T3 completed runs (the old-valve path keys off
+    start/end-time sensors the T3 firmware doesn't provide)."""
+
+    def read_device_status(self, device: TuyaCustomerDevice) -> str | None:
+        if self._parse(device) is None:
+            return None
+        return device.status.get(self.dpcode)
+
+
 DP_T3_TIME_TASK = "time_task_0"
 
 
@@ -913,6 +924,16 @@ class Fdm5kwSensor:
                 entity_registry_enabled_default=True,
                 ignore_other_dp_code_handler=True,
                 wrapper_class=(DPCodeFlowStaVolumeWrapper,),
+            ),
+            Fdm5kwSensorEntityDescription(
+                key=f"{DP_T3_COUNTER}_last_run",
+                dpcode=DP_T3_COUNTER,
+                translation_key="last_watering_run",
+                name="Last watering run",
+                icon="mdi:history",
+                entity_registry_enabled_default=True,
+                ignore_other_dp_code_handler=True,
+                wrapper_class=(DPCodeCounterCustomLastRunWrapper,),
             ),
             Fdm5kwSensorEntityDescription(
                 key=f"{DP_T3_SAT}_next_run",

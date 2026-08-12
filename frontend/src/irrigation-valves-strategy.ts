@@ -865,6 +865,8 @@ interface MatrixSegment {
   // a non-reporting valve reads as an empty lane (real-state signal Simon
   // relied on; a solid track for every valve hid offline valves).
   kind: "on" | "off";
+  startMs: number;
+  endMs: number;
 }
 interface HistoryPoint {
   s: string;
@@ -882,6 +884,27 @@ function escapeHtml(s: string): string {
         string
       >)[c]
   );
+}
+
+// Hover tooltip for a timeline segment (Simon 2026-08-12): state + date +
+// time range, e.g. "Watering 12.08. 06:15 – 06:30". Native title attr —
+// no tooltip lib, works on desktop where Simon reads the dashboard.
+function segmentTooltip(s: MatrixSegment): string {
+  const day = (ms: number) =>
+    new Date(ms).toLocaleDateString(undefined, {
+      day: "2-digit",
+      month: "2-digit",
+    });
+  const time = (ms: number) =>
+    new Date(ms).toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const sameDay = day(s.startMs) === day(s.endMs);
+  const range = sameDay
+    ? `${day(s.startMs)} ${time(s.startMs)} – ${time(s.endMs)}`
+    : `${day(s.startMs)} ${time(s.startMs)} – ${day(s.endMs)} ${time(s.endMs)}`;
+  return `${s.kind === "on" ? "Watering" : "Online"} ${range}`;
 }
 
 class IrrigationValveMatrix extends HTMLElement {
@@ -1073,6 +1096,8 @@ class IrrigationValveMatrix extends HTMLElement {
         left: (tStart - startMs) / span,
         width: (tEnd - tStart) / span,
         kind,
+        startMs: tStart,
+        endMs: tEnd,
       });
     }
     return segs;
@@ -1240,7 +1265,9 @@ class IrrigationValveMatrix extends HTMLElement {
       const bars = segs
         .map(
           (s) =>
-            `<span class="seg ${s.kind}" style="left:${(s.left * 100).toFixed(
+            `<span class="seg ${s.kind}" title="${escapeHtml(
+              segmentTooltip(s)
+            )}" style="left:${(s.left * 100).toFixed(
               3
             )}%;width:${(s.width * 100).toFixed(3)}%"></span>`
         )

@@ -52,6 +52,10 @@ MAX_FUTURE_SLACK_SEC = 120
 # times the run duration, floored at 50 L for sub-minute runs.
 MAX_LPM_CAP = 50.0
 
+# T3 counter_custom rows above this duration are stuck-open/garbage records,
+# not real watering cycles (mirrors calendar.MAX_SANE_RUN_SECONDS).
+T3_MAX_RUN_SECONDS = 6 * 3600
+
 DOMAIN_KEY = "xtend_tuya_runs_store"
 
 
@@ -73,6 +77,8 @@ class RunsStore:
         self._unsub: list[Callable[[], None]] = []
         # entity_id -> device record (end sensor routing table)
         self._end_entity_to_device: dict[str, dict[str, Any]] = {}
+        # entity_id -> device record for T3 counter_custom last-run sensors
+        self._counter_entity_to_device: dict[str, dict[str, Any]] = {}
 
     # ------------------------------------------------------------- load/save
 
@@ -183,6 +189,20 @@ class RunsStore:
                     self.hass, list(added), self._on_end_change
                 )
             )
+        # T3 valves: no start/end sensors — record from the counter_custom
+        # last-run sensor (the device's own completed-run record).
+        counter_map: dict[str, dict[str, Any]] = {}
+        for d in devices:
+            if d.get("counter_entity"):
+                counter_map[d["counter_entity"]] = d
+        c_added = set(counter_map) - set(self._counter_entity_to_device)
+        self._counter_entity_to_device.update(counter_map)
+        if c_added:
+            self._unsub.append(
+                async_track_state_change_event(
+                    self.hass, list(c_added), self._on_counter_change
+                )
+            )
 
     @callback
     def _on_end_change(self, event: Event) -> None:
@@ -221,6 +241,42 @@ class RunsStore:
                 "runs_store: recorded run %s %s→%s %.0f L",
                 d["tuya_device_id"],
                 start,
+                end,
+                total_l if total_l is not None else -1,
+            )
+
+    @callback
+    def _on_counter_change(self, event: Event) -> None:
+        """T3 counter_custom CSV: 'mode,flag,duration_s,volume_L,YYYYMMDDHHMMSS'.
+        The timestamp is the run's END in device-local time (== HA local time,
+        the HA box sits on the farm). Reported once per completed run; the DP
+        retains the last run, so a restart replays it and the end-timestamp
+        dedupe in add_run absorbs the redelivery."""
+        new_state = event.data.get("new_state")
+        d = self._counter_entity_to_device.get(event.data.get("entity_id"))
+        if d is None or new_state is None:
+            return
+        parts = str(new_state.state).split(",")
+        if len(parts) < 5:
+            return
+        try:
+            duration = int(parts[2])
+            volume = float(parts[3])
+            end = datetime.strptime(parts[4], "%Y%m%d%H%M%S").astimezone()
+        except ValueError:
+            return
+        # 0xFFFE = aborted sentinel; beyond 6 h = stuck-open/garbage record
+        # (real T3 anomalies seen: 40650 s and 65471 s, both 0 L).
+        if duration <= 0 or duration == 65534 or duration > T3_MAX_RUN_SECONDS:
+            return
+        total_l = volume if 0 <= volume <= MAX_LPM_CAP * (duration / 60.0) + 50 else None
+        if self.add_run(
+            d["tuya_device_id"], end - timedelta(seconds=duration), end, total_l
+        ):
+            self.async_schedule_save()
+            _LOGGER.debug(
+                "runs_store: recorded T3 run %s end=%s %.0f L",
+                d["tuya_device_id"],
                 end,
                 total_l if total_l is not None else -1,
             )

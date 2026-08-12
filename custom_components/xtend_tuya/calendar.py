@@ -53,6 +53,9 @@ WATERING_VOLUME_TRANSLATION_KEY = "watering_volume"
 START_TIME_TRANSLATION_KEY = "start_time"
 END_TIME_TRANSLATION_KEY = "end_time"
 CLOSE_TIME_TRANSLATION_KEY = "close_time"
+# T3 valves have no start/end-time sensors; their completed runs come from
+# the counter_custom last-run sensor instead (runs_store listens on it).
+LAST_RUN_TRANSLATION_KEY = "last_watering_run"
 
 # Entity-id suffix fallbacks for installs whose entities pre-date the
 # translation_key bump in 4.4.150 (registry stores translation_key only
@@ -348,6 +351,8 @@ def _iter_fdm5kw_devices(
                 roles.setdefault("end_entity", ent.entity_id)
             elif tk == WATERING_VOLUME_TRANSLATION_KEY:
                 roles.setdefault("volume_entity", ent.entity_id)
+            elif tk == LAST_RUN_TRANSLATION_KEY:
+                roles.setdefault("counter_entity", ent.entity_id)
         # Fallback for legacy installs whose entities have no
         # translation_key — match by entity-id suffix.
         for ent in er.async_entries_for_device(ent_reg, ha_device.id):
@@ -374,6 +379,7 @@ def _iter_fdm5kw_devices(
                 "volume_entity": roles.get("volume_entity"),
                 "start_entity": roles.get("start_entity"),
                 "end_entity": roles.get("end_entity"),
+                "counter_entity": roles.get("counter_entity"),
             }
         )
     return out

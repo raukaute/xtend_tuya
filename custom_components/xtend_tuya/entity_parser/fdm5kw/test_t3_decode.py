@@ -69,6 +69,12 @@ def demo():
     # counter_custom: last run 113 L; aborted (65534) -> None
     assert counter_volume("0,1,600,113,20260714161000") == 113
     assert counter_volume("0,1,65534,9,20260714155958") is None
+    # runs_store T3 run-record filters (mirror of _on_counter_change)
+    assert counter_run("0,1,900,151,20260807144500") == (900, 151.0)
+    assert counter_run("0,1,65534,9,20260714155958") is None   # aborted sentinel
+    assert counter_run("0,1,40650,0,20260806061109") is None   # >6h stuck-open
+    assert counter_run("0,1,0,0,20260810065444") is None       # zero duration
+    assert counter_run("garbage") is None
     # time_task_0 — Timer A (idx0, 3min/180s, 03:03, Mon, duration)
     a = time_task(d("AAAAAAAAALQDAwEB"))
     assert a == {"slot": 0, "mode": "duration", "value": 180, "hour": 3,
@@ -93,6 +99,21 @@ def demo():
     assert cyc_control(60, 1) == bytes.fromhex("00000000003c01000001".zfill(20))
     assert cyc_control(60, 0)[9] == 0 and cyc_control(60, 1)[9] == 1
     print("T3 decode self-check OK")
+
+
+def counter_run(csv):  # mirror of runs_store._on_counter_change filters
+    parts = str(csv).split(",")
+    if len(parts) < 5:
+        return None
+    try:
+        duration, volume = int(parts[2]), float(parts[3])
+        from datetime import datetime
+        datetime.strptime(parts[4], "%Y%m%d%H%M%S")
+    except ValueError:
+        return None
+    if duration <= 0 or duration == 65534 or duration > 6 * 3600:
+        return None
+    return duration, volume
 
 
 def cyc_control(value, flag):  # mirror of build_cyc_control_payload
