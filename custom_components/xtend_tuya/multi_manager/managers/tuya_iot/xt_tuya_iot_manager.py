@@ -147,14 +147,49 @@ class XTIOTDeviceManager(TuyaDeviceManager):
                 return response
         return {}
 
+    # Device list for a smart-home project. /v1.0/users/<uid>/devices started
+    # answering 1106 "permission deny" fleet-wide in Aug 2026 (verified on
+    # three separate projects); the associated-users listing returns the same
+    # TO-C device model, paged by last_row_key.
+    def _fetch_smart_home_device_list(self) -> list[dict[str, Any]]:
+        response = self.api.get(f"/v1.0/users/{self.api.token_info.uid}/devices")
+        if response.get("success"):
+            return response["result"]
+        LOGGER.warning(
+            "User device list failed (code=%s msg=%s), "
+            "falling back to associated-users device list",
+            response.get("code"),
+            response.get("msg"),
+        )
+        devices: list[dict[str, Any]] = []
+        last_row_key = ""
+        while True:
+            params: dict[str, Any] = {"size": 100}
+            if last_row_key:
+                params["last_row_key"] = last_row_key
+            response = self.api.get("/v1.0/iot-01/associated-users/devices", params)
+            if not response.get("success"):
+                LOGGER.warning(
+                    "Associated-users device list failed (code=%s msg=%s)",
+                    response.get("code"),
+                    response.get("msg"),
+                )
+                break
+            result = response["result"]
+            devices.extend(result.get("devices") or [])
+            last_row_key = result.get("last_row_key") or ""
+            if not result.get("has_more") or not last_row_key:
+                break
+        return devices
+
     async def async_update_device_list_in_smart_home_mod(self):
         if self.api.token_info.is_valid() is False:  # CHANGED
             return None  # CHANGED
-        response = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
-            self.api.get, f"/v1.0/users/{self.api.token_info.uid}/devices"
+        result = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
+            self._fetch_smart_home_device_list
         )
-        if response["success"]:
-            for item in response["result"]:
+        if result:
+            for item in result:
                 device = XTDevice(**item)  # CHANGED
                 device.source = "IOT update_device_list_in_smart_home_mod"  # CHANGED
                 status = {}
@@ -180,9 +215,9 @@ class XTIOTDeviceManager(TuyaDeviceManager):
     def update_device_list_in_smart_home_mod(self):
         if self.api.token_info.is_valid() is False:  # CHANGED
             return None  # CHANGED
-        response = self.api.get(f"/v1.0/users/{self.api.token_info.uid}/devices")
-        if response["success"]:
-            for item in response["result"]:
+        result = self._fetch_smart_home_device_list()
+        if result:
+            for item in result:
                 device = XTDevice(**item)  # CHANGED
                 device.source = "IOT update_device_list_in_smart_home_mod"  # CHANGED
                 status = {}
@@ -221,6 +256,10 @@ class XTIOTDeviceManager(TuyaDeviceManager):
         return_dict: dict[str, XTDevice] = {}
         if self.api.token_info.is_valid() is False:
             return {}
+        # ponytail: this endpoint answers 1106 "permission deny" since Aug 2026
+        # like the plain user device list, so this returns {} in practice. The
+        # associated-users listing has no from=sharing filter; find an
+        # equivalent if shared-in devices ever need to be distinguished again.
         response = self.api.get(
             f"/v1.0/users/{self.api.token_info.uid}/devices?from=sharing"
         )

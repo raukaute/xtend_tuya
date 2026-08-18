@@ -2716,7 +2716,11 @@ class XTSensorEntity(XTEntity, TuyaSensorEntity, RestoreSensor):  # type: ignore
             return None
         if self.entity_description.native_value is not None:
             value = self._dpcode_wrapper.read_device_status(self.device)
-            value = self.entity_description.native_value(value)
+            # A DP absent from device.status reads as None; converters like
+            # int() or b64todatetime raise on it, and that exception aborts
+            # the whole async_write_ha_state call for the entity.
+            if value is not None:
+                value = self.entity_description.native_value(value)
         else:
             value = super().native_value
         return value
