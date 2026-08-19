@@ -1209,8 +1209,15 @@ class XtendTuyaRunsExportView(HomeAssistantView):
 
     URL: `/api/xtend_tuya/runs?since=<iso>` (standard HA bearer auth).
 
-    Built for the SquidWeb Postgres sync job (ticket 1LbpcoJD): the
-    consumer pulls with an overlap window and upserts on
+    STABLE CONTRACT — consumed in production by the SquidWeb `HA_SYNC`
+    cron (backend PR #3104, ticket 1LbpcoJD) since 2026-08-25. Frozen:
+    the response shape `generated/count/runs[{device_id, name, start,
+    end, duration_seconds, liters}]`, `since` filtering on run END,
+    and the 400 (bad since) / 401 (no auth) behavior. The consumer's
+    freshness alert catches silence but NOT shape drift — coordinate
+    any breaking change through the ticket.
+
+    The consumer pulls with an overlap window and upserts on
     (device_id, end), so re-serving rows across calls is expected and
     harmless. Serves purely from the in-memory store — never touches
     the recorder.
