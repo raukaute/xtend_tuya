@@ -179,6 +179,7 @@ async def async_setup_entry(
     # registration covers every fdm5kw calendar instance in the hass.
     if not hass.data.get(ICS_VIEW_REGISTERED_KEY):
         hass.http.register_view(XtendTuyaCalendarICSView())
+        hass.http.register_view(XtendTuyaRunsExportView())
         hass.data[ICS_VIEW_REGISTERED_KEY] = True
 
 
@@ -1201,6 +1202,73 @@ class IrrigationCompletedCalendar(CalendarEntity):
 # ----------------------------------------------------------------------
 # ICS export (Phase 3) — Google Calendar subscription endpoint
 # ----------------------------------------------------------------------
+
+
+class XtendTuyaRunsExportView(HomeAssistantView):
+    """JSON export of the materialized runs store for external sync.
+
+    URL: `/api/xtend_tuya/runs?since=<iso>` (standard HA bearer auth).
+
+    Built for the SquidWeb Postgres sync job (ticket 1LbpcoJD): the
+    consumer pulls with an overlap window and upserts on
+    (device_id, end), so re-serving rows across calls is expected and
+    harmless. Serves purely from the in-memory store — never touches
+    the recorder.
+    """
+
+    url = "/api/xtend_tuya/runs"
+    name = f"api:{DOMAIN}:runs"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        from .runs_store import _parse_iso, async_get_store
+
+        since = None
+        if raw := request.query.get("since"):
+            since = _parse_iso(raw)
+            if since is None:
+                raise web.HTTPBadRequest(text="since must be ISO 8601")
+        device_filter = request.query.get("device_id")
+
+        store = await async_get_store(hass)
+
+        # tuya device_id -> display name, via the device registry.
+        dev_reg = dr.async_get(hass)
+        names: dict[str, str] = {}
+        for device in dev_reg.devices.values():
+            for dom, ident in device.identifiers:
+                if dom in (DOMAIN, DOMAIN_ORIG):
+                    names[ident] = device.name_by_user or device.name or ident
+
+        out: list[dict[str, Any]] = []
+        for device_id, rows in store.runs.items():
+            if device_filter and device_id != device_filter:
+                continue
+            name = names.get(device_id)
+            for r in rows:
+                if since is not None:
+                    r_end = _parse_iso(r["end"])
+                    if r_end is None or r_end < since:
+                        continue
+                out.append(
+                    {
+                        "device_id": device_id,
+                        "name": name,
+                        "start": r["start"],
+                        "end": r["end"],
+                        "duration_seconds": r["duration_seconds"],
+                        "liters": r.get("total_l"),
+                    }
+                )
+        out.sort(key=lambda r: r["end"])
+        return self.json(
+            {
+                "generated": datetime.now(timezone.utc).isoformat(),
+                "count": len(out),
+                "runs": out,
+            }
+        )
 
 
 class XtendTuyaCalendarICSView(HomeAssistantView):
