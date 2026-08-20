@@ -72,6 +72,11 @@ from .xt_tuya_iot_home_manager import (
 )
 
 
+# Per config entry: (retry count, reload pending). Module-level so a
+# scheduled reload (which recreates the manager) can't reset the backoff.
+_EMPTY_DEVICE_LIST_RETRY: dict[str, list] = {}
+
+
 class XTIOTDeviceManager(TuyaDeviceManager):
     device_map: XTDeviceMap = XTDeviceMap({}, XTDeviceSourcePriority.TUYA_IOT)
 
@@ -100,6 +105,47 @@ class XTIOTDeviceManager(TuyaDeviceManager):
 
     def register_home_manager(self, home_manager: TuyaHomeManager):
         self.home_manager = home_manager
+
+    # ---------------------------------------------------------------- 2026-08
+    # A boot-time race (token not yet valid / cloud briefly down) used to skip
+    # the device-list fetch SILENTLY, leaving the IOT map empty until someone
+    # manually reloaded the entry: every valve degraded to the 2-DP sharing
+    # subset and meter data stopped fleet-wide (Aug 10-20 incident).
+    def _note_device_list_result(self, ok: bool, reason: str) -> None:
+        entry = self.multi_manager.config_entry
+        state = _EMPTY_DEVICE_LIST_RETRY.setdefault(entry.entry_id, [0, False])
+        if ok:
+            state[0] = 0
+            return
+        if state[1]:  # reload already scheduled
+            return
+        # ponytail: full entry reload is the one recovery path proven to
+        # rebuild the merged device map end to end; exponential backoff
+        # (2 min → 1 h cap) keeps a dead cloud from reload-looping the hub.
+        delay = min(120 * (2 ** state[0]), 3600)
+        state[0] += 1
+        state[1] = True
+        LOGGER.error(
+            "IOT device list empty (%s) — scheduling reload of '%s' in %s s "
+            "to recover full device DPs",
+            reason,
+            entry.title,
+            delay,
+        )
+        hass = self.multi_manager.hass
+
+        def _schedule() -> None:
+            from homeassistant.helpers.event import async_call_later
+
+            def _reload(_now) -> None:
+                _EMPTY_DEVICE_LIST_RETRY[entry.entry_id][1] = False
+                hass.async_create_task(
+                    hass.config_entries.async_reload(entry.entry_id)
+                )
+
+            async_call_later(hass, delay, _reload)
+
+        hass.loop.call_soon_threadsafe(_schedule)
 
     def forward_message_to_multi_manager(self, msg: dict):
         self.multi_manager.on_message(msg, MESSAGE_SOURCE_TUYA_IOT)
@@ -184,10 +230,12 @@ class XTIOTDeviceManager(TuyaDeviceManager):
 
     async def async_update_device_list_in_smart_home_mod(self):
         if self.api.token_info.is_valid() is False:  # CHANGED
+            self._note_device_list_result(False, "token not valid")
             return None  # CHANGED
         result = await XTEventLoopProtector.execute_out_of_event_loop_and_return(
             self._fetch_smart_home_device_list
         )
+        self._note_device_list_result(bool(result), "fetch returned no devices")
         if result:
             for item in result:
                 device = XTDevice(**item)  # CHANGED
@@ -214,8 +262,10 @@ class XTIOTDeviceManager(TuyaDeviceManager):
     # Copy of the Tuya original method with some minor modifications
     def update_device_list_in_smart_home_mod(self):
         if self.api.token_info.is_valid() is False:  # CHANGED
+            self._note_device_list_result(False, "token not valid")
             return None  # CHANGED
         result = self._fetch_smart_home_device_list()
+        self._note_device_list_result(bool(result), "fetch returned no devices")
         if result:
             for item in result:
                 device = XTDevice(**item)  # CHANGED

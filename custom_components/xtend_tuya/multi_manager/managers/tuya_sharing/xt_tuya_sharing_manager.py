@@ -290,7 +290,7 @@ class XTSharingDeviceManager(Manager):  # noqa: F811
                 # [{'dpId': 1, 't': 1752456620499, 'value': 120}]
                 if "dpId" in item and "value" in item:
                     if item["dpId"] not in device.local_strategy:
-                        LOGGER.debug(f"mq _on_device_report unknown dpId: {item['dpId']}")
+                        LOGGER.debug(f"mq _on_device_report unknown dpId: {item['dpId']} from {device.name} ({device_id})")
                         continue
                     #CHANGED
                     # dp_id_item = device.local_strategy[item["dpId"]]

@@ -520,17 +520,22 @@ class XTDevice(TuyaDevice):
             )
         )
         if function := self.function.get(dpcode):
-            if function.dp_id is not None and function.dp_id != 0:
-                dp_info.dpid = function.dp_id
+            # A device refreshed by the sharing SDK can hold raw
+            # DeviceFunction objects (no dp_id attribute) — getattr keeps the
+            # MQTT report path alive instead of dropping the whole status list.
+            function_dp_id = getattr(function, "dp_id", None)
+            if function_dp_id is not None and function_dp_id != 0:
+                dp_info.dpid = function_dp_id
             dp_info.dptype = function.type
             dp_info.in_function = True
         if status_range := self.status_range.get(dpcode):
+            status_range_dp_id = getattr(status_range, "dp_id", None)
             if (
                 dp_info.dpid is None
-                and status_range.dp_id is not None
-                and status_range.dp_id != 0
+                and status_range_dp_id is not None
+                and status_range_dp_id != 0
             ):
-                dp_info.dpid = status_range.dp_id
+                dp_info.dpid = status_range_dp_id
             if dp_info.dptype is None:
                 dp_info.dptype = status_range.type
             dp_info.in_status_range = True
