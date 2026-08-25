@@ -4,6 +4,9 @@ from collections import UserDict
 from dataclasses import dataclass, field, asdict
 import copy
 import json
+import threading
+import time
+import traceback
 from enum import StrEnum
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -650,6 +653,31 @@ class XTDevice(TuyaDevice):
             return base_id
 
 
+# --- DP-collapse instrumentation -------------------------------------------
+# Three fleet-wide collapses (Aug 21/24/25) came from an unidentified sharing-
+# side code path replacing rich merged devices with bare 2-DP ones. These
+# hooks log the call stack of any such write so the path can finally be named.
+# Capture only — no behavior change. Rate-limited to 20 full stacks per hour.
+_COLLAPSE_TRACE_TIMES: list[float] = []
+_COLLAPSE_TRACE_LIMIT = 20
+
+
+def trace_dp_collapse_write(logger, message: str) -> None:
+    now = time.monotonic()
+    while _COLLAPSE_TRACE_TIMES and now - _COLLAPSE_TRACE_TIMES[0] > 3600:
+        _COLLAPSE_TRACE_TIMES.pop(0)
+    if len(_COLLAPSE_TRACE_TIMES) >= _COLLAPSE_TRACE_LIMIT:
+        logger.warning("DP-collapse trace: %s (stack suppressed, rate-limited)", message)
+        return
+    _COLLAPSE_TRACE_TIMES.append(now)
+    logger.warning(
+        "DP-collapse trace: %s; thread=%s\n%s",
+        message,
+        threading.current_thread().name,
+        "".join(traceback.format_stack(limit=18)),
+    )
+
+
 class XTDeviceMap(UserDict[str, XTDevice]):
     device_source_priority: XTDeviceSourcePriority | None = None
     master_device_map: list[XTDeviceMap] = []
@@ -661,6 +689,27 @@ class XTDeviceMap(UserDict[str, XTDevice]):
         self.device_source_priority = device_source_priority
         for device in self.values():
             device.set_device_map(self)
+
+    def __setitem__(self, key: str, value: XTDevice) -> None:
+        old = self.data.get(key)
+        if old is not None:
+            old_n = len(getattr(old, "local_strategy", None) or {})
+            new_n = len(getattr(value, "local_strategy", None) or {})
+            if old_n >= 8 and new_n <= 3:
+                trace_dp_collapse_write(
+                    LOGGER,
+                    f"device {getattr(old, 'name', '?')} ({key}) replaced in map "
+                    f"{self.device_source_priority}: local_strategy {old_n} -> {new_n} dps",
+                )
+        super().__setitem__(key, value)
+
+    def clear(self) -> None:
+        if len(self.data) >= 3:
+            trace_dp_collapse_write(
+                LOGGER,
+                f"device map {self.device_source_priority} cleared with {len(self.data)} devices",
+            )
+        super().clear()
 
     @staticmethod
     def clear_master_device_map():

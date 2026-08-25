@@ -15,6 +15,7 @@ from ...multi_manager import (
 from ...shared.shared_classes import (
     XTDeviceFunction,
     XTDeviceStatusRange,
+    trace_dp_collapse_write,
 )
 from ...shared.threading import (
     XTThreadingManager,
@@ -150,6 +151,13 @@ class XTSharingDeviceRepository(DeviceRepository):
                         "status_code_alias": [],  # CHANGED
                     }
             device.support_local = support_local
+            prev_strategy = getattr(device, "local_strategy", None) or {}
+            if len(prev_strategy) >= 8 and len(dp_id_map) <= 3:
+                trace_dp_collapse_write(
+                    LOGGER,
+                    f"local_strategy of {getattr(device, 'name', '?')} ({device_id}) "
+                    f"shrinking {len(prev_strategy)} -> {len(dp_id_map)} dps via life endpoint",
+                )
             # if support_local:                      #CHANGED
             device.local_strategy = dp_id_map  # CHANGED
 
