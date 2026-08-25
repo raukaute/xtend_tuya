@@ -3,7 +3,11 @@
 from __future__ import annotations
 import logging
 import asyncio
-import time
+
+# The package ships a `time.py` entity platform; when HA imports it, Python
+# rebinds this package's `time` attribute to that submodule, clobbering a
+# plain `import time`. Bind the function itself so the rebind cannot break it.
+from time import monotonic as _monotonic
 from datetime import datetime, timedelta
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
@@ -329,7 +333,7 @@ def _register_dp_collapse_watchdog(
         # A single flaky device is not a fleet collapse.
         if len(degraded) < max(3, int(len(baseline) * 0.3)):
             return
-        now = time.monotonic()
+        now = _monotonic()
         if now - _WATCHDOG_LAST_RELOAD.get(entry.entry_id, -_WATCHDOG_RELOAD_COOLDOWN) < _WATCHDOG_RELOAD_COOLDOWN:
             return
         _WATCHDOG_LAST_RELOAD[entry.entry_id] = now
